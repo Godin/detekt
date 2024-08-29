@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnnecessaryAny.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnnecessaryAny.kt</span></div><h1>UnnecessaryAny.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.firstParameter
+import io.gitlab.arturbosch.detekt.rules.isCalling
+import org.jetbrains.kotlin.contracts.parsing.isEqualsDescriptor
+import org.jetbrains.kotlin.descriptors.VariableDescriptor
+import org.jetbrains.kotlin.descriptors.impl.ValueParameterDescriptorImpl.WithDestructuringDeclaration
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtReferenceExpression
+import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
+
+/**
+ * Turn on this rule to flag usage of `any` which can either be replaced with simple `contains` call
+ * or can removed entirely to reduce visual complexity.
+ *
+ * &lt;noncompliant&gt;
+ * val a = 1
+ * list.any { it == a }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val a = 1
+ * list.contains(a)
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L45">class UnnecessaryAny(config: Config) : Rule(</span>
+<span class="fc" id="L46">    config,</span>
+<span class="fc" id="L47">    &quot;The `any {  }` usage is unnecessary.&quot;</span>
+) {
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L51">        super.visitCallExpression(expression)</span>
+
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        if (!expression.isCallingAny()) return</span>
+
+<span class="fc" id="L55">        val msg = shouldBeReported(expression)</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (msg != null) {</span>
+<span class="fc" id="L57">            report(</span>
+<span class="fc" id="L58">                CodeSmell(</span>
+<span class="fc" id="L59">                    Entity.from(expression),</span>
+<span class="fc" id="L60">                    msg</span>
+                )
+            )
+        }
+<span class="fc" id="L64">    }</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun shouldBeReported(expression: KtCallExpression): String? {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        val valueArgument = expression.valueArguments.getOrNull(0) ?: return null</span>
+<span class="fc" id="L69">        return when (val valueExpression = valueArgument.getArgumentExpression()) {</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            is KtLambdaExpression -&gt; {</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">                val bodyExpression = valueExpression.bodyExpression ?: return null</span>
+<span class="fc" id="L72">                val descriptor =</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">                    valueExpression.firstParameter(bindingContext) ?: return null</span>
+
+<span class="fc" id="L75">                bodyExpression.shouldBlockExpressionBeReported(descriptor)</span>
+            }
+
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            is KtNamedFunction -&gt; {</span>
+<span class="fc" id="L79">                val descriptor =</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">                    bindingContext[</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">                        BindingContext.DECLARATION_TO_DESCRIPTOR, valueExpression.valueParameters[0]</span>
+<span class="nc" id="L82">                    ] as? VariableDescriptor ?: return null</span>
+<span class="fc" id="L83">                val bodyExpression =</span>
+<span class="fc bfc" id="L84" title="All 4 branches covered.">                    valueExpression.bodyExpression as? KtBlockExpression</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">                        ?: return valueExpression.bodyExpression?.shouldStatementBeReported(</span>
+<span class="fc" id="L86">                            descriptor,</span>
+                        )
+<span class="fc" id="L88">                bodyExpression.shouldBlockExpressionBeReported(descriptor)</span>
+            }
+
+            else -&gt; {
+<span class="fc" id="L92">                null</span>
+            }
+        }
+    }
+
+    private fun KtBlockExpression.shouldBlockExpressionBeReported(
+        descriptor: VariableDescriptor
+    ): String? {
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        if (this.statements.isEmpty()) return null</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if (descriptor is WithDestructuringDeclaration) {</span>
+<span class="fc bfc" id="L102" title="All 4 branches covered.">            return if (descriptor.destructuringVariables.all { getItUsageCount(it) == 0 }) {</span>
+<span class="fc" id="L103">                ANY_CAN_BE_OMITTED_MSG</span>
+            } else {
+<span class="fc" id="L105">                null</span>
+            }
+        }
+<span class="pc bpc" id="L108" title="2 of 6 branches missed.">        if (this.statements.isNotEmpty() &amp;&amp; getItUsageCount(descriptor) == 0) return ANY_CAN_BE_OMITTED_MSG</span>
+
+<span class="fc" id="L110">        val firstStatement = this.statements[0]</span>
+<span class="pc bpc" id="L111" title="1 of 4 branches missed.">        val statement = if (firstStatement is KtReturnExpression) {</span>
+<span class="fc" id="L112">            firstStatement.returnedExpression</span>
+        } else {
+<span class="fc" id="L114">            firstStatement</span>
+<span class="nc" id="L115">        } ?: return null</span>
+
+<span class="fc" id="L117">        return statement.shouldStatementBeReported(descriptor)</span>
+    }
+
+    private fun KtExpression.shouldStatementBeReported(descriptor: VariableDescriptor): String? =
+<span class="fc" id="L121">        when {</span>
+<span class="fc bfc" id="L122" title="All 4 branches covered.">            this is KtBinaryExpression &amp;&amp; operationToken == KtTokens.EQEQ -&gt; {</span>
+<span class="fc" id="L123">                isUsageOfValueAndItEligible(descriptor, left, right)</span>
+            }
+
+<span class="fc bfc" id="L126" title="All 4 branches covered.">            this is KtDotQualifiedExpression &amp;&amp; selectorExpression.isCallingEquals() -&gt; {</span>
+<span class="fc" id="L127">                isUsageOfValueAndItEligible(</span>
+<span class="fc" id="L128">                    descriptor,</span>
+<span class="fc" id="L129">                    receiverExpression,</span>
+<span class="pc bpc" id="L130" title="3 of 6 branches missed.">                    (selectorExpression as? KtCallExpression)?.valueArguments?.getOrNull(0)</span>
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">                        ?.getArgumentExpression()</span>
+                )
+            }
+
+            else -&gt; {
+<span class="fc bfc" id="L136" title="All 2 branches covered.">                if (this.getItUsageCount(descriptor) &lt;= 0) ANY_CAN_BE_OMITTED_MSG else null</span>
+            }
+<span class="fc" id="L138">        }</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun isUsageOfValueAndItEligible(
+        descriptor: VariableDescriptor,
+        leftExpression: KtExpression?,
+        rightExpression: KtExpression?
+    ): String? {
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        leftExpression ?: return null</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        rightExpression ?: return null</span>
+
+<span class="fc" id="L149">        val itRefCountInLeft = leftExpression.getItUsageCount(descriptor)</span>
+<span class="fc" id="L150">        val itRefCountInRight = rightExpression.getItUsageCount(descriptor)</span>
+<span class="fc" id="L151">        return when {</span>
+<span class="fc bfc" id="L152" title="All 4 branches covered.">            itRefCountInLeft &gt; 0 &amp;&amp; itRefCountInRight &gt; 0 -&gt; {</span>
+                // both side `it` has been used
+<span class="fc" id="L154">                null</span>
+            }
+
+<span class="pc bpc" id="L157" title="1 of 4 branches missed.">            itRefCountInLeft == 0 &amp;&amp; itRefCountInRight == 0 -&gt; {</span>
+                // no side has `it`
+<span class="nc" id="L159">                ANY_CAN_BE_OMITTED_MSG</span>
+            }
+
+<span class="fc bfc" id="L162" title="All 2 branches covered.">            itRefCountInRight == 1 -&gt; {</span>
+                // reversing the order of parameter
+<span class="fc" id="L164">                isUsageOfValueAndItEligible(descriptor, rightExpression, leftExpression)</span>
+            }
+
+<span class="fc bfc" id="L167" title="All 2 branches covered.">            itRefCountInLeft == 1 -&gt; {</span>
+<span class="fc" id="L168">                val valueExpressionType =</span>
+<span class="pc bpc" id="L169" title="2 of 6 branches missed.">                    rightExpression.getResolvedCall(bindingContext)?.resultingDescriptor?.returnType ?: return null</span>
+<span class="fc" id="L170">                val itExpressionType =</span>
+<span class="pc bpc" id="L171" title="3 of 6 branches missed.">                    leftExpression.getResolvedCall(bindingContext)?.resultingDescriptor?.returnType ?: return null</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">                if (leftExpression is KtReferenceExpression &amp;&amp;</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">                    valueExpressionType.isSubtypeOf(itExpressionType)</span>
+                ) {
+<span class="fc" id="L175">                    USE_CONTAINS_MSG</span>
+                } else {
+<span class="fc" id="L177">                    null</span>
+                }
+            }
+
+            else -&gt; {
+<span class="fc" id="L182">                null</span>
+            }
+        }
+    }
+
+    private fun KtExpression.getItUsageCount(descriptor: VariableDescriptor) =
+<span class="fc" id="L188">        collectDescendantsOfType&lt;KtNameReferenceExpression&gt;().count {</span>
+<span class="fc" id="L189">            bindingContext[BindingContext.REFERENCE_TARGET, it] == descriptor</span>
+<span class="fc" id="L190">        }</span>
+
+<span class="fc" id="L192">    private fun KtCallExpression.isCallingAny(): Boolean = isCalling(anyFqName, bindingContext)</span>
+
+    private fun KtExpression?.isCallingEquals(): Boolean {
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">        this ?: return false</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        val resolvedCall = this.getResolvedCall(bindingContext) ?: return false</span>
+<span class="fc" id="L197">        return resolvedCall.resultingDescriptor.isEqualsDescriptor()</span>
+    }
+
+    companion object {
+<span class="fc" id="L201">        private val anyFqName = FqName(&quot;kotlin.collections.any&quot;)</span>
+        private const val USE_CONTAINS_MSG =
+            &quot;Use `contains` instead of `any {  }` call to check the presence of the element&quot;
+        private const val ANY_CAN_BE_OMITTED_MSG = &quot;`any {  }` expression can be omitted&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

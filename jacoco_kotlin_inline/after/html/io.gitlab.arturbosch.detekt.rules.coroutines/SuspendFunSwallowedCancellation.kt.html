@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SuspendFunSwallowedCancellation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.coroutines</a> &gt; <span class="el_source">SuspendFunSwallowedCancellation.kt</span></div><h1>SuspendFunSwallowedCancellation.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.coroutines
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.builtins.StandardNames.COROUTINES_PACKAGE_FQ_NAME
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.descriptors.PropertyDescriptor
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtForExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtOperationExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getParameterForArgument
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
+import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
+import org.jetbrains.kotlin.name.Name as KotlinName
+
+/**
+ * `suspend` functions should not be called inside `runCatching`'s lambda block, because `runCatching` catches all the
+ * `Exception`s. For Coroutines to work in all cases, developers should make sure to propagate `CancellationException`
+ * exceptions. This means `CancellationException` should never be:
+ * * caught and swallowed (even if logged)
+ * * caught and propagated to external systems
+ * * caught and shown to the user
+ *
+ * they must always be rethrown in the same context.
+ *
+ * Using `runCatching` increases this risk of mis-handling cancellation. If you catch and don't rethrow all the
+ * `CancellationException`, your coroutines are not cancelled even if you cancel their `CoroutineScope`.
+ *
+ * This can very easily lead to:
+ * * unexpected crashes
+ * * extremely hard to diagnose bugs
+ * * memory leaks
+ * * performance issues
+ * * battery drain
+ *
+ * See reference, [Kotlin doc](https://kotlinlang.org/docs/cancellation-and-timeouts.html#cancellation-is-cooperative).
+ *
+ * If your project wants to use `runCatching` and `Result` objects, it is recommended to write a `coRunCatching`
+ * utility function which immediately re-throws `CancellationException`; and forbid `runCatching` and `suspend`
+ * combinations by activating this rule.
+ *
+ * &lt;noncompliant&gt;
+ * @@Throws(IllegalStateException::class)
+ * suspend fun bar(delay: Long) {
+ *     check(delay &lt;= 1_000L)
+ *     delay(delay)
+ * }
+ *
+ * suspend fun foo() {
+ *     runCatching {
+ *         bar(1_000L)
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * @@Throws(IllegalStateException::class)
+ * suspend fun bar(delay: Long) {
+ *     check(delay &lt;= 1_000L)
+ *     delay(delay)
+ * }
+ *
+ * suspend fun foo() {
+ *     try {
+ *         bar(1_000L)
+ *     } catch (e: IllegalStateException) {
+ *         // handle error
+ *     }
+ * }
+ *
+ * // Alternate
+ * @@Throws(IllegalStateException::class)
+ * suspend fun foo() {
+ *     bar(1_000L)
+ * }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L92">class SuspendFunSwallowedCancellation(config: Config) : Rule(</span>
+<span class="fc" id="L93">    config,</span>
+<span class="fc" id="L94">    &quot;`runCatching` does not propagate `CancellationException`, don't use it with `suspend` lambda blocks.&quot;</span>
+) {
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L98">        super.visitCallExpression(expression)</span>
+
+<span class="pc bpc" id="L100" title="2 of 4 branches missed.">        val resultingDescriptor = expression.getResolvedCall(bindingContext)?.resultingDescriptor ?: return</span>
+
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (resultingDescriptor.fqNameSafe != RUN_CATCHING_FQ) return</span>
+
+        fun shouldTraverseInside(element: PsiElement): Boolean =
+<span class="fc bfc" id="L105" title="All 4 branches covered.">            expression == element || shouldTraverseInside(element, bindingContext)</span>
+
+<span class="fc" id="L107">        expression.anyDescendantOfType&lt;KtExpression&gt;(::shouldTraverseInside) { descendant -&gt;</span>
+<span class="fc" id="L108">            descendant.hasSuspendCalls()</span>
+<span class="fc" id="L109">        }.ifTrue { report(expression) }</span>
+<span class="fc" id="L110">    }</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun shouldTraverseInside(psiElement: PsiElement, bindingContext: BindingContext): Boolean {
+<span class="fc" id="L114">        return when (psiElement) {</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">            is KtCallExpression -&gt; {</span>
+<span class="fc" id="L116">                val callableDescriptor =</span>
+<span class="pc bpc" id="L117" title="3 of 6 branches missed.">                    (psiElement.getResolvedCall(bindingContext)?.resultingDescriptor as? FunctionDescriptor)</span>
+<span class="nc" id="L118">                        ?: return false</span>
+
+<span class="pc bpc" id="L120" title="1 of 4 branches missed.">                callableDescriptor.fqNameSafe != RUN_CATCHING_FQ &amp;&amp; callableDescriptor.isInline</span>
+            }
+
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            is KtValueArgument -&gt; {</span>
+<span class="fc" id="L124">                val callExpression = psiElement.getParentOfType&lt;KtCallExpression&gt;(true)</span>
+<span class="fc" id="L125">                val valueParameterDescriptor =</span>
+<span class="pc bpc" id="L126" title="2 of 6 branches missed.">                    callExpression?.getResolvedCall(bindingContext)?.getParameterForArgument(psiElement) ?: return false</span>
+
+<span class="fc bfc" id="L128" title="All 4 branches covered.">                valueParameterDescriptor.isCrossinline.not() &amp;&amp; valueParameterDescriptor.isNoinline.not()</span>
+            }
+
+<span class="fc" id="L131">            else -&gt; true</span>
+        }
+    }
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun KtExpression.hasSuspendCalls(): Boolean {
+<span class="fc" id="L137">        return when (this) {</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">            is KtForExpression -&gt; {</span>
+<span class="fc" id="L139">                val loopRangeIterator = bindingContext[BindingContext.LOOP_RANGE_ITERATOR_RESOLVED_CALL, loopRange]</span>
+<span class="fc" id="L140">                val loopRangeHasNext =</span>
+<span class="fc" id="L141">                    bindingContext[BindingContext.LOOP_RANGE_HAS_NEXT_RESOLVED_CALL, loopRange]</span>
+<span class="fc" id="L142">                val loopRangeNext = bindingContext[BindingContext.LOOP_RANGE_NEXT_RESOLVED_CALL, loopRange]</span>
+<span class="fc" id="L143">                listOf(loopRangeIterator, loopRangeHasNext, loopRangeNext).any {</span>
+<span class="pc bpc" id="L144" title="2 of 6 branches missed.">                    it?.resultingDescriptor?.isSuspend == true</span>
+                }
+            }
+
+<span class="fc bfc" id="L148" title="All 4 branches covered.">            is KtCallExpression, is KtOperationExpression -&gt; {</span>
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">                val resolvedCall = getResolvedCall(bindingContext) ?: return false</span>
+<span class="pc bpc" id="L150" title="2 of 6 branches missed.">                (resolvedCall.resultingDescriptor as? FunctionDescriptor)?.isSuspend == true</span>
+            }
+
+<span class="fc bfc" id="L153" title="All 2 branches covered.">            is KtNameReferenceExpression -&gt; {</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">                val resolvedCall = getResolvedCall(bindingContext) ?: return false</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">                val propertyDescriptor = resolvedCall.resultingDescriptor as? PropertyDescriptor</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">                propertyDescriptor?.fqNameSafe == COROUTINE_CONTEXT_FQ_NAME</span>
+            }
+
+            else -&gt; {
+<span class="fc" id="L160">                false</span>
+            }
+        }
+    }
+
+    private fun report(
+        expression: KtCallExpression,
+    ) {
+<span class="fc" id="L168">        report(</span>
+<span class="fc" id="L169">            CodeSmell(</span>
+<span class="pc bpc" id="L170" title="2 of 4 branches missed.">                Entity.from((expression.calleeExpression as? PsiElement) ?: expression),</span>
+<span class="fc" id="L171">                &quot;The `runCatching` has suspend call inside. You should either use specific `try-catch` &quot; +</span>
+                    &quot;only catching exception that you are expecting or rethrow the `CancellationException` if &quot; +
+                    &quot;already caught.&quot;
+            )
+        )
+<span class="fc" id="L176">    }</span>
+
+    companion object {
+<span class="fc" id="L179">        private val RUN_CATCHING_FQ = FqName(&quot;kotlin.runCatching&quot;)</span>
+
+        // Based on code from Kotlin project:
+        // https://github.com/JetBrains/kotlin/commit/87bbac9d43e15557a2ff0dc3254fd41a9d5639e1
+        private val COROUTINE_CONTEXT_FQ_NAME =
+<span class="fc" id="L184">            COROUTINES_PACKAGE_FQ_NAME.child(KotlinName.identifier(&quot;coroutineContext&quot;))</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

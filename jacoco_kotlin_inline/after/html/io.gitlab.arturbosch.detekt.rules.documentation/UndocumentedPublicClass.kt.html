@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UndocumentedPublicClass.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.documentation</a> &gt; <span class="el_source">UndocumentedPublicClass.kt</span></div><h1>UndocumentedPublicClass.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.documentation
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.documentation.internal.isPublicInherited
+import io.gitlab.arturbosch.detekt.rules.isPublicNotOverridden
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtEnumEntry
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.psiUtil.isPublic
+
+/**
+ * This rule reports public classes, objects and interfaces which do not have the required documentation.
+ * Enable this rule if the codebase should have documentation on every public class, interface and object.
+ *
+ * By default, this rule also searches for nested and inner classes and objects. This default behavior can be changed
+ * with the configuration options of this rule.
+ */
+<span class="fc" id="L24">class UndocumentedPublicClass(config: Config) : Rule(</span>
+<span class="fc" id="L25">    config,</span>
+<span class="fc" id="L26">    &quot;Public classes, interfaces and objects require documentation.&quot;</span>
+) {
+
+    @Configuration(&quot;if nested classes should be searched&quot;)
+<span class="fc" id="L30">    private val searchInNestedClass: Boolean by config(true)</span>
+
+    @Configuration(&quot;if inner classes should be searched&quot;)
+<span class="fc" id="L33">    private val searchInInnerClass: Boolean by config(true)</span>
+
+    @Configuration(&quot;if inner objects should be searched&quot;)
+<span class="fc" id="L36">    private val searchInInnerObject: Boolean by config(true)</span>
+
+    @Configuration(&quot;if inner interfaces should be searched&quot;)
+<span class="fc" id="L39">    private val searchInInnerInterface: Boolean by config(true)</span>
+
+    @Configuration(&quot;if protected classes should be searched&quot;)
+<span class="fc" id="L42">    private val searchInProtectedClass: Boolean by config(false)</span>
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (requiresDocumentation(klass)) {</span>
+<span class="fc" id="L46">            reportIfUndocumented(klass)</span>
+        }
+
+<span class="fc" id="L49">        super.visitClass(klass)</span>
+<span class="fc" id="L50">    }</span>
+
+    private fun requiresDocumentation(
+        klass: KtClass
+    ) =
+<span class="fc bfc" id="L55" title="All 8 branches covered.">        klass.isTopLevel() || klass.isInnerClass() || klass.isNestedClass() || klass.isInnerInterface()</span>
+
+    @Suppress(&quot;ComplexCondition&quot;)
+    override fun visitObjectDeclaration(declaration: KtObjectDeclaration) {
+        if (
+<span class="fc bfc" id="L60" title="All 4 branches covered.">            (declaration.isCompanionWithoutName() &amp;&amp; !declaration.isPublic) ||</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            declaration.isLocal ||</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">            !searchInInnerObject</span>
+        ) {
+<span class="fc" id="L64">            return</span>
+        }
+
+<span class="fc" id="L67">        reportIfUndocumented(declaration)</span>
+<span class="fc" id="L68">        super.visitObjectDeclaration(declaration)</span>
+<span class="fc" id="L69">    }</span>
+
+    private fun reportIfUndocumented(element: KtClassOrObject) {
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (isPublicAndPublicInherited(element) &amp;&amp;</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">            element.notEnumEntry() &amp;&amp;</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            element.docComment == null</span>
+        ) {
+<span class="fc" id="L76">            report(</span>
+<span class="fc" id="L77">                CodeSmell(</span>
+<span class="fc" id="L78">                    Entity.atName(element),</span>
+<span class="fc" id="L79">                    &quot;${element.nameAsSafeName} is missing required documentation.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L83">    }</span>
+
+    private fun isPublicAndPublicInherited(element: KtClassOrObject) =
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        element.isPublicInherited(searchInProtectedClass) &amp;&amp;</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            element.isPublicNotOverridden(</span>
+<span class="fc" id="L88">                searchInProtectedClass</span>
+<span class="fc" id="L89">            )</span>
+
+    private fun KtObjectDeclaration.isCompanionWithoutName() =
+<span class="pc bpc" id="L92" title="1 of 4 branches missed.">        isCompanion() &amp;&amp; nameAsSafeName.asString() == &quot;Companion&quot;</span>
+
+    private fun KtClass.isNestedClass() =
+<span class="pc bpc" id="L95" title="1 of 8 branches missed.">        !isInterface() &amp;&amp; !isTopLevel() &amp;&amp; !isInner() &amp;&amp; searchInNestedClass</span>
+
+<span class="fc bfc" id="L97" title="All 6 branches covered.">    private fun KtClass.isInnerClass() = !isInterface() &amp;&amp; isInner() &amp;&amp; searchInInnerClass</span>
+
+    private fun KtClass.isInnerInterface() =
+<span class="pc bpc" id="L100" title="1 of 6 branches missed.">        !isTopLevel() &amp;&amp; isInterface() &amp;&amp; searchInInnerInterface</span>
+
+<span class="fc bfc" id="L102" title="All 2 branches covered.">    private fun KtClassOrObject.notEnumEntry() = this !is KtEnumEntry</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

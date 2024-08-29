@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HasPlatformType.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">HasPlatformType.kt</span></div><h1>HasPlatformType.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.psi.KtCallableDeclaration
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtFunction
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.types.isFlexible
+
+/*
+ * Based on code from Kotlin project:
+ * https://github.com/JetBrains/kotlin/blob/1.3.50/idea/src/org/jetbrains/kotlin/idea/intentions/SpecifyTypeExplicitlyIntention.kt#L86-L107
+ */
+
+/**
+ * Platform types must be declared explicitly in public APIs to prevent unexpected errors.
+ *
+ * &lt;noncompliant&gt;
+ * class Person {
+ *     fun apiCall() = System.getProperty(&quot;propertyName&quot;)
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class Person {
+ *     fun apiCall(): String = System.getProperty(&quot;propertyName&quot;)
+ * }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L41">class HasPlatformType(config: Config) : Rule(</span>
+<span class="fc" id="L42">    config,</span>
+<span class="fc" id="L43">    &quot;Platform types must be declared explicitly in public APIs.&quot;</span>
+) {
+
+    override fun visitKtElement(element: KtElement) {
+<span class="fc" id="L47">        super.visitKtElement(element)</span>
+
+<span class="fc bfc" id="L49" title="All 4 branches covered.">        if (element is KtCallableDeclaration &amp;&amp; element.hasImplicitPlatformType()) {</span>
+<span class="fc" id="L50">            report(</span>
+<span class="fc" id="L51">                CodeSmell(</span>
+<span class="fc" id="L52">                    Entity.from(element),</span>
+<span class="fc" id="L53">                    &quot;$element has implicit platform type. Type must be declared explicitly.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L57">    }</span>
+
+    private fun KtCallableDeclaration.hasImplicitPlatformType(): Boolean {
+        fun isPlatFormType(): Boolean {
+<span class="pc bpc" id="L61" title="3 of 6 branches missed.">            if (containingClassOrObject?.isLocal == true) return false</span>
+<span class="fc" id="L62">            val callable =</span>
+<span class="pc bpc" id="L63" title="2 of 4 branches missed.">                bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, this] as? CallableDescriptor ?: return false</span>
+
+<span class="fc" id="L65">            val isPublicApi = callable.visibility.isPublicAPI</span>
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">            val isReturnTypeFlexible = callable.returnType?.isFlexible()</span>
+<span class="fc bfc" id="L67" title="All 4 branches covered.">            return isPublicApi &amp;&amp; isReturnTypeFlexible == true</span>
+        }
+
+<span class="fc" id="L70">        return when (this) {</span>
+<span class="pc bpc" id="L71" title="1 of 8 branches missed.">            is KtFunction -&gt; !isLocal &amp;&amp; !hasDeclaredReturnType() &amp;&amp; isPlatFormType()</span>
+<span class="pc bpc" id="L72" title="1 of 8 branches missed.">            is KtProperty -&gt; !isLocal &amp;&amp; typeReference == null &amp;&amp; isPlatFormType()</span>
+<span class="nc" id="L73">            else -&gt; false</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

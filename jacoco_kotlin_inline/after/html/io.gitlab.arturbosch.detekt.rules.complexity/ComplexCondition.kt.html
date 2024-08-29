@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ComplexCondition.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.complexity</a> &gt; <span class="el_source">ComplexCondition.kt</span></div><h1>ComplexCondition.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.complexity
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtDoWhileExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtWhileExpression
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+
+/**
+ * Complex conditions make it hard to understand which cases lead to the condition being true or false. To improve
+ * readability and understanding of complex conditions consider extracting them into well-named functions or variables
+ * and call those instead.
+ *
+ * &lt;noncompliant&gt;
+ * val str = &quot;foo&quot;
+ * val isFoo = if (str.startsWith(&quot;foo&quot;) &amp;&amp; !str.endsWith(&quot;foo&quot;) &amp;&amp; !str.endsWith(&quot;bar&quot;) &amp;&amp; !str.endsWith(&quot;_&quot;)) {
+ *     // ...
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val str = &quot;foo&quot;
+ * val isFoo = if (str.startsWith(&quot;foo&quot;) &amp;&amp; hasCorrectEnding()) {
+ *     // ...
+ * }
+ *
+ * fun hasCorrectEnding() = return !str.endsWith(&quot;foo&quot;) &amp;&amp; !str.endsWith(&quot;bar&quot;) &amp;&amp; !str.endsWith(&quot;_&quot;)
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L38">class ComplexCondition(config: Config) : Rule(</span>
+<span class="fc" id="L39">    config,</span>
+<span class="fc" id="L40">    &quot;Complex conditions should be simplified and extracted into well-named methods if necessary.&quot;</span>
+) {
+
+    @Configuration(&quot;Maximum allowed number of conditions.&quot;)
+<span class="fc" id="L44">    private val allowedConditions: Int by config(defaultValue = 3)</span>
+
+    override fun visitIfExpression(expression: KtIfExpression) {
+<span class="fc" id="L47">        val condition = expression.condition</span>
+<span class="fc" id="L48">        checkIfComplex(condition)</span>
+<span class="fc" id="L49">        super.visitIfExpression(expression)</span>
+<span class="fc" id="L50">    }</span>
+
+    override fun visitDoWhileExpression(expression: KtDoWhileExpression) {
+<span class="fc" id="L53">        val condition = expression.condition</span>
+<span class="fc" id="L54">        checkIfComplex(condition)</span>
+<span class="fc" id="L55">        super.visitDoWhileExpression(expression)</span>
+<span class="fc" id="L56">    }</span>
+
+    override fun visitWhileExpression(expression: KtWhileExpression) {
+<span class="fc" id="L59">        val condition = expression.condition</span>
+<span class="fc" id="L60">        checkIfComplex(condition)</span>
+<span class="fc" id="L61">        super.visitWhileExpression(expression)</span>
+<span class="fc" id="L62">    }</span>
+
+    private fun checkIfComplex(condition: KtExpression?) {
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">        val binaryExpressions = condition?.collectDescendantsOfType&lt;KtBinaryExpression&gt;() ?: return</span>
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (binaryExpressions.size &gt; 1) {</span>
+<span class="fc" id="L68">            val longestBinExpr = binaryExpressions.reduce { acc, binExpr -&gt;</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">                if (binExpr.text.length &gt; acc.text.length) binExpr else acc</span>
+            }
+<span class="fc" id="L71">            val conditionString = longestBinExpr.text</span>
+<span class="fc" id="L72">            val count = frequency(conditionString, &quot;&amp;&amp;&quot;) + frequency(conditionString, &quot;||&quot;) + 1</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">            if (count &gt; allowedConditions) {</span>
+<span class="fc" id="L74">                report(</span>
+<span class="fc" id="L75">                    ThresholdedCodeSmell(</span>
+<span class="fc" id="L76">                        Entity.from(condition),</span>
+<span class="fc" id="L77">                        Metric(count, allowedConditions),</span>
+<span class="fc" id="L78">                        &quot;This condition is too complex ($count). &quot; +</span>
+<span class="fc" id="L79">                            &quot;The defined maximum number of allowed conditions is set to '$allowedConditions'&quot;</span>
+                    )
+                )
+            }
+        }
+<span class="fc" id="L84">    }</span>
+
+    private fun frequency(source: String, part: String): Int {
+<span class="pc bpc" id="L87" title="4 of 8 branches missed.">        if (source.isEmpty() || part.isEmpty()) {</span>
+<span class="nc" id="L88">            return 0</span>
+        }
+
+<span class="fc" id="L91">        var count = 0</span>
+<span class="fc" id="L92">        var pos = source.indexOf(part, 0)</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        while (pos != -1) {</span>
+<span class="fc" id="L94">            pos += part.length</span>
+<span class="fc" id="L95">            count++</span>
+<span class="fc" id="L96">            pos = source.indexOf(part, pos)</span>
+        }
+
+<span class="fc" id="L99">        return count</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

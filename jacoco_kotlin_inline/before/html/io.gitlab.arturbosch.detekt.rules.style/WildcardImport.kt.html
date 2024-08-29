@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WildcardImport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">WildcardImport.kt</span></div><h1>WildcardImport.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.psi.KtImportDirective
+
+/**
+ * Wildcard imports should be replaced with imports using fully qualified class names. This helps increase clarity of
+ * which classes are imported and helps prevent naming conflicts.
+ *
+ * Library updates can introduce naming clashes with your own classes which might result in compilation errors.
+ *
+ * **NOTE**: This rule has a twin implementation NoWildcardImports in the formatting rule set (a wrapped KtLint rule).
+ * When suppressing an issue of WildcardImport in the baseline file, make sure to suppress the corresponding NoWildcardImports issue.
+ *
+ * &lt;noncompliant&gt;
+ * import io.gitlab.arturbosch.detekt.*
+ *
+ * class DetektElements {
+ *     val element1 = DetektElement1()
+ *     val element2 = DetektElement2()
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * import io.gitlab.arturbosch.detekt.DetektElement1
+ * import io.gitlab.arturbosch.detekt.DetektElement2
+ *
+ * class DetektElements {
+ *     val element1 = DetektElement1()
+ *     val element2 = DetektElement2()
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L41">class WildcardImport(config: Config) : Rule(</span>
+<span class="fc" id="L42">    config,</span>
+<span class="fc" id="L43">    &quot;Wildcard imports should be replaced with imports using fully qualified class names. &quot; +</span>
+        &quot;Wildcard imports can lead to naming conflicts. &quot; +
+        &quot;A library update can introduce naming clashes with your classes which &quot; +
+        &quot;results in compilation errors.&quot;
+) {
+
+    @Configuration(&quot;Define a list of package names that should be allowed to be imported with wildcard imports.&quot;)
+<span class="fc" id="L50">    private val excludeImports: List&lt;String&gt; by config(listOf(&quot;java.util.*&quot;)) { imports -&gt;</span>
+<span class="fc" id="L51">        imports.map { it.removePrefix(&quot;*&quot;).removeSuffix(&quot;*&quot;) }</span>
+    }
+
+    override fun visitImportDirective(importDirective: KtImportDirective) {
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        val import = importDirective.importPath?.pathStr</span>
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        if (import != null) {</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">            if (!import.contains(&quot;*&quot;)) {</span>
+<span class="fc" id="L58">                return</span>
+            }
+
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            if (excludeImports.any { import.contains(it, ignoreCase = true) }) {</span>
+<span class="fc" id="L62">                return</span>
+            }
+<span class="fc" id="L64">            report(</span>
+<span class="fc" id="L65">                CodeSmell(</span>
+<span class="fc" id="L66">                    Entity.from(importDirective),</span>
+<span class="fc" id="L67">                    &quot;$import &quot; +</span>
+                        &quot;is a wildcard import. Replace it with fully qualified imports.&quot;
+                )
+            )
+        }
+<span class="fc" id="L72">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExceptionsProvider.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.exceptions</a> &gt; <span class="el_source">ExceptionsProvider.kt</span></div><h1>ExceptionsProvider.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.exceptions
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import io.gitlab.arturbosch.detekt.api.internal.DefaultRuleSetProvider
+
+/**
+ * Rules in this rule set report issues related to how code throws and handles Exceptions.
+ */
+<span class="fc" id="L10">@ActiveByDefault(since = &quot;1.0.0&quot;)</span>
+class ExceptionsProvider : DefaultRuleSetProvider {
+
+<span class="fc" id="L13">    override val ruleSetId = RuleSet.Id(&quot;exceptions&quot;)</span>
+
+<span class="fc" id="L15">    override fun instance(): RuleSet = RuleSet(</span>
+<span class="fc" id="L16">        ruleSetId,</span>
+<span class="fc" id="L17">        listOf(</span>
+<span class="fc" id="L18">            ::TooGenericExceptionCaught,</span>
+<span class="fc" id="L19">            ::ExceptionRaisedInUnexpectedLocation,</span>
+<span class="fc" id="L20">            ::TooGenericExceptionThrown,</span>
+<span class="fc" id="L21">            ::NotImplementedDeclaration,</span>
+<span class="fc" id="L22">            ::PrintStackTrace,</span>
+<span class="fc" id="L23">            ::InstanceOfCheckForException,</span>
+<span class="fc" id="L24">            ::ThrowingExceptionsWithoutMessageOrCause,</span>
+<span class="fc" id="L25">            ::ReturnFromFinally,</span>
+<span class="fc" id="L26">            ::ThrowingExceptionFromFinally,</span>
+<span class="fc" id="L27">            ::ThrowingExceptionInMain,</span>
+<span class="fc" id="L28">            ::RethrowCaughtException,</span>
+<span class="fc" id="L29">            ::ThrowingNewInstanceOfSameException,</span>
+<span class="fc" id="L30">            ::SwallowedException,</span>
+<span class="fc" id="L31">            ::ObjectExtendsThrowable,</span>
+<span class="fc" id="L32">            ::ErrorUsageWithThrowable,</span>
+        )
+<span class="fc" id="L34">    )</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

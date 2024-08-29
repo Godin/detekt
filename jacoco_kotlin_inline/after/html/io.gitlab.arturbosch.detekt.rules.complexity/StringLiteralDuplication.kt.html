@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringLiteralDuplication.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.complexity</a> &gt; <span class="el_source">StringLiteralDuplication.kt</span></div><h1>StringLiteralDuplication.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.complexity
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isPartOf
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi.psiUtil.plainContent
+
+/**
+ * This rule detects and reports duplicated String literals. Repeatedly typing out the same String literal across the
+ * codebase makes it harder to change and maintain.
+ *
+ * Instead, prefer extracting the String literal into a property or constant.
+ *
+ * &lt;noncompliant&gt;
+ * class Foo {
+ *
+ *     val s1 = &quot;lorem&quot;
+ *     fun bar(s: String = &quot;lorem&quot;) {
+ *         s1.equals(&quot;lorem&quot;)
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class Foo {
+ *     val lorem = &quot;lorem&quot;
+ *     val s1 = lorem
+ *     fun bar(s: String = lorem) {
+ *         s1.equals(lorem)
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L41">class StringLiteralDuplication(config: Config) : Rule(</span>
+<span class="fc" id="L42">    config,</span>
+<span class="fc" id="L43">    &quot;Multiple occurrences of the same string literal within a single file detected. &quot; +</span>
+        &quot;Prefer extracting the string literal into a property or constant.&quot;
+) {
+
+    @Configuration(&quot;The maximum allowed amount of duplications.&quot;)
+<span class="fc" id="L48">    private val allowedDuplications: Int by config(defaultValue = 2)</span>
+
+    @Configuration(&quot;if values in Annotations should be ignored&quot;)
+<span class="fc" id="L51">    private val ignoreAnnotation: Boolean by config(true)</span>
+
+    @Configuration(&quot;The maximum string length below which duplications are allowed&quot;)
+<span class="fc" id="L54">    private val allowedWithLengthLessThan: Int by config(5)</span>
+
+    @Configuration(&quot;RegEx of Strings that should be ignored&quot;)
+<span class="fc" id="L57">    private val ignoreStringsRegex: Regex by config(&quot;$^&quot;, String::toRegex)</span>
+
+    override fun visitKtFile(file: KtFile) {
+<span class="fc" id="L60">        val visitor = StringLiteralVisitor()</span>
+<span class="fc" id="L61">        file.accept(visitor)</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        for ((name, value) in visitor.getLiteralsOverThreshold()) {</span>
+<span class="fc" id="L63">            val (main, references) = visitor.entitiesForLiteral(name)</span>
+<span class="fc" id="L64">            report(</span>
+<span class="fc" id="L65">                ThresholdedCodeSmell(</span>
+<span class="fc" id="L66">                    main,</span>
+<span class="fc" id="L67">                    Metric(value, allowedDuplications),</span>
+<span class="fc" id="L68">                    description,</span>
+<span class="fc" id="L69">                    references</span>
+                )
+            )
+        }
+<span class="fc" id="L73">    }</span>
+
+<span class="fc" id="L75">    internal inner class StringLiteralVisitor : DetektVisitor() {</span>
+
+<span class="fc" id="L77">        private val literals = HashMap&lt;String, Int&gt;()</span>
+<span class="fc" id="L78">        private val literalReferences = HashMap&lt;String, MutableList&lt;KtStringTemplateExpression&gt;&gt;()</span>
+<span class="fc" id="L79">        private val pass: Unit = Unit</span>
+
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        fun getLiteralsOverThreshold(): Map&lt;String, Int&gt; = literals.filterValues { it &gt; allowedDuplications }</span>
+        fun entitiesForLiteral(literal: String): Pair&lt;Entity, List&lt;Entity&gt;&gt; {
+<span class="fc" id="L83">            val references = literalReferences[literal]</span>
+<span class="pc bpc" id="L84" title="3 of 6 branches missed.">            if (!references.isNullOrEmpty()) {</span>
+<span class="fc" id="L85">                val mainEntity = references[0]</span>
+<span class="fc" id="L86">                val referenceEntities = references.subList(1, references.size)</span>
+<span class="pc" id="L87">                return Entity.from(mainEntity) to referenceEntities.map { Entity.from(it) }</span>
+            }
+<span class="nc" id="L89">            error(&quot;No KtElements for literal '$literal' found!&quot;)</span>
+        }
+
+        override fun visitStringTemplateExpression(expression: KtStringTemplateExpression) {
+<span class="fc" id="L93">            val text = expression.plainContent</span>
+<span class="fc" id="L94">            when {</span>
+<span class="fc bfc" id="L95" title="All 4 branches covered.">                ignoreAnnotation &amp;&amp; expression.isPartOf&lt;KtAnnotationEntry&gt;() -&gt; pass</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">                text.length &lt; allowedWithLengthLessThan -&gt; pass</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">                text.matches(ignoreStringsRegex) -&gt; pass</span>
+<span class="fc" id="L98">                else -&gt; add(expression)</span>
+            }
+<span class="fc" id="L100">        }</span>
+
+        private fun add(str: KtStringTemplateExpression) {
+<span class="fc" id="L103">            val text = str.plainContent</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">            literals.compute(text) { _, oldValue -&gt; oldValue?.plus(1) ?: 1 }</span>
+<span class="fc" id="L105">            literalReferences.compute(text) { _, entries -&gt;</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">                entries?.add(str)</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">                entries ?: mutableListOf(str)</span>
+            }
+<span class="fc" id="L109">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

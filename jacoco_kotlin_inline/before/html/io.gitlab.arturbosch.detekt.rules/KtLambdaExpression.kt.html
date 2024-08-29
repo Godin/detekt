@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KtLambdaExpression.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules</a> &gt; <span class="el_source">KtLambdaExpression.kt</span></div><h1>KtLambdaExpression.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules
+
+import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+
+fun KtLambdaExpression.firstParameter(bindingContext: BindingContext) =
+<span class="pc bpc" id="L12" title="2 of 4 branches missed.">    bindingContext[BindingContext.FUNCTION, functionLiteral]?.valueParameters?.singleOrNull()</span>
+
+fun KtLambdaExpression.implicitParameter(bindingContext: BindingContext): ValueParameterDescriptor? =
+<span class="fc bfc" id="L15" title="All 4 branches covered.">    if (valueParameters.isNotEmpty()) {</span>
+<span class="fc" id="L16">        null</span>
+    } else {
+<span class="fc" id="L18">        firstParameter(bindingContext)</span>
+<span class="fc" id="L19">    }</span>
+
+fun KtLambdaExpression.hasImplicitParameterReference(
+    implicitParameter: ValueParameterDescriptor,
+    bindingContext: BindingContext
+): Boolean =
+<span class="fc" id="L25">    anyDescendantOfType&lt;KtNameReferenceExpression&gt; {</span>
+<span class="fc" id="L26">        it.isImplicitParameterReference(this, implicitParameter, bindingContext)</span>
+<span class="fc" id="L27">    }</span>
+
+private fun KtNameReferenceExpression.isImplicitParameterReference(
+    lambda: KtLambdaExpression,
+    implicitParameter: ValueParameterDescriptor,
+    bindingContext: BindingContext
+): Boolean =
+<span class="fc bfc" id="L34" title="All 2 branches covered.">    text == &quot;it&quot; &amp;&amp;</span>
+<span class="pc bpc" id="L35" title="1 of 2 branches missed.">        getStrictParentOfType&lt;KtLambdaExpression&gt;() == lambda &amp;&amp;</span>
+<span class="pc bpc" id="L36" title="1 of 4 branches missed.">        getResolvedCall(bindingContext)?.resultingDescriptor == implicitParameter</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

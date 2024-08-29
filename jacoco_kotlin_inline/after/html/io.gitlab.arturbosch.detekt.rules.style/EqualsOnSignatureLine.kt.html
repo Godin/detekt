@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EqualsOnSignatureLine.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">EqualsOnSignatureLine.kt</span></div><h1>EqualsOnSignatureLine.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.com.intellij.psi.PsiComment
+import org.jetbrains.kotlin.com.intellij.psi.PsiWhiteSpace
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.psiUtil.siblings
+
+/**
+ * Requires that the equals sign, when used for an expression style function, is on the same line as the
+ * rest of the function signature.
+ *
+ * &lt;noncompliant&gt;
+ * fun stuff(): Int
+ *     = 5
+ *
+ * fun &lt;V&gt; foo(): Int where V : Int
+ *     = 5
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun stuff() = 5
+ *
+ * fun stuff() =
+ *     foo.bar()
+ *
+ * fun &lt;V&gt; foo(): Int where V : Int = 5
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L33">class EqualsOnSignatureLine(config: Config) : Rule(</span>
+<span class="fc" id="L34">    config,</span>
+<span class="fc" id="L35">    MESSAGE</span>
+) {
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        val equalsToken = function.equalsToken ?: return</span>
+<span class="fc" id="L40">        val hasLineBreakBeforeEqualsToken = equalsToken</span>
+<span class="fc" id="L41">            .siblings(forward = false, withItself = false)</span>
+<span class="pc bpc" id="L42" title="1 of 4 branches missed.">            .takeWhile { it is PsiWhiteSpace || it is PsiComment }</span>
+<span class="pc bpc" id="L43" title="1 of 4 branches missed.">            .any { it is PsiWhiteSpace &amp;&amp; it.textContains('\n') }</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (hasLineBreakBeforeEqualsToken) {</span>
+<span class="fc" id="L45">            report(CodeSmell(Entity.from(equalsToken), MESSAGE))</span>
+        }
+<span class="fc" id="L47">    }</span>
+
+    private companion object {
+        const val MESSAGE = &quot;Equals signs for expression style functions should be on the same line as the signature.&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

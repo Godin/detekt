@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SwallowedException.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.exceptions</a> &gt; <span class="el_source">SwallowedException.kt</span></div><h1>SwallowedException.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.exceptions
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isAllowedExceptionName
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtCatchClause
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtThrowExpression
+import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import org.jetbrains.kotlin.psi.psiUtil.findDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForReceiverOrThis
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+
+/**
+ * Exceptions should not be swallowed. This rule reports all instances where exceptions are `caught` and not correctly
+ * passed (e.g. as a cause) into a newly thrown exception.
+ *
+ * The exception types configured in `ignoredExceptionTypes` indicate nonexceptional outcomes.
+ * These by default configured exception types are part of Java.
+ * Therefore, Kotlin developers have to handle them by using the catch clause.
+ * For that reason, this rule ignores that these configured exception types are caught.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo() {
+ *     try {
+ *         // ...
+ *     } catch(e: IOException) {
+ *         throw MyException(e.message) // e is swallowed
+ *     }
+ *     try {
+ *         // ...
+ *     } catch(e: IOException) {
+ *         throw MyException() // e is swallowed
+ *     }
+ *     try {
+ *         // ...
+ *     } catch(e: IOException) {
+ *         bar() // exception is unused
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun foo() {
+ *     try {
+ *         // ...
+ *     } catch(e: IOException) {
+ *         throw MyException(e)
+ *     }
+ *     try {
+ *         // ...
+ *     } catch(e: IOException) {
+ *         println(e) // logging is ok here
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.16.0&quot;)
+<span class="fc" id="L69">class SwallowedException(config: Config) : Rule(</span>
+<span class="fc" id="L70">    config,</span>
+<span class="fc" id="L71">    &quot;The caught exception is swallowed. The original exception could be lost.&quot;</span>
+) {
+
+    @Configuration(&quot;exception types which should be ignored (both in the catch clause and body)&quot;)
+<span class="fc" id="L75">    private val ignoredExceptionTypes: List&lt;String&gt; by config(EXCEPTIONS_IGNORED_BY_DEFAULT) { exceptions -&gt;</span>
+<span class="fc" id="L76">        exceptions.map { it.removePrefix(&quot;*&quot;).removeSuffix(&quot;*&quot;) }</span>
+    }
+
+    @Configuration(&quot;ignores too generic exception types which match this regex&quot;)
+<span class="fc" id="L80">    private val allowedExceptionNameRegex: Regex by config(&quot;_|(ignore|expected).*&quot;, String::toRegex)</span>
+
+    override fun visitCatchSection(catchClause: KtCatchClause) {
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        catchClause.catchParameter?.let { catchParameter -&gt;</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">            val exceptionType = catchParameter.typeReference?.text</span>
+<span class="pc bpc" id="L85" title="1 of 6 branches missed.">            if (!ignoredExceptionTypes.any { exceptionType?.contains(it, ignoreCase = true) == true } &amp;&amp;</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">                isExceptionSwallowedOrUnused(catchClause) &amp;&amp;</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">                !catchClause.isAllowedExceptionName(allowedExceptionNameRegex)</span>
+            ) {
+<span class="fc" id="L89">                report(CodeSmell(Entity.from(catchParameter), description))</span>
+            }
+<span class="fc" id="L91">        }</span>
+<span class="fc" id="L92">        super.visitCatchSection(catchClause)</span>
+<span class="fc" id="L93">    }</span>
+
+    private fun isExceptionSwallowedOrUnused(catchClause: KtCatchClause) =
+<span class="fc bfc" id="L96" title="All 4 branches covered.">        isExceptionUnused(catchClause) || isExceptionSwallowed(catchClause)</span>
+
+    private fun isExceptionUnused(catchClause: KtCatchClause): Boolean {
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        val parameterName = catchClause.catchParameter?.name</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        val catchBody = catchClause.catchBody ?: return true</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        return !catchBody.anyDescendantOfType&lt;KtNameReferenceExpression&gt; {</span>
+<span class="fc bfc" id="L102" title="All 4 branches covered.">            it.text in ignoredExceptionTypes || it.text == parameterName</span>
+        }
+    }
+
+    private fun isExceptionSwallowed(catchClause: KtCatchClause): Boolean {
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">        val parameterName = catchClause.catchParameter?.name</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        val catchBody = catchClause.catchBody ?: return false</span>
+<span class="fc" id="L109">        return catchBody.anyDescendantOfType&lt;KtThrowExpression&gt; { throwExpr -&gt;</span>
+<span class="fc" id="L110">            val refs = throwExpr.parameterReferences(parameterName, catchBody)</span>
+<span class="fc bfc" id="L111" title="All 10 branches covered.">            refs.isNotEmpty() &amp;&amp; refs.all { it is KtDotQualifiedExpression &amp;&amp; it.parent !is KtThrowExpression }</span>
+        }
+    }
+
+    private fun KtThrowExpression.parameterReferences(
+        parameterName: String?,
+        catchBody: KtExpression
+    ): List&lt;KtExpression&gt; {
+<span class="fc" id="L119">        val parameterReferencesInVariables = mutableMapOf&lt;String, KtExpression&gt;()</span>
+<span class="fc" id="L120">        return thrownExpression</span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">            ?.collectDescendantsOfType&lt;KtNameReferenceExpression&gt;()</span>
+<span class="fc" id="L122">            ?.mapNotNull { reference -&gt;</span>
+<span class="fc" id="L123">                val referenceText = reference.text</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">                if (referenceText == parameterName) {</span>
+<span class="fc" id="L125">                    reference.getQualifiedExpressionForReceiverOrThis()</span>
+                } else {
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">                    parameterReferencesInVariables[referenceText]</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">                        ?: reference.findReferenceInVariable(parameterName, referenceText, catchBody)?.also {</span>
+<span class="fc" id="L129">                            parameterReferencesInVariables[referenceText] = it</span>
+<span class="fc" id="L130">                        }</span>
+<span class="fc" id="L131">                }</span>
+            }
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">            .orEmpty()</span>
+    }
+
+    private fun KtExpression.findReferenceInVariable(
+        referenceName: String?,
+        variableName: String,
+        catchBody: KtExpression
+    ): KtExpression? {
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        val block = getStrictParentOfType&lt;KtBlockExpression&gt;() ?: return null</span>
+        fun find(block: KtBlockExpression): KtExpression? {
+<span class="fc" id="L143">            val reference = block</span>
+<span class="fc" id="L144">                .findDescendantOfType&lt;KtProperty&gt; { it.name == variableName }</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">                ?.let { property -&gt;</span>
+<span class="fc" id="L146">                    val initializer = property.initializer</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">                    if (initializer is KtDotQualifiedExpression) {</span>
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">                        initializer.takeIf { it.receiverExpression.text == referenceName }</span>
+                    } else {
+<span class="nc bnc" id="L150" title="All 4 branches missed.">                        initializer.takeIf { it?.text == referenceName }</span>
+<span class="fc" id="L151">                    }</span>
+                }
+<span class="fc" id="L153">            return when {</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">                reference != null -&gt; reference</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">                block == catchBody -&gt; null</span>
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">                else -&gt; block.getStrictParentOfType&lt;KtBlockExpression&gt;()?.let { find(it) }</span>
+            }
+        }
+<span class="fc" id="L159">        return find(block)</span>
+    }
+
+    companion object {
+<span class="fc" id="L163">        @JvmStatic</span>
+<span class="fc" id="L164">        val EXCEPTIONS_IGNORED_BY_DEFAULT = listOf(</span>
+<span class="fc" id="L165">            &quot;InterruptedException&quot;,</span>
+<span class="fc" id="L166">            &quot;MalformedURLException&quot;,</span>
+<span class="fc" id="L167">            &quot;NumberFormatException&quot;,</span>
+<span class="fc" id="L168">            &quot;ParseException&quot;,</span>
+<span class="fc" id="L169">        )</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MemberNameEqualsClassName.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.naming</a> &gt; <span class="el_source">MemberNameEqualsClassName.kt</span></div><h1>MemberNameEqualsClassName.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.naming
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.configWithFallback
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtUserType
+import org.jetbrains.kotlin.resolve.BindingContext
+
+/**
+ * This rule reports a member that has the same as the containing class or object.
+ * This might result in confusion.
+ * The member should either be renamed or changed to a constructor.
+ * Factory functions that create an instance of the class are exempt from this rule.
+ *
+ * &lt;noncompliant&gt;
+ * class MethodNameEqualsClassName {
+ *
+ *     fun methodNameEqualsClassName() { }
+ * }
+ *
+ * class PropertyNameEqualsClassName {
+ *
+ *     val propertyEqualsClassName = 0
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class Manager {
+ *
+ *     companion object {
+ *         // factory functions can have the same name as the class
+ *         fun manager(): Manager {
+ *             return Manager()
+ *         }
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+<span class="fc" id="L54">class MemberNameEqualsClassName(config: Config) : Rule(</span>
+<span class="fc" id="L55">    config,</span>
+<span class="fc" id="L56">    &quot;A member should not be given the same name as its parent class or object.&quot;</span>
+) {
+
+<span class="fc" id="L59">    private val classMessage = &quot;A member is named after the class. This might result in confusion. &quot; +</span>
+        &quot;Either rename the member or change it to a constructor.&quot;
+<span class="fc" id="L61">    private val objectMessage = &quot;A member is named after the object. &quot; +</span>
+        &quot;This might result in confusion. Please rename the member.&quot;
+
+    @Configuration(&quot;if overridden functions and properties should be ignored&quot;)
+    @Deprecated(&quot;Use `ignoreOverridden` instead&quot;)
+<span class="pc" id="L66">    private val ignoreOverriddenFunction: Boolean by config(true)</span>
+
+    @Suppress(&quot;DEPRECATION&quot;)
+    @Configuration(&quot;if overridden functions and properties should be ignored&quot;)
+<span class="fc" id="L70">    private val ignoreOverridden: Boolean by configWithFallback(::ignoreOverriddenFunction, true)</span>
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (!klass.isInterface()) {</span>
+<span class="fc" id="L74">            (getMisnamedMembers(klass, klass.name) + getMisnamedCompanionObjectMembers(klass))</span>
+<span class="fc" id="L75">                .forEach { report(CodeSmell(Entity.from(it), classMessage)) }</span>
+        }
+<span class="fc" id="L77">        super.visitClass(klass)</span>
+<span class="fc" id="L78">    }</span>
+
+    override fun visitObjectDeclaration(declaration: KtObjectDeclaration) {
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        if (!declaration.isCompanion()) {</span>
+<span class="fc" id="L82">            getMisnamedMembers(declaration, declaration.name)</span>
+<span class="fc" id="L83">                .forEach { report(CodeSmell(Entity.from(it), objectMessage)) }</span>
+        }
+<span class="fc" id="L85">        super.visitObjectDeclaration(declaration)</span>
+<span class="fc" id="L86">    }</span>
+
+    private fun getMisnamedMembers(klassOrObject: KtClassOrObject, name: String?): Sequence&lt;KtNamedDeclaration&gt; {
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        val body = klassOrObject.body ?: return emptySequence()</span>
+<span class="fc" id="L90">        return (body.functions.asSequence() as Sequence&lt;KtNamedDeclaration&gt; + body.properties)</span>
+<span class="fc bfc" id="L91" title="All 4 branches covered.">            .filterNot { ignoreOverridden &amp;&amp; it.isOverride() }</span>
+<span class="pc bpc" id="L92" title="1 of 4 branches missed.">            .filter { it.name?.equals(name, ignoreCase = true) == true }</span>
+    }
+
+    private fun getMisnamedCompanionObjectMembers(klass: KtClass): Sequence&lt;KtNamedDeclaration&gt; =
+<span class="fc" id="L96">        klass.companionObjects</span>
+<span class="fc" id="L97">            .asSequence()</span>
+<span class="fc" id="L98">            .flatMap { getMisnamedMembers(it, klass.name) }</span>
+<span class="pc bpc" id="L99" title="1 of 4 branches missed.">            .filterNot { it is KtNamedFunction &amp;&amp; isFactoryMethod(it, klass) }</span>
+
+    private fun isFactoryMethod(function: KtNamedFunction, klass: KtClass): Boolean {
+<span class="fc" id="L102">        val typeReference = function.typeReference</span>
+<span class="fc" id="L103">        return when {</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">            typeReference != null -&gt; {</span>
+<span class="pc bpc" id="L105" title="3 of 6 branches missed.">                val refName = (typeReference.typeElement as? KtUserType)?.referencedName ?: typeReference.text</span>
+<span class="fc" id="L106">                refName == klass.name</span>
+            }
+<span class="fc bfc" id="L108" title="All 2 branches covered.">            function.bodyExpression is KtBlockExpression -&gt; false</span>
+<span class="pc bpc" id="L109" title="2 of 4 branches missed.">            function.bodyExpression !is KtBlockExpression &amp;&amp; bindingContext != BindingContext.EMPTY -&gt; {</span>
+<span class="fc" id="L110">                val functionDescriptor = bindingContext[BindingContext.FUNCTION, function]</span>
+<span class="fc" id="L111">                val classDescriptor = bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, klass]</span>
+<span class="pc bpc" id="L112" title="3 of 6 branches missed.">                functionDescriptor?.returnType?.constructor?.declarationDescriptor == classDescriptor</span>
+            }
+<span class="nc" id="L114">            else -&gt; true // We don't know if it is or not a factory. We assume it is a factory to avoid false-positives</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

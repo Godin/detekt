@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RedundantConstructorKeyword.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">RedundantConstructorKeyword.kt</span></div><h1>RedundantConstructorKeyword.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.com.intellij.psi.PsiComment
+import org.jetbrains.kotlin.com.intellij.psi.PsiWhiteSpace
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.psi.psiUtil.siblings
+
+/**
+ * This rule checks for redundant constructor keywords.
+ *
+ * &lt;noncompliant&gt;
+ * data class Foo constructor(val foo: Int)
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * data class Foo(val foo: Int)
+ *
+ * data class Bar private constructor(val bar: String) {
+ *     constructor(bar: Int): this(&quot;$foo&quot;)
+ * }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L29">class RedundantConstructorKeyword(config: Config) : Rule(</span>
+<span class="fc" id="L30">    config,</span>
+<span class="fc" id="L31">    &quot;Redundant `constructor` modifier can be removed.&quot;</span>
+) {
+
+    override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor) {
+<span class="fc" id="L35">        super.visitPrimaryConstructor(constructor)</span>
+
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">        if (constructor.containingClassOrObject is KtClass &amp;&amp;</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">            constructor.hasConstructorKeyword() &amp;&amp;</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">            constructor.hasNoModifier()</span>
+        ) {
+<span class="fc" id="L41">            report(</span>
+<span class="fc" id="L42">                CodeSmell(</span>
+<span class="fc" id="L43">                    Entity.from(constructor),</span>
+<span class="fc" id="L44">                    message = &quot;The `constructor` keyword on ${constructor.name} is redundant and should be removed.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L48">    }</span>
+
+<span class="fc bfc" id="L50" title="All 4 branches covered.">    private fun KtPrimaryConstructor.hasNoModifier() = modifierList == null &amp;&amp; !hasPreviousComment()</span>
+
+<span class="fc" id="L52">    private fun KtPrimaryConstructor.hasPreviousComment(): Boolean = siblings(</span>
+<span class="fc" id="L53">        forward = false,</span>
+<span class="fc" id="L54">        withItself = false</span>
+<span class="fc bfc" id="L55" title="All 4 branches covered.">    ).takeWhile { it is PsiComment || it is PsiWhiteSpace }.any { it is PsiComment }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KtValueArgument.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules</a> &gt; <span class="el_source">KtValueArgument.kt</span></div><h1>KtValueArgument.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules
+
+import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+
+fun KtValueArgument.isString(bindingContext: BindingContext): Boolean {
+<span class="fc" id="L10">    val argumentExpression = getArgumentExpression()</span>
+<span class="pc bpc" id="L11" title="1 of 2 branches missed.">    return if (bindingContext != BindingContext.EMPTY) {</span>
+<span class="pc bpc" id="L12" title="2 of 6 branches missed.">        val type = argumentExpression?.getResolvedCall(bindingContext)?.resultingDescriptor?.returnType</span>
+<span class="pc bpc" id="L13" title="1 of 6 branches missed.">        argumentExpression is KtStringTemplateExpression || type != null &amp;&amp; KotlinBuiltIns.isString(type)</span>
+    } else {
+<span class="nc" id="L15">        argumentExpression is KtStringTemplateExpression</span>
+    }
+}
+
+fun List&lt;KtValueArgument&gt;.isEmptyOrSingleStringArgument(bindingContext: BindingContext): Boolean =
+<span class="fc bfc" id="L20" title="All 8 branches covered.">    isEmpty() || singleOrNull()?.isString(bindingContext) == true</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

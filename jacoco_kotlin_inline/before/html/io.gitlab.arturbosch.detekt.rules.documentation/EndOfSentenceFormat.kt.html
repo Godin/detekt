@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EndOfSentenceFormat.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.documentation</a> &gt; <span class="el_source">EndOfSentenceFormat.kt</span></div><h1>EndOfSentenceFormat.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.documentation
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.lastArgumentMatchesUrl
+import org.jetbrains.kotlin.psi.KtDeclaration
+
+/**
+ * This rule validates the end of the first sentence of a KDoc comment.
+ * It should end with proper punctuation or with a correct URL.
+ */
+@Suppress(&quot;MemberNameEqualsClassName&quot;)
+<span class="fc" id="L17">class EndOfSentenceFormat(config: Config) : Rule(</span>
+<span class="fc" id="L18">    config,</span>
+<span class="fc" id="L19">    &quot;The first sentence in a KDoc comment should end with proper punctuation or with a correct URL.&quot;</span>
+) {
+
+    @Configuration(&quot;regular expression which should match the end of the first sentence in the KDoc&quot;)
+<span class="fc" id="L23">    private val endOfSentenceFormat: Regex by config(&quot;&quot;&quot;([.?!][ \t\n\r\f&lt;])|([.?!:]$)&quot;&quot;&quot;) { it.toRegex() }</span>
+
+<span class="fc" id="L25">    private val htmlTag = Regex(&quot;^&lt;.+&gt;&quot;)</span>
+
+    override fun visitDeclaration(dcl: KtDeclaration) {
+<span class="fc" id="L28">        super.visitDeclaration(dcl)</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        dcl.docComment?.let {</span>
+<span class="fc" id="L30">            val text = it.getDefaultSection().getContent()</span>
+<span class="fc bfc" id="L31" title="All 6 branches covered.">            if (text.isEmpty() || text.startsWithHtmlTag()) {</span>
+<span class="fc" id="L32">                return</span>
+            }
+<span class="fc bfc" id="L34" title="All 4 branches covered.">            if (!endOfSentenceFormat.containsMatchIn(text) &amp;&amp; !text.lastArgumentMatchesUrl()) {</span>
+<span class="fc" id="L35">                report(</span>
+<span class="fc" id="L36">                    CodeSmell(</span>
+<span class="fc" id="L37">                        Entity.from(it.getDefaultSection()),</span>
+<span class="fc" id="L38">                        &quot;The first sentence of this KDoc does not end with the correct punctuation.&quot;</span>
+                    )
+                )
+            }
+<span class="fc" id="L42">        }</span>
+<span class="fc" id="L43">    }</span>
+
+<span class="fc bfc" id="L45" title="All 4 branches covered.">    private fun String.startsWithHtmlTag() = startsWith(&quot;&lt;&quot;) &amp;&amp; contains(htmlTag)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

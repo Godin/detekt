@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnnecessaryLet.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnnecessaryLet.kt</span></div><h1>UnnecessaryLet.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.firstParameter
+import io.gitlab.arturbosch.detekt.rules.isCalling
+import io.gitlab.arturbosch.detekt.rules.receiverIsUsed
+import org.jetbrains.kotlin.builtins.StandardNames.IMPLICIT_LAMBDA_PARAMETER_NAME
+import org.jetbrains.kotlin.descriptors.impl.ValueParameterDescriptorImpl.WithDestructuringDeclaration
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
+import org.jetbrains.kotlin.psi.KtSimpleNameExpression
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import org.jetbrains.kotlin.resolve.BindingContext
+
+/**
+ * `let` expressions are used extensively in our code for null-checking and chaining functions,
+ * but sometimes their usage should be replaced with an ordinary method/extension function call
+ * to reduce visual complexity.
+ *
+ * &lt;noncompliant&gt;
+ * a.let { print(it) } // can be replaced with `print(a)`
+ * a.let { it.plus(1) } // can be replaced with `a.plus(1)`
+ * a?.let { it.plus(1) } // can be replaced with `a?.plus(1)`
+ * a?.let { that -&gt; that.plus(1) }?.let { it.plus(1) } // can be replaced with `a?.plus(1)?.plus(1)`
+ * a.let { 1.plus(1) } // can be replaced with `1.plus(1)`
+ * a?.let { 1.plus(1) } // can be replaced with `if (a != null) 1.plus(1)`
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * a?.let { print(it) }
+ * a?.let { 1.plus(it) } ?.let { msg -&gt; print(msg) }
+ * a?.let { it.plus(it) }
+ * val b = a?.let { 1.plus(1) }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L47">class UnnecessaryLet(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;The `let` usage is unnecessary.&quot;</span>
+) {
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L52">        super.visitCallExpression(expression)</span>
+
+<span class="fc bfc" id="L54" title="All 2 branches covered.">        if (!expression.isCalling(letFqName, bindingContext)) return</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        val lambdaExpr = expression.lambdaArguments.firstOrNull()?.getLambdaExpression()</span>
+
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        val referenceCount = lambdaExpr?.countLambdaParameterReference(bindingContext) ?: 0</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (referenceCount &gt; 1) return</span>
+
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        if (expression.parent is KtSafeQualifiedExpression) {</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            if (lambdaExpr != null) {</span>
+<span class="fc" id="L62">                when {</span>
+<span class="fc bfc" id="L63" title="All 4 branches covered.">                    referenceCount == 0 &amp;&amp; !expression.receiverIsUsed(bindingContext) -&gt;</span>
+<span class="fc" id="L64">                        report(expression, &quot;let expression can be replaced with a simple if&quot;)</span>
+
+<span class="fc bfc" id="L66" title="All 4 branches covered.">                    referenceCount == 1 &amp;&amp; canBeReplacedWithCall(lambdaExpr) -&gt;</span>
+<span class="fc" id="L67">                        report(expression, &quot;let expression can be omitted&quot;)</span>
+                }
+            }
+        } else {
+<span class="fc bfc" id="L71" title="All 6 branches covered.">            if (referenceCount == 0 || canBeReplacedWithCall(lambdaExpr) || !expression.inCallChains()) {</span>
+<span class="fc" id="L72">                report(expression, &quot;let expression can be omitted&quot;)</span>
+            }
+        }
+<span class="fc" id="L75">    }</span>
+
+    private fun report(expression: KtCallExpression, message: String) {
+<span class="fc" id="L78">        report(CodeSmell(Entity.from(expression), message))</span>
+<span class="fc" id="L79">    }</span>
+
+    companion object {
+<span class="fc" id="L82">        private val letFqName = FqName(&quot;kotlin.let&quot;)</span>
+    }
+}
+
+private fun KtCallExpression.inCallChains(): Boolean {
+<span class="pc bpc" id="L87" title="2 of 4 branches missed.">    val qualified = parent as? KtQualifiedExpression ?: return false</span>
+<span class="fc bfc" id="L88" title="All 4 branches covered.">    return qualified.parent is KtQualifiedExpression || qualified.receiverExpression is KtQualifiedExpression</span>
+}
+
+private fun canBeReplacedWithCall(lambdaExpr: KtLambdaExpression?): Boolean {
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">    if (lambdaExpr == null) return false</span>
+
+<span class="pc bpc" id="L94" title="2 of 6 branches missed.">    val receiver = when (val statement = lambdaExpr.bodyExpression?.statements?.singleOrNull()) {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        is KtQualifiedExpression -&gt; statement.getRootExpression()</span>
+<span class="fc" id="L96">        else -&gt; null</span>
+<span class="fc" id="L97">    } ?: return false</span>
+
+<span class="fc" id="L99">    val lambdaParameter = lambdaExpr.valueParameters.singleOrNull()</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">    val lambdaParameterNames = if (lambdaParameter == null) {</span>
+<span class="fc" id="L101">        listOf(IMPLICIT_LAMBDA_PARAMETER_NAME)</span>
+    } else {
+<span class="fc bfc" id="L103" title="All 4 branches covered.">        lambdaParameter.destructuringDeclaration?.entries.orEmpty()</span>
+<span class="fc" id="L104">            .plus(lambdaParameter)</span>
+<span class="fc" id="L105">            .filterIsInstance&lt;KtNamedDeclaration&gt;()</span>
+<span class="fc" id="L106">            .map { it.nameAsSafeName }</span>
+    }
+<span class="fc" id="L108">    return lambdaParameterNames.any { receiver.textMatches(it.asString()) }</span>
+}
+
+private fun KtExpression?.getRootExpression(): KtExpression? {
+    // Look for the expression that was the root of a potential call chain.
+<span class="fc" id="L113">    var receiverExpression = this</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">    while (receiverExpression is KtQualifiedExpression) {</span>
+<span class="fc" id="L115">        receiverExpression = receiverExpression.receiverExpression</span>
+    }
+<span class="fc" id="L117">    return receiverExpression</span>
+}
+
+private fun KtLambdaExpression.countLambdaParameterReference(context: BindingContext): Int {
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">    val bodyExpression = bodyExpression ?: return 0</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">    val firstParameter = firstParameter(context) ?: return 0</span>
+
+<span class="fc bfc" id="L124" title="All 2 branches covered.">    val parameters = if (firstParameter is WithDestructuringDeclaration) {</span>
+<span class="fc" id="L125">        firstParameter.destructuringVariables</span>
+    } else {
+<span class="fc" id="L127">        listOf(firstParameter)</span>
+    }
+
+<span class="fc bfc" id="L130" title="All 2 branches covered.">    return parameters.sumOf { parameter -&gt;</span>
+<span class="fc" id="L131">        bodyExpression.collectDescendantsOfType&lt;KtSimpleNameExpression&gt; {</span>
+<span class="fc" id="L132">            context[BindingContext.REFERENCE_TARGET, it] == parameter</span>
+<span class="fc" id="L133">        }.count()</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

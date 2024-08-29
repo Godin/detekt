@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Entity.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.api</a> &gt; <span class="el_source">Entity.kt</span></div><h1>Entity.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.api
+
+import io.gitlab.arturbosch.detekt.api.internal.buildFullSignature
+import io.gitlab.arturbosch.detekt.api.internal.searchName
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.psiUtil.getNonStrictParentOfType
+
+/**
+ * Stores information about a specific code fragment.
+ */
+<span class="fc" id="L14">class Entity(</span>
+<span class="fc" id="L15">    val name: String,</span>
+<span class="fc" id="L16">    val signature: String,</span>
+<span class="fc" id="L17">    val location: Location,</span>
+<span class="fc" id="L18">    val ktElement: KtElement</span>
+) {
+    override fun toString(): String =
+<span class="fc" id="L21">        &quot;Entity(name=$name, signature=$signature, location=$location, ktElement=$ktElement)&quot;</span>
+
+    companion object {
+        /**
+         * Factory function which retrieves all needed information from the PsiElement itself.
+         */
+<span class="fc" id="L27">        fun from(element: PsiElement, offset: Int = 0): Entity {</span>
+<span class="fc" id="L28">            val location = Location.from(element, offset)</span>
+<span class="fc" id="L29">            return from(element, location)</span>
+        }
+
+        /**
+         * Create an entity at the location of the identifier of given named declaration.
+         */
+        fun atName(element: KtNamedDeclaration): Entity =
+<span class="fc bfc" id="L36" title="All 2 branches covered.">            from(element.nameIdentifier ?: element, element)</span>
+
+        /**
+         * Create an entity at the location of the package, first import or first declaration.
+         */
+        fun atPackageOrFirstDecl(file: KtFile): Entity =
+<span class="pc bpc" id="L42" title="3 of 4 branches missed.">            from(file.packageDirective ?: file.firstChild ?: file, file)</span>
+
+        /**
+         * Use this factory method if the location can be calculated much more precisely than
+         * using the given PsiElement.
+         */
+<span class="fc" id="L48">        fun from(element: PsiElement, location: Location): Entity = from(element, element, location)</span>
+
+        private fun from(elementToReport: PsiElement, elementForSignature: PsiElement): Entity =
+<span class="fc" id="L51">            from(elementToReport, elementForSignature, Location.from(elementToReport))</span>
+
+        private fun from(
+            elementToReport: PsiElement,
+            elementForSignature: PsiElement,
+            location: Location
+        ): Entity {
+            val name = elementToReport.searchName()
+<span class="fc" id="L59">            val signature = elementForSignature.buildFullSignature()</span>
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">            val ktElement = elementToReport.getNonStrictParentOfType&lt;KtElement&gt;() ?: error(&quot;KtElement expected&quot;)</span>
+<span class="fc" id="L61">            return Entity(name, signature, location, ktElement)</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

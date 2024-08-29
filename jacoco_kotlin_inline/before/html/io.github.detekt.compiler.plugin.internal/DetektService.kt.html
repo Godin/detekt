@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DetektService.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.compiler.plugin.internal</a> &gt; <span class="el_source">DetektService.kt</span></div><h1>DetektService.kt</h1><pre class="source lang-java linenums">package io.github.detekt.compiler.plugin.internal
+
+import io.github.detekt.tooling.api.DetektProvider
+import io.github.detekt.tooling.api.InvalidConfig
+import io.github.detekt.tooling.api.IssuesFound
+import io.github.detekt.tooling.api.UnexpectedError
+import io.github.detekt.tooling.api.spec.ProcessingSpec
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.resolve.BindingContext
+
+<span class="fc" id="L12">internal class DetektService(</span>
+<span class="fc" id="L13">    private val log: MessageCollector,</span>
+<span class="fc" id="L14">    private val spec: ProcessingSpec</span>
+) {
+
+    @Suppress(&quot;ForbiddenComment&quot;)
+    fun analyze(files: Collection&lt;KtFile&gt;, context: BindingContext) {
+<span class="fc" id="L19">        val detekt = DetektProvider.load().get(spec)</span>
+<span class="fc" id="L20">        val result = detekt.run(files, context)</span>
+<span class="fc" id="L21">        log.info(&quot;${files.size} files analyzed&quot;)</span>
+<span class="pc bpc" id="L22" title="1 of 2 branches missed.">        result.container?.let { log.reportIssues(it) }</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">        log.info(&quot;Success?: ${result.error == null}&quot;)</span>
+<span class="pc" id="L24">        when (val error = result.error) {</span>
+<span class="pc bpc" id="L25" title="1 of 2 branches missed.">            is UnexpectedError -&gt; throw error</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">            is IssuesFound -&gt; log.warn(error.localizedMessage)</span>
+<span class="pc bpc" id="L27" title="1 of 2 branches missed.">            is InvalidConfig -&gt; log.warn(error.localizedMessage)</span>
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">            null -&gt; { } // nothing to do in this case</span>
+        }
+<span class="fc" id="L30">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnusedPrivateClass.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnusedPrivateClass.kt</span></div><h1>UnusedPrivateClass.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtCallableReferenceExpression
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtDoubleColonExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtFunctionType
+import org.jetbrains.kotlin.psi.KtImportDirective
+import org.jetbrains.kotlin.psi.KtIsExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtNullableType
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtTypeElement
+import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.KtUserType
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+import org.jetbrains.kotlin.utils.addIfNotNull
+
+/**
+ * Reports unused private classes. If private classes are unused they should be removed. Otherwise, this dead code
+ * can lead to confusion and potential bugs.
+ */
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+@Alias(&quot;unused&quot;)
+<span class="fc" id="L42">class UnusedPrivateClass(config: Config) : Rule(</span>
+<span class="fc" id="L43">    config,</span>
+<span class="fc" id="L44">    &quot;Private class is unused and should be removed.&quot;</span>
+) {
+
+    override fun visit(root: KtFile) {
+<span class="fc" id="L48">        super.visit(root)</span>
+
+<span class="fc" id="L50">        val classVisitor = UnusedClassVisitor()</span>
+<span class="fc" id="L51">        root.accept(classVisitor)</span>
+
+<span class="fc" id="L53">        classVisitor.getUnusedClasses().forEach {</span>
+<span class="fc" id="L54">            report(CodeSmell(Entity.from(it), &quot;Private class ${it.nameAsSafeName.identifier} is unused.&quot;))</span>
+<span class="fc" id="L55">        }</span>
+<span class="fc" id="L56">    }</span>
+
+<span class="fc" id="L58">    @Suppress(&quot;TooManyFunctions&quot;)</span>
+<span class="fc" id="L59">    private class UnusedClassVisitor : DetektVisitor() {</span>
+
+<span class="fc" id="L61">        private val privateClasses = mutableSetOf&lt;KtNamedDeclaration&gt;()</span>
+<span class="fc" id="L62">        private val namedClasses = mutableSetOf&lt;String&gt;()</span>
+<span class="fc" id="L63">        private val importedFqNames = mutableSetOf&lt;FqName&gt;()</span>
+
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        fun getUnusedClasses(): List&lt;KtNamedDeclaration&gt; = privateClasses.filter { !it.isUsed() }</span>
+
+        private fun KtNamedDeclaration.isUsed(): Boolean {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            if (nameAsSafeName.identifier in namedClasses) return true</span>
+<span class="pc bpc" id="L69" title="2 of 4 branches missed.">            val pathSegments = fqName?.pathSegments().orEmpty()</span>
+<span class="pc bpc" id="L70" title="2 of 4 branches missed.">            return pathSegments.isNotEmpty() &amp;&amp;</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">                importedFqNames.any { importedFqName -&gt;</span>
+<span class="fc" id="L72">                    importedFqName.pathSegments().zip(pathSegments).all { it.first == it.second }</span>
+                }
+        }
+
+        override fun visitClass(klass: KtClass) {
+<span class="fc bfc" id="L77" title="All 2 branches covered.">            if (klass.isPrivate()) {</span>
+<span class="fc" id="L78">                privateClasses.add(klass)</span>
+            }
+<span class="fc bfc" id="L80" title="All 2 branches covered.">            klass.getSuperTypeList()?.entries</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">                ?.mapNotNull { it.typeReference }</span>
+<span class="fc" id="L82">                ?.forEach { registerAccess(it) }</span>
+<span class="fc" id="L83">            super.visitClass(klass)</span>
+<span class="fc" id="L84">        }</span>
+
+        override fun visitImportDirective(importDirective: KtImportDirective) {
+<span class="fc" id="L87">            importedFqNames.addIfNotNull(importDirective.importedFqName)</span>
+<span class="fc" id="L88">            super.visitImportDirective(importDirective)</span>
+<span class="fc" id="L89">        }</span>
+
+        override fun visitAnnotationEntry(annotationEntry: KtAnnotationEntry) {
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">            namedClasses.addIfNotNull(annotationEntry.typeReference?.text)</span>
+<span class="fc" id="L93">            super.visitAnnotationEntry(annotationEntry)</span>
+<span class="fc" id="L94">        }</span>
+
+        private fun registerAccess(typeReference: KtTypeReference) {
+            // Try with the actual type of the reference (e.g. Foo, Foo?)
+<span class="fc" id="L98">            typeReference.orInnerType().run { namedClasses.add(text) }</span>
+
+            // Try with the type with generics (e.g. Foo&lt;Any&gt;, Foo&lt;Any&gt;?)
+<span class="pc bpc" id="L101" title="1 of 4 branches missed.">            (typeReference.typeElement?.orInnerType() as? KtUserType)</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">                ?.referencedName</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">                ?.run { namedClasses.add(this) }</span>
+
+            // Try with the type being a generic argument of other type (e.g. List&lt;Foo&gt;, List&lt;Foo?&gt;)
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            typeReference.typeElement?.run {</span>
+<span class="fc" id="L107">                typeArgumentsAsTypes</span>
+<span class="fc" id="L108">                    .asSequence()</span>
+<span class="fc" id="L109">                    .filterNotNull()</span>
+<span class="fc" id="L110">                    .map { it.orInnerType() }</span>
+<span class="fc" id="L111">                    .forEach {</span>
+<span class="fc" id="L112">                        namedClasses.add(it.text)</span>
+                        // Recursively register for nested generic types (e.g. List&lt;List&lt;Foo&gt;&gt;)
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">                        if (it is KtTypeReference) registerAccess(it)</span>
+<span class="fc" id="L115">                    }</span>
+<span class="fc" id="L116">            }</span>
+<span class="fc" id="L117">        }</span>
+
+        override fun visitParameter(parameter: KtParameter) {
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">            parameter.typeReference?.run { registerAccess(this) }</span>
+<span class="fc" id="L121">            super.visitParameter(parameter)</span>
+<span class="fc" id="L122">        }</span>
+
+        override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">            function.typeReference?.run { registerAccess(this) }</span>
+<span class="fc" id="L126">            super.visitNamedFunction(function)</span>
+<span class="fc" id="L127">        }</span>
+
+        override fun visitObjectDeclaration(declaration: KtObjectDeclaration) {
+<span class="pc bpc" id="L130" title="1 of 4 branches missed.">            declaration.getSuperTypeList()?.entries?.forEach {</span>
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">                it.typeReference?.run { registerAccess(this) }</span>
+<span class="fc" id="L132">            }</span>
+<span class="fc" id="L133">            super.visitObjectDeclaration(declaration)</span>
+<span class="fc" id="L134">        }</span>
+
+        override fun visitFunctionType(type: KtFunctionType) {
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">            type.returnTypeReference?.run { registerAccess(this) }</span>
+<span class="fc" id="L138">            super.visitFunctionType(type)</span>
+<span class="fc" id="L139">        }</span>
+
+        override fun visitProperty(property: KtProperty) {
+<span class="fc bfc" id="L142" title="All 2 branches covered.">            property.typeReference?.run { registerAccess(this) }</span>
+<span class="fc" id="L143">            super.visitProperty(property)</span>
+<span class="fc" id="L144">        }</span>
+
+        override fun visitBinaryWithTypeRHSExpression(expression: KtBinaryExpressionWithTypeRHS) {
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">            expression.right?.run { registerAccess(this) }</span>
+<span class="fc" id="L148">            super.visitBinaryWithTypeRHSExpression(expression)</span>
+<span class="fc" id="L149">        }</span>
+
+        override fun visitIsExpression(expression: KtIsExpression) {
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">            expression.typeReference?.run { registerAccess(this) }</span>
+<span class="fc" id="L153">            super.visitIsExpression(expression)</span>
+<span class="fc" id="L154">        }</span>
+
+        override fun visitCallExpression(expression: KtCallExpression) {
+<span class="pc bpc" id="L157" title="2 of 4 branches missed.">            expression.calleeExpression?.text?.run { namedClasses.add(this) }</span>
+<span class="fc" id="L158">            expression.typeArguments</span>
+<span class="fc" id="L159">                .mapNotNull { it.typeReference }</span>
+<span class="fc" id="L160">                .forEach { registerAccess(it) }</span>
+<span class="fc" id="L161">            super.visitCallExpression(expression)</span>
+<span class="fc" id="L162">        }</span>
+
+        override fun visitDoubleColonExpression(expression: KtDoubleColonExpression) {
+<span class="fc" id="L165">            checkReceiverForClassUsage(expression.receiverExpression)</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">            if (expression.isEmptyLHS) {</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">                (expression as? KtCallableReferenceExpression)</span>
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">                    ?.callableReference</span>
+<span class="pc bpc" id="L169" title="2 of 4 branches missed.">                    ?.takeIf { looksLikeAClassName(it.getReferencedName()) }</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">                    ?.let { namedClasses.add(it.getReferencedName()) }</span>
+            }
+<span class="fc" id="L172">            super.visitDoubleColonExpression(expression)</span>
+<span class="fc" id="L173">        }</span>
+
+        private fun checkReceiverForClassUsage(receiver: KtExpression?) {
+<span class="fc bfc" id="L176" title="All 2 branches covered.">            (receiver as? KtNameReferenceExpression)</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">                ?.text</span>
+<span class="pc bpc" id="L178" title="1 of 4 branches missed.">                ?.takeIf { looksLikeAClassName(it) }</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">                ?.let { namedClasses.add(it) }</span>
+<span class="fc" id="L180">        }</span>
+
+        override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
+<span class="fc" id="L183">            checkReceiverForClassUsage(expression.receiverExpression)</span>
+<span class="fc" id="L184">            super.visitDotQualifiedExpression(expression)</span>
+<span class="fc" id="L185">        }</span>
+
+        // Without type resolution it is hard to tell if this is really a class or part of a package.
+        // We use &quot;first char is uppercase&quot; as a heuristic in conjunction with &quot;KtNameReferenceExpression&quot;
+        private fun looksLikeAClassName(maybeClassName: String) =
+<span class="pc bpc" id="L190" title="1 of 4 branches missed.">            maybeClassName.firstOrNull()?.isUpperCase() == true</span>
+    }
+}
+
+/**
+ * Get the non-nullable type of a reference to a potentially nullable one (e.g. String? -&gt; String)
+ */
+<span class="pc bpc" id="L197" title="1 of 6 branches missed.">private fun KtTypeReference.orInnerType() = (typeElement as? KtNullableType)?.innerType ?: this</span>
+
+/**
+ * Get the non-nullable type of a type element to a potentially nullable one (e.g. String? -&gt; String)
+ */
+<span class="pc bpc" id="L202" title="1 of 6 branches missed.">private fun KtTypeElement.orInnerType() = (this as? KtNullableType)?.innerType ?: this</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

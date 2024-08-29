@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImplicitUnitReturnType.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">ImplicitUnitReturnType.kt</span></div><h1>ImplicitUnitReturnType.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.hasImplicitUnitReturnType
+import org.jetbrains.kotlin.psi.KtNamedFunction
+
+/**
+ * Functions using expression statements have an implicit return type.
+ * Changing the type of the expression accidentally, changes the functions return type.
+ * This may lead to backward incompatibility.
+ * Use a block statement to make clear this function will never return a value.
+ *
+ * &lt;noncompliant&gt;
+ * fun errorProneUnit() = println(&quot;Hello Unit&quot;)
+ * fun errorProneUnitWithParam(param: String) = param.run { println(this) }
+ * fun String.errorProneUnitWithReceiver() = run { println(this) }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun blockStatementUnit() {
+ *     // code
+ * }
+ *
+ * // explicit Unit is compliant by default; can be configured to enforce block statement
+ * fun safeUnitReturn(): Unit = println(&quot;Hello Unit&quot;)
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L36">class ImplicitUnitReturnType(config: Config) : Rule(</span>
+<span class="fc" id="L37">    config,</span>
+<span class="fc" id="L38">    &quot;Functions using expression statements have an implicit return type. &quot; +</span>
+        &quot;Changing the type of the expression accidentally, changes the function return type. &quot; +
+        &quot;This may lead to backward incompatibility. &quot; +
+        &quot;Use a block statement to make clear this function will never return a value.&quot;
+) {
+
+    @Configuration(&quot;if functions with explicit `Unit` return type should be allowed&quot;)
+<span class="fc" id="L45">    private val allowExplicitReturnType: Boolean by config(true)</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc" id="L48">        super.visitNamedFunction(function)</span>
+
+<span class="fc bfc" id="L50" title="All 4 branches covered.">        if (allowExplicitReturnType &amp;&amp; function.hasDeclaredReturnType()) {</span>
+<span class="fc" id="L51">            return</span>
+        }
+
+<span class="pc bpc" id="L54" title="1 of 4 branches missed.">        if (function.bodyExpression?.text == &quot;Unit&quot;) return</span>
+
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (function.hasImplicitUnitReturnType(bindingContext)) {</span>
+<span class="fc" id="L57">            val message = buildString {</span>
+<span class="fc" id="L58">                append(&quot;'${function.name}'  has the implicit return type `Unit`.&quot;)</span>
+<span class="fc" id="L59">                append(&quot; Prefer using a block statement&quot;)</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">                if (allowExplicitReturnType) {</span>
+<span class="fc" id="L61">                    append(&quot; or specify the return type explicitly&quot;)</span>
+                }
+<span class="fc" id="L63">                append('.')</span>
+<span class="fc" id="L64">            }</span>
+<span class="fc" id="L65">            report(</span>
+<span class="fc" id="L66">                CodeSmell(</span>
+<span class="fc" id="L67">                    Entity.atName(function),</span>
+<span class="fc" id="L68">                    message</span>
+                )
+            )
+        }
+<span class="fc" id="L72">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

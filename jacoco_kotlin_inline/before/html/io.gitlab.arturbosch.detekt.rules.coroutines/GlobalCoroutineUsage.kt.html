@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobalCoroutineUsage.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.coroutines</a> &gt; <span class="el_source">GlobalCoroutineUsage.kt</span></div><h1>GlobalCoroutineUsage.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.coroutines
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.resolve.calls.util.getCalleeExpressionIfAny
+
+/**
+ * Report usages of `GlobalScope.launch` and `GlobalScope.async`. It is highly discouraged by the Kotlin documentation:
+ *
+ * &gt; Global scope is used to launch top-level coroutines which are operating on the whole application lifetime and are
+ * &gt; not cancelled prematurely.
+ *
+ * &gt; Application code usually should use an application-defined CoroutineScope. Using async or launch on the instance
+ * &gt; of GlobalScope is highly discouraged.
+ *
+ * See https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-global-scope/
+ *
+ * &lt;noncompliant&gt;
+ * fun foo() {
+ *     GlobalScope.launch { delay(1_000L) }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val scope = CoroutineScope(Dispatchers.Default)
+ *
+ * fun foo() {
+ *     scope.launch { delay(1_000L) }
+ * }
+ *
+ * fun onDestroy() {
+ *    scope.cancel()
+ * }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L39">class GlobalCoroutineUsage(config: Config) : Rule(</span>
+<span class="fc" id="L40">    config,</span>
+<span class="fc" id="L41">    &quot;The usage of the `GlobalScope` instance is highly discouraged.&quot;</span>
+) {
+
+    override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (expression.receiverExpression.text == &quot;GlobalScope&quot; &amp;&amp;</span>
+<span class="pc bpc" id="L46" title="2 of 4 branches missed.">            expression.getCalleeExpressionIfAny()?.text in listOf(&quot;launch&quot;, &quot;async&quot;)</span>
+        ) {
+<span class="fc" id="L48">            report(CodeSmell(Entity.from(expression), MESSAGE))</span>
+        }
+
+<span class="fc" id="L51">        super.visitDotQualifiedExpression(expression)</span>
+<span class="fc" id="L52">    }</span>
+
+    companion object {
+        private const val MESSAGE =
+            &quot;This use of GlobalScope should be replaced by `CoroutineScope` or `coroutineScope`.&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

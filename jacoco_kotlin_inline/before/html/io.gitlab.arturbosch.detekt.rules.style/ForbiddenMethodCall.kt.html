@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ForbiddenMethodCall.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">ForbiddenMethodCall.kt</span></div><h1>ForbiddenMethodCall.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.github.detekt.psi.FunctionMatcher
+import io.github.detekt.psi.FunctionMatcher.Companion.fromFunctionSignature
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.valuesWithReason
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.descriptors.PropertyDescriptor
+import org.jetbrains.kotlin.descriptors.SyntheticPropertyDescriptor
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtCallableReferenceExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtPostfixExpression
+import org.jetbrains.kotlin.psi.KtPrefixExpression
+import org.jetbrains.kotlin.psi.psiUtil.isDotSelector
+import org.jetbrains.kotlin.resolve.calls.util.getCalleeExpressionIfAny
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.overriddenTreeUniqueAsSequence
+
+/**
+ * Reports all method or constructor invocations that are forbidden.
+ *
+ * This rule allows to set a list of forbidden [methods] or constructors. This can be used to discourage the use
+ * of unstable, experimental or deprecated methods, especially for methods imported from external libraries.
+ *
+ * &lt;noncompliant&gt;
+ * fun main() {
+ *   println()
+ *   val myPrintln : () -&gt; Unit = ::println
+ *   kotlin.io.print(&quot;Hello, World!&quot;)
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L45">class ForbiddenMethodCall(config: Config) : Rule(</span>
+<span class="fc" id="L46">    config,</span>
+<span class="fc" id="L47">    &quot;Mark forbidden methods. A forbidden method could be an invocation of an unstable / experimental &quot; +</span>
+        &quot;method and hence you might want to mark it as forbidden in order to get warned about the usage.&quot;
+) {
+
+    @Configuration(
+        &quot;List of fully qualified method signatures which are forbidden. &quot; +
+            &quot;Methods can be defined without full signature (i.e. `java.time.LocalDate.now`) which will report &quot; +
+            &quot;calls of all methods with this name or with full signature &quot; +
+            &quot;(i.e. `java.time.LocalDate(java.time.Clock)`) which would report only call &quot; +
+            &quot;with this concrete signature. If you want to forbid an extension function like &quot; +
+            &quot;`fun String.hello(a: Int)` you should add the receiver parameter as the first parameter like this: &quot; +
+            &quot;`hello(kotlin.String, kotlin.Int)`. To forbid constructor calls you need to define them with `&lt;init&gt;`, &quot; +
+            &quot;for example `java.util.Date.&lt;init&gt;`. To forbid calls involving type parameters, omit them, for example &quot; +
+            &quot;`fun hello(args: Array&lt;Any&gt;)` is referred to as simply `hello(kotlin.Array)` (also the signature for &quot; +
+            &quot;vararg parameters). To forbid methods from the companion object reference the Companion class, for &quot; +
+            &quot;example as `TestClass.Companion.hello()` (even if it is marked `@JvmStatic`).&quot;
+    )
+<span class="fc" id="L64">    private val methods: List&lt;ForbiddenMethod&gt; by config(</span>
+<span class="fc" id="L65">        valuesWithReason(</span>
+<span class="fc" id="L66">            &quot;kotlin.io.print&quot; to &quot;print does not allow you to configure the output stream. Use a logger instead.&quot;,</span>
+<span class="fc" id="L67">            &quot;kotlin.io.println&quot; to &quot;println does not allow you to configure the output stream. Use a logger instead.&quot;,</span>
+<span class="fc" id="L68">            &quot;java.math.BigDecimal.&lt;init&gt;(kotlin.Double)&quot; to &quot;using `BigDecimal(Double)` can result in &quot; +</span>
+                &quot;unexpected floating point precision behavior. Use `BigDecimal.valueOf(Double)` or &quot; +
+                &quot;`String.toBigDecimalOrNull()` instead.&quot;,
+<span class="fc" id="L71">            &quot;java.math.BigDecimal.&lt;init&gt;(kotlin.String)&quot; to &quot;using `BigDecimal(String)` can result in a &quot; +</span>
+                &quot;`NumberFormatException`. Use `String.toBigDecimalOrNull()`&quot;,
+        )
+    ) { list -&gt;
+<span class="fc" id="L75">        list.map { ForbiddenMethod(fromFunctionSignature(it.value), it.reason) }</span>
+    }
+
+    private val PropertyDescriptor.unwrappedGetMethod: FunctionDescriptor?
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        get() = if (this is SyntheticPropertyDescriptor) this.getMethod else getter</span>
+
+    private val PropertyDescriptor.unwrappedSetMethod: FunctionDescriptor?
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        get() = if (this is SyntheticPropertyDescriptor) this.setMethod else setter</span>
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L85">        super.visitCallExpression(expression)</span>
+<span class="fc" id="L86">        check(expression)</span>
+<span class="fc" id="L87">    }</span>
+
+    override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc" id="L90">        super.visitBinaryExpression(expression)</span>
+<span class="fc" id="L91">        check(expression.operationReference)</span>
+<span class="fc" id="L92">    }</span>
+
+    override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
+<span class="fc" id="L95">        super.visitDotQualifiedExpression(expression)</span>
+<span class="pc bpc" id="L96" title="1 of 6 branches missed.">        if (expression.getCalleeExpressionIfAny()?.isDotSelector() == true) {</span>
+<span class="fc" id="L97">            check(expression)</span>
+        }
+<span class="fc" id="L99">    }</span>
+
+    override fun visitPrefixExpression(expression: KtPrefixExpression) {
+<span class="fc" id="L102">        super.visitPrefixExpression(expression)</span>
+<span class="fc" id="L103">        check(expression.operationReference)</span>
+<span class="fc" id="L104">    }</span>
+
+    override fun visitPostfixExpression(expression: KtPostfixExpression) {
+<span class="fc" id="L107">        super.visitPostfixExpression(expression)</span>
+<span class="fc" id="L108">        check(expression.operationReference)</span>
+<span class="fc" id="L109">    }</span>
+
+    override fun visitCallableReferenceExpression(expression: KtCallableReferenceExpression) {
+<span class="fc" id="L112">        super.visitCallableReferenceExpression(expression)</span>
+<span class="fc" id="L113">        check(expression.callableReference)</span>
+<span class="fc" id="L114">    }</span>
+
+    private fun check(expression: KtExpression) {
+<span class="fc" id="L117">        val descriptors: Set&lt;CallableDescriptor&gt; =</span>
+<span class="pc bpc" id="L118" title="1 of 4 branches missed.">            expression.getResolvedCall(bindingContext)?.resultingDescriptor?.let { callableDescriptor -&gt;</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">                val foundDescriptors = if (callableDescriptor is PropertyDescriptor) {</span>
+<span class="fc" id="L120">                    setOfNotNull(</span>
+<span class="fc" id="L121">                        callableDescriptor.unwrappedGetMethod,</span>
+<span class="fc" id="L122">                        callableDescriptor.unwrappedSetMethod</span>
+                    )
+                } else {
+<span class="fc" id="L125">                    setOf(callableDescriptor)</span>
+                }
+<span class="fc" id="L127">                foundDescriptors.flatMapTo(mutableSetOf()) {</span>
+<span class="fc" id="L128">                    it.overriddenTreeUniqueAsSequence(true).toSet()</span>
+<span class="fc" id="L129">                }</span>
+<span class="fc" id="L130">            } ?: return</span>
+
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        for (descriptor in descriptors) {</span>
+<span class="fc bfc" id="L133" title="All 6 branches covered.">            methods.find { it.value.match(descriptor) }?.let { forbidden -&gt;</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">                val message = if (forbidden.reason != null) {</span>
+<span class="fc" id="L135">                    &quot;The method `${forbidden.value}` has been forbidden: ${forbidden.reason}&quot;</span>
+                } else {
+<span class="fc" id="L137">                    &quot;The method `${forbidden.value}` has been forbidden in the detekt config.&quot;</span>
+                }
+<span class="fc" id="L139">                report(CodeSmell(Entity.from(expression), message))</span>
+<span class="fc" id="L140">            }</span>
+        }
+<span class="fc" id="L142">    }</span>
+
+<span class="fc" id="L144">    internal data class ForbiddenMethod(val value: FunctionMatcher, val reason: String?)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

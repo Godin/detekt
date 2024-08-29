@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RuleSetConfigPrinter.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.printer.defaultconfig</a> &gt; <span class="el_source">RuleSetConfigPrinter.kt</span></div><h1>RuleSetConfigPrinter.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.printer.defaultconfig
+
+import io.github.detekt.utils.YamlNode
+import io.github.detekt.utils.keyValue
+import io.github.detekt.utils.node
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.generator.collection.Configuration
+import io.gitlab.arturbosch.detekt.generator.collection.Rule
+import io.gitlab.arturbosch.detekt.generator.collection.RuleSetPage
+import io.gitlab.arturbosch.detekt.generator.collection.RuleSetProvider
+
+internal fun YamlNode.printRuleSetPage(ruleSetPage: RuleSetPage) {
+<span class="fc" id="L13">    printRuleSet(ruleSetPage.ruleSet, ruleSetPage.rules)</span>
+<span class="fc" id="L14">}</span>
+
+internal fun YamlNode.printRuleSet(ruleSet: RuleSetProvider, rules: List&lt;Rule&gt;) {
+<span class="fc" id="L17">    node(ruleSet.name) {</span>
+<span class="fc" id="L18">        keyValue { Config.ACTIVE_KEY to &quot;${ruleSet.defaultActivationStatus.active}&quot; }</span>
+<span class="fc" id="L19">        val ruleSetExclusion = exclusions.singleOrNull { ruleSet.name in it.ruleSets }</span>
+<span class="pc bpc" id="L20" title="1 of 2 branches missed.">        if (ruleSetExclusion != null) {</span>
+<span class="nc" id="L21">            keyValue { Config.EXCLUDES_KEY to ruleSetExclusion.pattern }</span>
+        }
+
+<span class="fc" id="L24">        ruleSet.configuration.forEach(::printConfiguration)</span>
+
+<span class="fc" id="L26">        rules.forEach(::printRule)</span>
+
+<span class="fc" id="L28">        emptyLine()</span>
+<span class="fc" id="L29">    }</span>
+<span class="fc" id="L30">}</span>
+
+internal fun YamlNode.printRule(rule: Rule) {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">    if (rule.isDeprecated()) return</span>
+
+<span class="fc" id="L35">    node(rule.name) {</span>
+<span class="fc" id="L36">        keyValue { Config.ACTIVE_KEY to &quot;${rule.defaultActivationStatus.active}&quot; }</span>
+<span class="fc bfc" id="L37" title="All 4 branches covered.">        if (rule.aliases.isNotEmpty()) {</span>
+<span class="fc" id="L38">            keyValue { Config.ALIASES_KEY to &quot;[${rule.aliases.joinToString(separator = &quot;, &quot;) { &quot;'$it'&quot; }}]&quot; }</span>
+        }
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (rule.autoCorrect) {</span>
+<span class="fc" id="L41">            keyValue { Config.AUTO_CORRECT_KEY to &quot;true&quot; }</span>
+        }
+<span class="fc" id="L43">        val ruleExclusion = exclusions.singleOrNull { it.isExcluded(rule) }</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (ruleExclusion != null) {</span>
+<span class="fc" id="L45">            keyValue { Config.EXCLUDES_KEY to ruleExclusion.pattern }</span>
+        }
+<span class="fc" id="L47">        rule.configurations.forEach(::printConfiguration)</span>
+<span class="fc" id="L48">    }</span>
+<span class="fc" id="L49">}</span>
+
+internal fun YamlNode.printConfiguration(configuration: Configuration) {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">    if (configuration.isDeprecated()) return</span>
+
+<span class="fc" id="L54">    configuration.defaultValue.printAsYaml(configuration.name, this)</span>
+<span class="fc" id="L55">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

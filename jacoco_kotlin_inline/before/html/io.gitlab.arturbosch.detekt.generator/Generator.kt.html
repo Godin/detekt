@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Generator.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator</a> &gt; <span class="el_source">Generator.kt</span></div><h1>Generator.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator
+
+import io.github.detekt.parser.KtCompiler
+import io.gitlab.arturbosch.detekt.generator.collection.DetektCollector
+import org.jetbrains.kotlin.psi.KtFile
+import java.io.PrintStream
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.extension
+import kotlin.streams.asSequence
+import kotlin.system.measureTimeMillis
+
+<span class="fc" id="L13">class Generator(</span>
+<span class="fc" id="L14">    private val inputPaths: List&lt;Path&gt;,</span>
+<span class="fc" id="L15">    private val textReplacements: Map&lt;String, String&gt;,</span>
+    documentationPath: Path?,
+    configPath: Path?,
+<span class="fc" id="L18">    private val outPrinter: PrintStream = System.out</span>
+<span class="fc" id="L19">) {</span>
+<span class="fc" id="L20">    private val collector = DetektCollector(textReplacements)</span>
+<span class="fc" id="L21">    private val printer = DetektPrinter(documentationPath, configPath)</span>
+
+    fun execute() {
+<span class="nc" id="L24">        val parser = KtCompiler()</span>
+<span class="nc" id="L25">        val time = measureTimeMillis {</span>
+<span class="nc" id="L26">            val ktFiles = inputPaths</span>
+<span class="nc" id="L27">                .flatMap { parseAll(parser, it) }</span>
+
+<span class="nc" id="L29">            ktFiles.forEach(collector::visit)</span>
+
+<span class="nc" id="L31">            printer.print(collector.items)</span>
+<span class="nc" id="L32">        }</span>
+
+<span class="nc" id="L34">        outPrinter.println(&quot;\nGenerated all detekt documentation in $time ms.&quot;)</span>
+<span class="nc" id="L35">    }</span>
+
+    fun executeCustomRuleConfig() {
+<span class="fc" id="L38">        val parser = KtCompiler()</span>
+<span class="fc" id="L39">        val time = measureTimeMillis {</span>
+<span class="fc" id="L40">            inputPaths</span>
+<span class="fc" id="L41">                .map { parseAll(parser, it.resolve(&quot;src/main/kotlin/&quot;)) to it }</span>
+<span class="fc" id="L42">                .forEach { (list: Collection&lt;KtFile&gt;, folder: Path) -&gt;</span>
+<span class="fc" id="L43">                    val collector = DetektCollector(textReplacements)</span>
+<span class="fc" id="L44">                    list.forEach { file -&gt;</span>
+<span class="fc" id="L45">                        collector.visit(file)</span>
+<span class="fc" id="L46">                    }</span>
+<span class="fc" id="L47">                    printer.printCustomRuleConfig(</span>
+<span class="fc" id="L48">                        collector.items,</span>
+<span class="fc" id="L49">                        folder.resolve(&quot;src/main/resources/config/&quot;)</span>
+                    )
+<span class="fc" id="L51">                }</span>
+<span class="fc" id="L52">        }</span>
+
+<span class="fc" id="L54">        outPrinter.println(&quot;\nGenerated custom rules config in $time ms.&quot;)</span>
+<span class="fc" id="L55">    }</span>
+}
+
+private fun parseAll(parser: KtCompiler, root: Path): Collection&lt;KtFile&gt; =
+<span class="fc" id="L59">    Files.walk(root)</span>
+<span class="fc" id="L60">        .asSequence()</span>
+<span class="fc" id="L61">        .filter { it.extension == &quot;kt&quot; }</span>
+<span class="fc" id="L62">        .map { parser.compile(it) }</span>
+<span class="fc" id="L63">        .toList()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

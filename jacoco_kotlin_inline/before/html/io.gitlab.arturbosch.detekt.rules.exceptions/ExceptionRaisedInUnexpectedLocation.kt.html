@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExceptionRaisedInUnexpectedLocation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.exceptions</a> &gt; <span class="el_source">ExceptionRaisedInUnexpectedLocation.kt</span></div><h1>ExceptionRaisedInUnexpectedLocation.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.exceptions
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtThrowExpression
+import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
+
+/**
+ * This rule reports functions which should never throw an exception. If a function exists that does throw
+ * an exception it will be reported. By default, this rule checks `toString`, `hashCode`, `equals` and
+ * `finalize`. This rule is configurable via the `methodNames` configuration to change the list of functions which
+ * should not throw any exceptions.
+ *
+ * &lt;noncompliant&gt;
+ * class Foo {
+ *
+ *     override fun toString(): String {
+ *         throw IllegalStateException() // exception should not be thrown here
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.16.0&quot;)
+<span class="fc" id="L31">class ExceptionRaisedInUnexpectedLocation(config: Config) : Rule(</span>
+<span class="fc" id="L32">    config,</span>
+<span class="fc" id="L33">    &quot;This method is not expected to throw exceptions. This can cause weird behavior.&quot;</span>
+) {
+
+    @Configuration(&quot;methods which should not throw exceptions&quot;)
+<span class="fc" id="L37">    private val methodNames: List&lt;String&gt; by config(</span>
+<span class="fc" id="L38">        listOf(</span>
+<span class="fc" id="L39">            &quot;equals&quot;,</span>
+<span class="fc" id="L40">            &quot;finalize&quot;,</span>
+<span class="fc" id="L41">            &quot;hashCode&quot;,</span>
+<span class="fc" id="L42">            &quot;toString&quot;,</span>
+        )
+    )
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L47" title="All 4 branches covered.">        if (isPotentialMethod(function) &amp;&amp; hasThrowExpression(function.bodyExpression)) {</span>
+<span class="fc" id="L48">            report(</span>
+<span class="fc" id="L49">                CodeSmell(</span>
+<span class="fc" id="L50">                    Entity.atName(function),</span>
+<span class="fc" id="L51">                    description</span>
+                )
+            )
+        }
+<span class="fc" id="L55">    }</span>
+
+<span class="fc" id="L57">    private fun isPotentialMethod(function: KtNamedFunction) = methodNames.any { function.name == it }</span>
+
+    private fun hasThrowExpression(declaration: KtExpression?) =
+<span class="pc bpc" id="L60" title="1 of 4 branches missed.">        declaration?.anyDescendantOfType&lt;KtThrowExpression&gt;() == true</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

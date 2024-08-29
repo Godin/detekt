@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaselineProvider.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.tooling.api</a> &gt; <span class="el_source">BaselineProvider.kt</span></div><h1>BaselineProvider.kt</h1><pre class="source lang-java linenums">package io.github.detekt.tooling.api
+
+import java.nio.file.Path
+import java.util.ServiceLoader
+
+interface BaselineProvider {
+    fun of(manuallySuppressedIssues: FindingsIdList, currentIssues: FindingsIdList): Baseline
+    fun read(sourcePath: Path): Baseline
+    fun write(targetPath: Path, baseline: Baseline)
+
+    companion object {
+
+<span class="fc" id="L13">        fun load(</span>
+<span class="fc" id="L14">            classLoader: ClassLoader = BaselineProvider::class.java.classLoader,</span>
+<span class="fc" id="L15">        ): BaselineProvider = ServiceLoader.load(BaselineProvider::class.java, classLoader).first()</span>
+    }
+}
+
+typealias FindingsIdList = Set&lt;String&gt;
+typealias FindingId = String
+
+interface Baseline {
+
+    val manuallySuppressedIssues: FindingsIdList
+    val currentIssues: FindingsIdList
+
+    fun contains(id: FindingId): Boolean
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

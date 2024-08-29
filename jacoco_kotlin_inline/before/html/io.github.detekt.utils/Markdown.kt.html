@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Markdown.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.utils</a> &gt; <span class="el_source">Markdown.kt</span></div><h1>Markdown.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;detekt.TooManyFunctions&quot;)
+
+package io.github.detekt.utils
+
+<span class="pc" id="L5">sealed class Markdown(open var content: String = &quot;&quot;) {</span>
+    fun append(value: String) {
+<span class="fc bfc" id="L7" title="All 4 branches covered.">        if (value.isEmpty()) return</span>
+<span class="fc bfc" id="L8" title="All 4 branches covered.">        content = if (content.isEmpty()) {</span>
+<span class="fc" id="L9">            value</span>
+        } else {
+<span class="fc" id="L11">            &quot;$content\n$value&quot;</span>
+        }
+<span class="fc" id="L13">    }</span>
+}
+
+<span class="fc" id="L16">data class MarkdownContent(override var content: String = &quot;&quot;) : Markdown()</span>
+<span class="fc" id="L17">data class MarkdownList(override var content: String = &quot;&quot;) : Markdown()</span>
+
+inline fun markdown(content: MarkdownContent.() -&gt; Unit): String =
+<span class="nc" id="L20">    MarkdownContent().let { markdown -&gt;</span>
+<span class="nc" id="L21">        content(markdown)</span>
+<span class="nc" id="L22">        markdown.content</span>
+<span class="nc" id="L23">    }</span>
+
+<span class="nc" id="L25">inline fun MarkdownContent.markdown(markdown: () -&gt; String): Unit = append(markdown())</span>
+<span class="nc" id="L26">inline fun MarkdownContent.paragraph(content: () -&gt; String): Unit = append(&quot;${content()}\n&quot;)</span>
+
+<span class="nc" id="L28">inline fun MarkdownContent.bold(content: () -&gt; String) = &quot;**${content()}**&quot;</span>
+<span class="nc" id="L29">inline fun MarkdownContent.crossOut(code: () -&gt; String) = &quot;~~${code()}~~&quot;</span>
+
+<span class="nc" id="L31">inline fun MarkdownContent.h1(heading: () -&gt; String): Unit = append(&quot;# ${heading()}\n&quot;)</span>
+<span class="nc" id="L32">inline fun MarkdownContent.h2(heading: () -&gt; String): Unit = append(&quot;## ${heading()}\n&quot;)</span>
+<span class="nc" id="L33">inline fun MarkdownContent.h3(heading: () -&gt; String): Unit = append(&quot;### ${heading()}\n&quot;)</span>
+<span class="nc" id="L34">inline fun MarkdownContent.h4(heading: () -&gt; String): Unit = append(&quot;#### ${heading()}\n&quot;)</span>
+
+inline fun MarkdownContent.orderedList(sectionList: () -&gt; List&lt;String&gt;) {
+<span class="nc bnc" id="L37" title="All 2 branches missed.">    for (i in sectionList().indices) {</span>
+<span class="nc" id="L38">        append(&quot;${i + 1}. ${sectionList()[i]}&quot;)</span>
+    }
+<span class="nc" id="L40">}</span>
+
+// Note: Use double-backticks here to be able to render code that itself contains backticks.
+<span class="nc" id="L43">inline fun MarkdownContent.code(code: () -&gt; String) = &quot;``${code()}``&quot;</span>
+
+<span class="nc" id="L45">inline fun MarkdownContent.codeBlock(syntax: String = &quot;kotlin&quot;, code: () -&gt; String) = &quot;```$syntax\n${code()}\n```&quot;</span>
+
+<span class="fc" id="L47">fun MarkdownContent.emptyLine(): Unit = append(&quot;&quot;)</span>
+
+inline fun MarkdownContent.list(listContent: MarkdownList.() -&gt; Unit): Unit =
+<span class="nc" id="L50">    MarkdownList().let { list -&gt;</span>
+<span class="nc" id="L51">        listContent(list)</span>
+<span class="nc bnc" id="L52" title="All 4 branches missed.">        if (list.content.isNotEmpty()) {</span>
+<span class="nc" id="L53">            append(list.content)</span>
+        }
+<span class="nc" id="L55">    }</span>
+
+<span class="nc" id="L57">inline fun MarkdownList.item(item: () -&gt; String): Unit = append(&quot;* ${item()}\n&quot;)</span>
+<span class="nc" id="L58">inline fun MarkdownList.description(description: () -&gt; String): Unit = append(&quot;  ${description()}\n&quot;)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

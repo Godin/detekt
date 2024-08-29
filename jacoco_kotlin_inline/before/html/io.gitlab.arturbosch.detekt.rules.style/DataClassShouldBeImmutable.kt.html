@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataClassShouldBeImmutable.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">DataClassShouldBeImmutable.kt</span></div><h1>DataClassShouldBeImmutable.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.psi.KtClass
+
+/**
+ * This rule reports mutable properties inside data classes.
+ *
+ * Data classes should mainly be used to store immutable data. This rule assumes that they should not contain any
+ * mutable properties.
+ *
+ * &lt;noncompliant&gt;
+ * data class MutableDataClass(var i: Int) {
+ *     var s: String? = null
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * data class ImmutableDataClass(
+ *     val i: Int,
+ *     val s: String?
+ * )
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L29">class DataClassShouldBeImmutable(config: Config) : Rule(</span>
+<span class="fc" id="L30">    config,</span>
+<span class="fc" id="L31">    &quot;Data classes should mainly be immutable and should not have any side effects &quot; +</span>
+        &quot;(To copy an object altering some of its properties use the copy function).&quot;
+) {
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        if (klass.isData()) {</span>
+<span class="fc" id="L37">            klass.primaryConstructorParameters</span>
+<span class="fc" id="L38">                .filter { it.isMutable }</span>
+<span class="fc" id="L39">                .forEach { report(it, klass.name, it.name) }</span>
+
+<span class="fc" id="L41">            klass.getProperties()</span>
+<span class="fc" id="L42">                .filter { it.isVar }</span>
+<span class="fc" id="L43">                .forEach { report(it, klass.name, it.name) }</span>
+        }
+<span class="fc" id="L45">        super.visitClass(klass)</span>
+<span class="fc" id="L46">    }</span>
+
+    private fun report(element: PsiElement, className: String?, propertyName: String?) {
+<span class="fc" id="L49">        report(</span>
+<span class="fc" id="L50">            CodeSmell(</span>
+<span class="fc" id="L51">                Entity.from(element),</span>
+<span class="fc" id="L52">                &quot;The data class $className contains a mutable property. &quot; +</span>
+<span class="fc" id="L53">                    &quot;The offending property is called $propertyName&quot;</span>
+            )
+        )
+<span class="fc" id="L56">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

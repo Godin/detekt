@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnnecessaryAnnotationUseSiteTarget.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnnecessaryAnnotationUseSiteTarget.kt</span></div><h1>UnnecessaryAnnotationUseSiteTarget.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Location
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.TextLocation
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtAnnotationUseSiteTarget
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.KtProperty
+
+/**
+ * This rule inspects the use of the Annotation use-site Target. In case that the use-site Target is not needed it can
+ * be removed. For more information check the kotlin documentation:
+ * [Annotation use-site targets](https://kotlinlang.org/docs/annotations.html#annotation-use-site-targets)
+ *
+ * &lt;noncompliant&gt;
+ * @@property:Inject private val foo: String = &quot;bar&quot; // violation: unnecessary @property:
+ *
+ * class Module(@param:Inject private val foo: String) // violation: unnecessary @param:
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class Module(@Inject private val foo: String)
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L29">class UnnecessaryAnnotationUseSiteTarget(config: Config) : Rule(</span>
+<span class="fc" id="L30">    config,</span>
+<span class="fc" id="L31">    &quot;Unnecessary Annotation use-site Target. It can be removed.&quot;</span>
+) {
+
+    override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor) {
+<span class="fc" id="L35">        constructor.valueParameters.forEach { parameter -&gt;</span>
+<span class="fc" id="L36">            checkForUnnecessaryUseSiteTarget(parameter.annotationEntries, UseSiteTarget.PARAM)</span>
+<span class="fc" id="L37">        }</span>
+<span class="fc" id="L38">        super.visitPrimaryConstructor(constructor)</span>
+<span class="fc" id="L39">    }</span>
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc" id="L42">        checkForUnnecessaryUseSiteTarget(property.annotationEntries, UseSiteTarget.PROPERTY)</span>
+<span class="fc" id="L43">        super.visitProperty(property)</span>
+<span class="fc" id="L44">    }</span>
+
+    private fun checkForUnnecessaryUseSiteTarget(annotations: List&lt;KtAnnotationEntry&gt;, useSiteTarget: UseSiteTarget) {
+<span class="fc" id="L47">        annotations.forEach { annotationEntry -&gt;</span>
+<span class="fc" id="L48">            val useSite = annotationEntry.useSiteTarget</span>
+<span class="pc bpc" id="L49" title="1 of 4 branches missed.">            if (useSite != null &amp;&amp; useSite.text == useSiteTarget.useSiteTarget) {</span>
+<span class="fc" id="L50">                report(useSite, useSiteTarget.message)</span>
+            }
+<span class="fc" id="L52">        }</span>
+<span class="fc" id="L53">    }</span>
+
+    private fun report(useSite: KtAnnotationUseSiteTarget, message: String) {
+<span class="fc" id="L56">        val location = Location.from(useSite).let { location -&gt;</span>
+<span class="fc" id="L57">            Location(</span>
+<span class="fc" id="L58">                location.source,</span>
+<span class="fc" id="L59">                location.endSource,</span>
+<span class="fc" id="L60">                TextLocation(location.text.start, location.text.end + 1),</span>
+<span class="fc" id="L61">                location.path</span>
+<span class="fc" id="L62">            )</span>
+        }
+<span class="fc" id="L64">        report(CodeSmell(Entity.from(useSite, location), message))</span>
+<span class="fc" id="L65">    }</span>
+
+<span class="fc" id="L67">    private enum class UseSiteTarget(val useSiteTarget: String, val message: String) {</span>
+<span class="fc" id="L68">        PARAM(</span>
+<span class="fc" id="L69">            &quot;param&quot;,</span>
+<span class="fc" id="L70">            &quot;An annotation over a parameter doesn't need the use-site target @param.&quot;</span>
+        ),
+<span class="fc" id="L72">        PROPERTY(</span>
+<span class="fc" id="L73">            &quot;property&quot;,</span>
+<span class="fc" id="L74">            &quot;An annotation over a property, that it's not a parameter, doesn't need the use-site target @property.&quot;</span>
+        )
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

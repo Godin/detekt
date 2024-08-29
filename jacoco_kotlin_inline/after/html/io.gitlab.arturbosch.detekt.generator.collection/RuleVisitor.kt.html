@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RuleVisitor.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.collection</a> &gt; <span class="el_source">RuleVisitor.kt</span></div><h1>RuleVisitor.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.collection
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.internal.AutoCorrectable
+import io.gitlab.arturbosch.detekt.generator.collection.exception.InvalidDocumentationException
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtSuperTypeList
+import org.jetbrains.kotlin.psi.psiUtil.containingClass
+import org.jetbrains.kotlin.psi.psiUtil.getSuperNames
+
+<span class="fc" id="L16">internal class RuleVisitor(textReplacements: Map&lt;String, String&gt;) : DetektVisitor() {</span>
+
+    val containsRule
+<span class="fc" id="L19">        get() = classesMap.any { it.value }</span>
+<span class="fc" id="L20">    private var name = &quot;&quot;</span>
+<span class="fc" id="L21">    private val documentationCollector = DocumentationCollector(textReplacements)</span>
+<span class="fc" id="L22">    private var defaultActivationStatus: DefaultActivationStatus = Inactive</span>
+    private var autoCorrect = false
+    private var requiresTypeResolution = false
+<span class="fc" id="L25">    private var aliases: List&lt;String&gt; = emptyList()</span>
+<span class="fc" id="L26">    private var parent = &quot;&quot;</span>
+<span class="fc" id="L27">    private val configurationCollector = ConfigurationCollector()</span>
+<span class="fc" id="L28">    private val classesMap = mutableMapOf&lt;String, Boolean&gt;()</span>
+    private var deprecationMessage: String? = null
+
+    fun getRule(): Rule {
+<span class="fc bfc" id="L32" title="All 4 branches covered.">        if (documentationCollector.description.isEmpty()) {</span>
+<span class="fc" id="L33">            throw InvalidDocumentationException(&quot;Rule $name is missing a description in its KDoc.&quot;)</span>
+        }
+
+<span class="fc" id="L36">        val configurationsByAnnotation = configurationCollector.getConfigurations()</span>
+
+<span class="fc" id="L38">        return Rule(</span>
+<span class="fc" id="L39">            name = name,</span>
+<span class="fc" id="L40">            description = documentationCollector.description,</span>
+<span class="fc" id="L41">            nonCompliantCodeExample = documentationCollector.nonCompliant,</span>
+<span class="fc" id="L42">            compliantCodeExample = documentationCollector.compliant,</span>
+<span class="fc" id="L43">            defaultActivationStatus = defaultActivationStatus,</span>
+<span class="fc" id="L44">            aliases = aliases,</span>
+<span class="fc" id="L45">            parent = parent,</span>
+<span class="fc" id="L46">            configurations = configurationsByAnnotation,</span>
+<span class="fc" id="L47">            autoCorrect = autoCorrect,</span>
+<span class="fc" id="L48">            deprecationMessage = deprecationMessage,</span>
+<span class="fc" id="L49">            requiresTypeResolution = requiresTypeResolution</span>
+        )
+    }
+
+    override fun visitSuperTypeList(list: KtSuperTypeList) {
+<span class="fc" id="L54">        val isRule = list.entries</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">            ?.asSequence()</span>
+<span class="pc bpc" id="L56" title="2 of 4 branches missed.">            ?.map { it.typeAsUserType?.referencedName }</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">            ?.any { ruleClasses.contains(it) }</span>
+<span class="nc" id="L58">            ?: false</span>
+
+<span class="fc" id="L60">        val containingClass = list.containingClass()</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        val className = containingClass?.name</span>
+<span class="pc bpc" id="L62" title="3 of 6 branches missed.">        if (containingClass != null &amp;&amp; className != null &amp;&amp; !classesMap.containsKey(className)) {</span>
+<span class="fc" id="L63">            classesMap[className] = isRule</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">            parent = containingClass.getSuperNames().firstOrNull { ruleClasses.contains(it) }.orEmpty()</span>
+<span class="fc" id="L65">            extractAliases(containingClass)</span>
+        }
+<span class="fc" id="L67">        super.visitSuperTypeList(list)</span>
+<span class="fc" id="L68">    }</span>
+
+    override fun visitClassOrObject(classOrObject: KtClassOrObject) {
+<span class="fc" id="L71">        super.visitClassOrObject(classOrObject)</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (classesMap[classOrObject.name] != true) {</span>
+<span class="fc" id="L73">            return</span>
+        }
+
+<span class="pc bpc" id="L76" title="2 of 4 branches missed.">        name = checkNotNull(classOrObject.name?.trim()) { &quot;Unable to determine rule name.&quot; }</span>
+
+        // Use unparsed KDoc text here to check for tabs
+        // Parsed [KDocSection] element contains no tabs
+<span class="pc bpc" id="L80" title="1 of 8 branches missed.">        if (classOrObject.docComment?.text?.contains('\t') == true) {</span>
+<span class="fc" id="L81">            throw InvalidDocumentationException(&quot;KDoc for rule $name must not contain tabs&quot;)</span>
+        }
+
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (classOrObject.hasConfigurationKDocTag()) {</span>
+<span class="fc" id="L85">            throw InvalidDocumentationException(</span>
+<span class="fc" id="L86">                &quot;Configuration of rule $name is invalid. Rule configuration via KDoc tag is no longer supported. &quot; +</span>
+                    &quot;Use config delegate instead.&quot;
+            )
+        }
+
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (classOrObject.isAnnotatedWith(ActiveByDefault::class)) {</span>
+<span class="fc" id="L92">            val activeByDefaultSinceValue = classOrObject.firstAnnotationParameter(ActiveByDefault::class)</span>
+<span class="fc" id="L93">            defaultActivationStatus = Active(since = activeByDefaultSinceValue)</span>
+        }
+
+<span class="fc" id="L96">        autoCorrect = classOrObject.isAnnotatedWith(AutoCorrectable::class)</span>
+<span class="fc" id="L97">        requiresTypeResolution = classOrObject.isAnnotatedWith(RequiresTypeResolution::class)</span>
+<span class="fc" id="L98">        deprecationMessage = classOrObject.firstAnnotationParameterOrNull(Deprecated::class)</span>
+
+<span class="fc" id="L100">        documentationCollector.setClass(classOrObject)</span>
+<span class="fc" id="L101">    }</span>
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc" id="L104">        super.visitProperty(property)</span>
+<span class="fc" id="L105">        configurationCollector.addProperty(property)</span>
+<span class="fc" id="L106">    }</span>
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc" id="L109">        super.visitClass(klass)</span>
+<span class="fc" id="L110">        klass.companionObjects.forEach(configurationCollector::addCompanion)</span>
+<span class="fc" id="L111">    }</span>
+
+    private fun extractAliases(klass: KtClass) {
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        val annotation = klass.getAnnotation(Alias::class) ?: return</span>
+<span class="fc" id="L115">        aliases = annotation.valueArguments.mapNotNull {</span>
+<span class="fc" id="L116">            it.getArgumentExpression()</span>
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">                ?.text</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">                ?.withoutQuotes()</span>
+        }
+<span class="fc" id="L120">    }</span>
+
+    companion object {
+<span class="fc" id="L123">        private val ruleClasses = listOf(</span>
+            // These references are stringly-typed to prevent dependency cycle:
+            // This class requires FormattingRule,
+            // which needs detekt-formatting.jar,
+            // which needs :detekt-formatting:processResources task output,
+            // which needs output of this class.
+<span class="fc" id="L129">            &quot;Rule&quot;, // io.gitlab.arturbosch.detekt.api.Rule</span>
+<span class="fc" id="L130">            &quot;FormattingRule&quot;, // io.gitlab.arturbosch.detekt.formatting.FormattingRule</span>
+<span class="fc" id="L131">            &quot;EmptyRule&quot;, // io.gitlab.arturbosch.detekt.rules.empty.EmptyRule</span>
+        )
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UndocumentedPublicProperty.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.documentation</a> &gt; <span class="el_source">UndocumentedPublicProperty.kt</span></div><h1>UndocumentedPublicProperty.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.documentation
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.documentation.internal.isPublicInherited
+import io.gitlab.arturbosch.detekt.rules.isPublicNotOverridden
+import org.jetbrains.kotlin.psi.KtEnumEntry
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.psi.psiUtil.isPublic
+
+/**
+ * This rule will report any public property which does not have the required documentation.
+ * This also includes public properties defined in a primary constructor.
+ * If the codebase should have documentation on all public properties enable this rule to enforce this.
+ * Overridden properties are excluded by this rule.
+ */
+<span class="fc" id="L24">class UndocumentedPublicProperty(config: Config) : Rule(</span>
+<span class="fc" id="L25">    config,</span>
+<span class="fc" id="L26">    &quot;Public properties require documentation.&quot;</span>
+) {
+
+    @Configuration(&quot;if protected functions should be searched&quot;)
+<span class="fc" id="L30">    private val searchProtectedProperty: Boolean by config(false)</span>
+
+    override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor) {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        if (constructor.isPublicInherited()) {</span>
+<span class="pc bpc" id="L34" title="1 of 4 branches missed.">            val comment = constructor.containingClassOrObject?.docComment?.text</span>
+<span class="fc" id="L35">            constructor.valueParameters</span>
+<span class="fc bfc" id="L36" title="All 4 branches covered.">                .filter { it.isPublicNotOverridden() &amp;&amp; it.hasValOrVar() }</span>
+<span class="fc bfc" id="L37" title="All 4 branches covered.">                .filter { it.isUndocumented(comment) &amp;&amp; it.docComment == null }</span>
+<span class="fc" id="L38">                .forEach { report(it) }</span>
+        }
+<span class="fc" id="L40">        super.visitPrimaryConstructor(constructor)</span>
+<span class="fc" id="L41">    }</span>
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc bfc" id="L44" title="All 6 branches covered.">        if (property.isPublicInherited(searchProtectedProperty) &amp;&amp; !property.isLocal &amp;&amp; property.shouldBeDocumented()) {</span>
+<span class="fc" id="L45">            report(property)</span>
+        }
+<span class="fc" id="L47">        super.visitProperty(property)</span>
+<span class="fc" id="L48">    }</span>
+
+    override fun visitEnumEntry(enumEntry: KtEnumEntry) {
+<span class="fc" id="L51">        super.visitEnumEntry(enumEntry)</span>
+<span class="fc bfc" id="L52" title="All 4 branches covered.">        if (enumEntry.isPublicInherited(searchProtectedProperty) &amp;&amp; enumEntry.docComment == null) {</span>
+<span class="fc" id="L53">            report(enumEntry)</span>
+        }
+<span class="fc" id="L55">    }</span>
+
+    private fun KtNamedDeclaration.isUndocumented(comment: String?) =
+<span class="fc bfc" id="L58" title="All 4 branches covered.">        comment == null || isNotReferenced(comment)</span>
+
+    private fun KtNamedDeclaration.isNotReferenced(comment: String): Boolean {
+<span class="fc" id="L61">        val name = nameAsSafeName</span>
+<span class="fc bfc" id="L62" title="All 6 branches covered.">        return !comment.contains(&quot;[$name]&quot;) &amp;&amp; !comment.contains(&quot;@property $name&quot;) &amp;&amp; !comment.contains(&quot;@param $name&quot;)</span>
+    }
+
+    private fun KtProperty.shouldBeDocumented() =
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        docComment == null &amp;&amp;</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">            isTopLevelOrInPublicClass() &amp;&amp;</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            isPublicNotOverridden(searchProtectedProperty) &amp;&amp;</span>
+<span class="fc bfc" id="L69" title="All 6 branches covered.">            this.isUndocumented(this.containingClassOrObject?.docComment?.text)</span>
+
+<span class="pc bpc" id="L71" title="3 of 8 branches missed.">    private fun KtProperty.isTopLevelOrInPublicClass() = isTopLevel || containingClassOrObject?.isPublic == true</span>
+
+    private fun report(property: KtNamedDeclaration) {
+<span class="fc" id="L74">        report(</span>
+<span class="fc" id="L75">            CodeSmell(</span>
+<span class="fc" id="L76">                Entity.atName(property),</span>
+<span class="fc" id="L77">                &quot;The property ${property.nameAsSafeName} is missing documentation.&quot;</span>
+            )
+        )
+<span class="fc" id="L80">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XmlEscape.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.report.xml</a> &gt; <span class="el_source">XmlEscape.kt</span></div><h1>XmlEscape.kt</h1><pre class="source lang-java linenums">/*
+ * =============================================================================
+ *
+ *   Copyright (c) 2014, The UNBESCAPE team (http://www.unbescape.org)
+ *
+ *   Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ *
+ * =============================================================================
+ */
+@file:Suppress(&quot;ALL&quot;)
+
+package io.github.detekt.report.xml
+
+/**
+ * Adapted from Unbescape - https://github.com/unbescape/unbescape/
+ *
+ * Utility class for performing XML escape/unescape operations.
+ */
+object XmlEscape {
+
+<span class="fc" id="L31">    private val REFERENCE_HEXA_PREFIX = &quot;&amp;#x&quot;.toCharArray()</span>
+    private const val REFERENCE_SUFFIX = ';'
+
+    /**
+     * Perform an XML 1.0 level 2 (markup-significant and all non-ASCII chars) **escape** operation
+     * on a &lt;tt&gt;String&lt;/tt&gt; input.
+     *
+     * *Level 2* means this method will escape:
+     *  * The five markup-significant characters: &lt;tt&gt;&amp;lt;&lt;/tt&gt;, &lt;tt&gt;&amp;gt;&lt;/tt&gt;, &lt;tt&gt;&amp;amp;&lt;/tt&gt;,
+     * &lt;tt&gt;&amp;quot;&lt;/tt&gt; and &lt;tt&gt;&amp;#39;&lt;/tt&gt;
+     *  * All non ASCII characters.
+     *
+     * This escape will be performed by replacing those chars by the corresponding XML Character Entity References
+     * (e.g. &lt;tt&gt;'&amp;amp;lt;'&lt;/tt&gt;) when such CER exists for the replaced character, and replacing by a hexadecimal
+     * character reference (e.g. &lt;tt&gt;'&amp;amp;#x2430;'&lt;/tt&gt;) when there there is no CER for the replaced character.
+     *
+     * This method is **thread-safe**.
+
+     * @param text the &lt;tt&gt;String&lt;/tt&gt; to be escaped.
+     * *
+     * @return The escaped result &lt;tt&gt;String&lt;/tt&gt;. As a memory-performance improvement, will return the exact
+     * *         same object as the &lt;tt&gt;text&lt;/tt&gt; input argument if no escaping modifications were required (and
+     * *         no additional &lt;tt&gt;String&lt;/tt&gt; objects will be created during processing). Will
+     * *         return &lt;tt&gt;null&lt;/tt&gt; if input is &lt;tt&gt;null&lt;/tt&gt;.
+     */
+    fun escapeXml(text: String): String {
+<span class="fc" id="L57">        val symbols = Xml10EscapeSymbolsInitializer.initializeXml10()</span>
+<span class="fc" id="L58">        val level = 2</span>
+<span class="fc" id="L59">        var strBuilder: StringBuilder? = null</span>
+<span class="fc" id="L60">        val offset = 0</span>
+<span class="fc" id="L61">        val max = text.length</span>
+<span class="fc" id="L62">        var readOffset = offset</span>
+
+<span class="fc" id="L64">        var i = offset</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        while (i &lt; max) {</span>
+<span class="fc" id="L66">            val codepoint = Character.codePointAt(text, i)</span>
+<span class="fc" id="L67">            val codepointValid = symbols.CODEPOINT_VALIDATOR.isValid(codepoint)</span>
+
+            /*
+             * Shortcut: most characters will be ASCII/Alphanumeric, and we won't need to do anything at
+             * all for them
+             */
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">            if (codepoint &lt;= Xml10EscapeSymbolsInitializer.XmlEscapeSymbols.LEVELS_LEN - 2 &amp;&amp;</span>
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">                level &lt; symbols.ESCAPE_LEVELS[codepoint] &amp;&amp;</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">                codepointValid</span>
+            ) {
+<span class="fc" id="L77">                i++</span>
+<span class="fc" id="L78">                continue</span>
+            }
+
+            /*
+             * Shortcut: we might not want to escape non-ASCII chars at all either.
+             */
+<span class="nc bnc" id="L84" title="All 2 branches missed.">            if (codepoint &gt; Xml10EscapeSymbolsInitializer.XmlEscapeSymbols.LEVELS_LEN - 2 &amp;&amp;</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">                level &lt; symbols.ESCAPE_LEVELS[Xml10EscapeSymbolsInitializer.XmlEscapeSymbols.LEVELS_LEN - 1] &amp;&amp;</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">                codepointValid</span>
+            ) {
+<span class="nc bnc" id="L88" title="All 2 branches missed.">                if (Character.charCount(codepoint) &gt; 1) {</span>
+                    // This is to compensate that we are actually escaping two char[] positions with a single codepoint.
+<span class="nc" id="L90">                    i++</span>
+                }
+<span class="nc" id="L92">                i++</span>
+<span class="nc" id="L93">                continue</span>
+            }
+
+            /*
+             * At this point we know for sure we will need some kind of escape, so we
+             * can increase the offset and initialize the string builder if needed, along with
+             * copying to it all the contents pending up to this point.
+             */
+<span class="nc bnc" id="L101" title="All 2 branches missed.">            if (strBuilder == null) {</span>
+<span class="nc" id="L102">                strBuilder = StringBuilder(max + 20)</span>
+            }
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            if (i - readOffset &gt; 0) {</span>
+<span class="nc" id="L105">                strBuilder.append(text, readOffset, i)</span>
+            }
+<span class="nc bnc" id="L107" title="All 2 branches missed.">            if (Character.charCount(codepoint) &gt; 1) {</span>
+                // This is to compensate that we are actually reading two char[] positions with a single codepoint.
+<span class="nc" id="L109">                i++</span>
+            }
+<span class="nc" id="L111">            readOffset = i + 1</span>
+
+            /*
+             * If the char is invalid, there is nothing to write, simply skip it (which we already did by
+             * incrementing the readOffset.
+             */
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (!codepointValid) {</span>
+<span class="nc" id="L118">                i++</span>
+<span class="nc" id="L119">                continue</span>
+            }
+
+            /*
+             * -----------------------------------------------------------------------------------------
+             *
+             * Perform the real escape, attending the different combinations of NCR, DCR and HCR needs.
+             *
+             * -----------------------------------------------------------------------------------------
+             */
+            // We will try to use a CER
+<span class="nc" id="L130">            val codepointIndex = symbols.SORTED_CODEPOINTS.binarySearch(codepoint)</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            if (codepointIndex &gt;= 0) {</span>
+                // CER found! just write it and go for the next char
+<span class="nc" id="L133">                strBuilder.append(symbols.SORTED_CERS_BY_CODEPOINT[codepointIndex])</span>
+<span class="nc" id="L134">                i++</span>
+<span class="nc" id="L135">                continue</span>
+            }
+            /*
+             * No NCR-escape was possible (or allowed), so we need decimal/hexa escape.
+             */
+<span class="nc" id="L140">            strBuilder.append(REFERENCE_HEXA_PREFIX)</span>
+<span class="nc" id="L141">            strBuilder.append(Integer.toHexString(codepoint))</span>
+<span class="nc" id="L142">            strBuilder.append(REFERENCE_SUFFIX)</span>
+<span class="nc" id="L143">            i++</span>
+        }
+
+        /*
+         * -----------------------------------------------------------------------------------------------
+         * Final cleaning: return the original String object if no escape was actually needed. Otherwise
+         *                 append the remaining unescaped text to the string builder and return.
+         * -----------------------------------------------------------------------------------------------
+         */
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        if (strBuilder == null) {</span>
+<span class="fc" id="L153">            return text</span>
+        }
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        if (max - readOffset &gt; 0) {</span>
+<span class="nc" id="L156">            strBuilder.append(text, readOffset, max)</span>
+        }
+<span class="nc" id="L158">        return strBuilder.toString()</span>
+    }
+}
+
+/**
+ * This class initializes the XML10_SYMBOLS structure.
+ */
+@Suppress(&quot;ALL&quot;)
+private object Xml10EscapeSymbolsInitializer {
+
+<span class="fc" id="L168">    class XmlCodepointValidator {</span>
+
+        /*
+         * XML 1.0 does not allow many control characters, nor unpaired surrogate chars
+         * (characters used for composing two-char codepoints, but appearing on their own).
+         */
+        fun isValid(codepoint: Int): Boolean {
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">            if (codepoint &lt; 0x20) {</span>
+<span class="nc bnc" id="L176" title="All 6 branches missed.">                return codepoint == 0x9 || codepoint == 0xA || codepoint == 0xD</span>
+            }
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">            if (codepoint &lt;= 0xD7FF) { // U+D800 - U+DFFF are reserved for low + high surrogates</span>
+<span class="fc" id="L179">                return true</span>
+            }
+<span class="nc bnc" id="L181" title="All 2 branches missed.">            if (codepoint &lt; 0xE000) {</span>
+<span class="nc" id="L182">                return false</span>
+            }
+<span class="nc bnc" id="L184" title="All 2 branches missed.">            if (codepoint &lt;= 0xFFFD) { // U+FFFE and U+FFFF are non-characters, and therefore not valid</span>
+<span class="nc" id="L185">                return true</span>
+            }
+<span class="nc bnc" id="L187" title="All 2 branches missed.">            if (codepoint &lt; 0x10000) {</span>
+<span class="nc" id="L188">                return false</span>
+            }
+<span class="nc" id="L190">            return true</span>
+        }
+    }
+
+    fun initializeXml10(): XmlEscapeSymbols {
+<span class="fc" id="L195">        val xml10References = XmlEscapeSymbols.References()</span>
+
+        /*
+         * --------------------------------------------------------------------------------------------------
+         *   XML 1.0 CHARACTER ENTITY REFERENCES
+         *   See: http://www.w3.org/TR/xml
+         * --------------------------------------------------------------------------------------------------
+         */
+<span class="fc" id="L203">        xml10References.addReference(34, &quot;&amp;quot;&quot;)</span>
+<span class="fc" id="L204">        xml10References.addReference(38, &quot;&amp;amp;&quot;)</span>
+<span class="fc" id="L205">        xml10References.addReference(39, &quot;&amp;apos;&quot;)</span>
+<span class="fc" id="L206">        xml10References.addReference(60, &quot;&amp;lt;&quot;)</span>
+<span class="fc" id="L207">        xml10References.addReference(62, &quot;&amp;gt;&quot;)</span>
+
+        /*
+         * Initialization of escape markup-significant characters plus all non-ASCII
+         */
+<span class="fc" id="L212">        val escapeLevels = ByteArray(XmlEscapeSymbols.LEVELS_LEN)</span>
+        /*
+         * Everything is level 3 unless contrary indication.
+         */
+<span class="fc" id="L216">        escapeLevels.fill(3.toByte())</span>
+        /*
+         * Everything non-ASCII is level 2 unless contrary indication.
+         */
+<span class="fc bfc" id="L220" title="All 2 branches covered.">        for (c in 0x80..&lt;XmlEscapeSymbols.LEVELS_LEN) {</span>
+<span class="fc" id="L221">            escapeLevels[c] = 2</span>
+        }
+
+        /*
+         * Alphanumeric characters are level 4.
+         */
+<span class="fc" id="L227">        run {</span>
+<span class="fc" id="L228">            var c = 'A'</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">            while (c &lt;= 'Z') {</span>
+<span class="fc" id="L230">                escapeLevels[c] = 4</span>
+<span class="fc" id="L231">                c++</span>
+            }
+<span class="fc" id="L233">        }</span>
+<span class="fc" id="L234">        run {</span>
+<span class="fc" id="L235">            var c = 'a'</span>
+<span class="fc bfc" id="L236" title="All 2 branches covered.">            while (c &lt;= 'z') {</span>
+<span class="fc" id="L237">                escapeLevels[c] = 4</span>
+<span class="fc" id="L238">                c++</span>
+            }
+<span class="fc" id="L240">        }</span>
+<span class="fc" id="L241">        run {</span>
+<span class="fc" id="L242">            var c = '0'</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">            while (c &lt;= '9') {</span>
+<span class="fc" id="L244">                escapeLevels[c] = 4</span>
+<span class="fc" id="L245">                c++</span>
+            }
+<span class="fc" id="L247">        }</span>
+
+        /*
+         * The five XML predefined entities will be escaped always (level 1)
+         */
+<span class="fc" id="L252">        escapeLevels['\''] = 1</span>
+<span class="fc" id="L253">        escapeLevels['&quot;'] = 1</span>
+<span class="fc" id="L254">        escapeLevels['&lt;'] = 1</span>
+<span class="fc" id="L255">        escapeLevels['&gt;'] = 1</span>
+<span class="fc" id="L256">        escapeLevels['&amp;'] = 1</span>
+
+        /*
+         * XML 1.0 allows a series of control characters, but they should appear
+         * escaped: [#x7F-#x84] | [#x86-#x9F]
+         */
+<span class="fc bfc" id="L262" title="All 2 branches covered.">        for (c in 0x7F..0x84) {</span>
+<span class="fc" id="L263">            escapeLevels[c] = 1</span>
+        }
+<span class="fc bfc" id="L265" title="All 2 branches covered.">        for (c in 0x86..0x9F) {</span>
+<span class="fc" id="L266">            escapeLevels[c] = 1</span>
+        }
+
+        /*
+         * Create the new symbols structure
+         */
+<span class="fc" id="L272">        return XmlEscapeSymbols(xml10References, escapeLevels, XmlCodepointValidator())</span>
+    }
+
+    private operator fun ByteArray.set(c: Char, value: Byte) {
+<span class="fc" id="L276">        set(c.code, value)</span>
+<span class="fc" id="L277">    }</span>
+
+    /**
+     * Instances of this class group all the complex data structures needed to support escape and unescape
+     * operations for XML.
+     *
+     * In contrast with HTML escape operations, the entity references to be used for XML escape/unescape operations
+     * can be defined by the user by manually creating an instance of this class containing all the entities he/she
+     * wants to escape.
+     *
+     * It is **not** recommended to use this XML class for HTML escape/unescape operations. Use the methods
+     * in [org.unbescape.html.HtmlEscape] instead, as HTML escape rules include a series of tweaks not allowed in
+     * XML, as well as being less lenient with regard to aspects such as case-sensitivity. Besides, the HTML escape
+     * infrastructure is able to apply a series of performance optimizations not possible in XML due to the fact that
+     * the number of HTML Character Entity References (*Named Character References* in HTML5 jargon) is fixed
+     * and known in advance.
+     *
+     * Objects of this class are **thread-safe**.
+     */
+    class XmlEscapeSymbols
+    /*
+     * Create a new XmlEscapeSymbols structure. This will initialize all the structures needed to cover the
+     * specified references and escape levels, including sorted arrays, overflow maps, etc.
+     */
+<span class="fc" id="L301">    internal constructor(</span>
+        references: References,
+        escapeLevels: ByteArray,
+        /*
+         * This object will be in charge of validating each codepoint in input, in order to determine
+         * whether such codepoint will be allowed in escaped output (escaped or not). Invalid codepoints
+         * will be simply discarded.
+         */
+<span class="fc" id="L309">        val CODEPOINT_VALIDATOR: XmlCodepointValidator</span>
+    ) {
+
+        /*
+         * This array will hold the 'escape level' assigned to chars (not codepoints) up to LEVELS_LEN.
+         * - The last position of this array will be used for determining the level of all codepoints &gt;= (LEVELS_LEN - 1)
+         */
+<span class="fc" id="L316">        val ESCAPE_LEVELS = ByteArray(LEVELS_LEN)</span>
+
+        /*
+         * This array will contain all the codepoints that might be escaped, numerically ordered.
+         * - Positions in this array will correspond to positions in the SORTED_CERS_BY_CODEPOINT array, so that one array
+         *   (this one) holds the codepoints while the other one holds the CERs such codepoints refer to.
+         * - Gives the opportunity to store all codepoints in numerical order and therefore be able to perform
+         *   binary search operations in order to quickly find codepoints (and translate to CERs) when escaping.
+         */
+<span class="nc" id="L325">        val SORTED_CODEPOINTS: IntArray</span>
+
+        /*
+         * This array contains all the CERs corresponding to the codepoints stored in SORTED_CODEPOINTS. This array is
+         * ordered so that each index in SORTED_CODEPOINTS can also be used to retrieve the corresponding CER when used
+         * on this array.
+         */
+<span class="nc" id="L332">        val SORTED_CERS_BY_CODEPOINT: Array&lt;CharArray?&gt;</span>
+
+        /*
+         * This array will contain all the CERs that might be unescaped, alphabetically ordered.
+         * - Positions in this array will correspond to positions in the SORTED_CODEPOINTS_BY_CER array, so that one array
+         *   (this one) holds the CERs while the other one holds the codepoint(s) such CERs refer to.
+         * - Gives the opportunity to store all CERs in alphabetical order and therefore be able to perform
+         *   binary search operations in order to quickly find CERs (and translate to codepoints) when unescaping.
+         */
+<span class="nc" id="L341">        val SORTED_CERS: Array&lt;CharArray?&gt;</span>
+
+        /*
+         * This array contains all the codepoints corresponding to the CERs stored in SORTED_CERS. This array is
+         * ordered so that each index in SORTED_CERS can also be used to retrieve the corresponding CODEPOINT when used
+         * on this array.
+         */
+<span class="nc" id="L348">        val SORTED_CODEPOINTS_BY_CER: IntArray</span>
+
+<span class="fc" id="L350">        init {</span>
+
+            // Initialize escape levels: just copy the array
+<span class="fc" id="L353">            System.arraycopy(escapeLevels, 0, ESCAPE_LEVELS, 0, LEVELS_LEN)</span>
+
+            // Initialize the length of the escaping structures
+<span class="fc" id="L356">            val structureLen = references.references.size</span>
+
+            // Initialize some auxiliary structures
+<span class="fc" id="L359">            val cers = ArrayList&lt;CharArray&gt;(structureLen + 5)</span>
+<span class="fc" id="L360">            val codepoints = ArrayList&lt;Int&gt;(structureLen + 5)</span>
+
+            // For each reference, initialize its corresponding codepoint -&gt; CER and CER -&gt; codepoint structures
+<span class="fc bfc" id="L363" title="All 2 branches covered.">            for (reference in references.references) {</span>
+<span class="fc" id="L364">                cers.add(reference.cer) // can be null</span>
+<span class="fc" id="L365">                codepoints.add(Integer.valueOf(reference.codepoint))</span>
+            }
+
+            // We can initialize now the arrays
+<span class="fc" id="L369">            SORTED_CODEPOINTS = IntArray(structureLen)</span>
+<span class="fc" id="L370">            SORTED_CERS_BY_CODEPOINT = arrayOfNulls(structureLen)</span>
+<span class="fc" id="L371">            SORTED_CERS = arrayOfNulls(structureLen)</span>
+<span class="fc" id="L372">            SORTED_CODEPOINTS_BY_CER = IntArray(structureLen)</span>
+
+<span class="fc" id="L374">            val cersOrdered = ArrayList(cers)</span>
+<span class="fc" id="L375">            cersOrdered.sortWith { o1, o2 -&gt; String(o1).compareTo(String(o2)) }</span>
+
+<span class="fc" id="L377">            val codepointsOrdered = ArrayList(codepoints)</span>
+<span class="fc" id="L378">            codepointsOrdered.sort()</span>
+
+            // Order the CODEPOINT -&gt; CERs (escape)structures
+<span class="fc bfc" id="L381" title="All 2 branches covered.">            for (i in 0..&lt;structureLen) {</span>
+<span class="fc" id="L382">                val codepoint = codepointsOrdered[i]</span>
+<span class="fc" id="L383">                SORTED_CODEPOINTS[i] = codepoint</span>
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">                for (j in 0..&lt;structureLen) {</span>
+<span class="fc bfc" id="L385" title="All 2 branches covered.">                    if (codepoint == codepoints[j]) {</span>
+<span class="fc" id="L386">                        SORTED_CERS_BY_CODEPOINT[i] = cers[j]</span>
+<span class="fc" id="L387">                        break</span>
+                    }
+                }
+            }
+
+            // Order the CERs -&gt; CODEPOINT (unescape)structures
+<span class="fc bfc" id="L393" title="All 2 branches covered.">            for (i in 0..&lt;structureLen) {</span>
+<span class="fc" id="L394">                val cer = cersOrdered[i]</span>
+<span class="fc" id="L395">                SORTED_CERS[i] = cer</span>
+<span class="pc bpc" id="L396" title="1 of 2 branches missed.">                for (j in 0..&lt;structureLen) {</span>
+<span class="fc bfc" id="L397" title="All 2 branches covered.">                    if (cer.contentEquals(cers[j])) {</span>
+<span class="fc" id="L398">                        SORTED_CODEPOINTS_BY_CER[i] = codepoints[j]</span>
+<span class="fc" id="L399">                        break</span>
+                    }
+                }
+            }
+<span class="fc" id="L403">        }</span>
+
+        /*
+         * Inner utility classes that model the named character references to be included in an initialized
+         * instance of the XmlEscapeSymbols class.
+         */
+<span class="fc" id="L409">        class References {</span>
+
+<span class="fc" id="L411">            internal val references = ArrayList&lt;Reference&gt;(200)</span>
+
+            fun addReference(codepoint: Int, cer: String) {
+<span class="fc" id="L414">                this.references.add(Reference(cer, codepoint))</span>
+<span class="fc" id="L415">            }</span>
+        }
+
+<span class="fc" id="L418">        class Reference internal constructor(cer: String, internal val codepoint: Int) {</span>
+            // cer CAN be null -&gt; codepoint should be removed from escaped output.
+<span class="fc" id="L420">            internal val cer: CharArray = cer.toCharArray()</span>
+        }
+
+        companion object {
+            /*
+             * Size of the array specifying the escape levels.
+             */
+            const val LEVELS_LEN = (0x9f + 2)
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

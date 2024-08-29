@@ -76,6 +76,12 @@ buildCache {
 
 dependencyResolutionManagement {
     repositories {
+        mavenLocal() {
+            mavenContent {
+                snapshotsOnly()
+                includeGroup("org.jacoco")
+            }
+        }
         mavenCentral()
     }
 }

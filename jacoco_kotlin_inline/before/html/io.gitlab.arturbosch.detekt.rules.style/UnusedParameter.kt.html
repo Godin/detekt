@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnusedParameter.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnusedParameter.kt</span></div><h1>UnusedParameter.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isAbstract
+import io.gitlab.arturbosch.detekt.rules.isActual
+import io.gitlab.arturbosch.detekt.rules.isExpect
+import io.gitlab.arturbosch.detekt.rules.isExternal
+import io.gitlab.arturbosch.detekt.rules.isMainFunction
+import io.gitlab.arturbosch.detekt.rules.isOpen
+import io.gitlab.arturbosch.detekt.rules.isOperator
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtReferenceExpression
+import org.jetbrains.kotlin.psi.KtValueArgumentName
+import org.jetbrains.kotlin.psi.psiUtil.isProtected
+
+/**
+ * An unused parameter can be removed to simplify the signature of the function.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo(unused: String) {
+ *     println()
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun foo(used: String) {
+ *     println(used)
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.23.0&quot;)
+@Alias(&quot;UNUSED_PARAMETER&quot;, &quot;unused&quot;)
+<span class="fc" id="L47">class UnusedParameter(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;Function parameter is unused and should be removed.&quot;</span>
+) {
+
+    @Configuration(&quot;unused parameter names matching this regex are ignored&quot;)
+<span class="fc" id="L53">    private val allowedNames: Regex by config(&quot;ignored|expected&quot;, String::toRegex)</span>
+
+    override fun visit(root: KtFile) {
+<span class="fc" id="L56">        super.visit(root)</span>
+<span class="fc" id="L57">        val visitor = UnusedParameterVisitor(allowedNames)</span>
+<span class="fc" id="L58">        root.accept(visitor)</span>
+<span class="fc" id="L59">        visitor.getUnusedReports().forEach { report(it) }</span>
+<span class="fc" id="L60">    }</span>
+}
+
+<span class="fc" id="L63">private class UnusedParameterVisitor(private val allowedNames: Regex) : DetektVisitor() {</span>
+
+<span class="fc" id="L65">    private val unusedParameters: MutableSet&lt;KtParameter&gt; = mutableSetOf()</span>
+
+    fun getUnusedReports(): List&lt;CodeSmell&gt; =
+<span class="fc" id="L68">        unusedParameters.map {</span>
+<span class="fc" id="L69">            CodeSmell(Entity.atName(it), &quot;Function parameter `${it.nameAsSafeName.identifier}` is unused.&quot;)</span>
+<span class="fc" id="L70">        }</span>
+
+    override fun visitClassOrObject(klassOrObject: KtClassOrObject) {
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        if (klassOrObject.isExpect()) return</span>
+
+<span class="fc" id="L75">        super.visitClassOrObject(klassOrObject)</span>
+<span class="fc" id="L76">    }</span>
+
+    override fun visitClass(klass: KtClass) {
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">        if (klass.isInterface()) return</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        if (klass.isExternal()) return</span>
+
+<span class="fc" id="L82">        super.visitClass(klass)</span>
+<span class="fc" id="L83">    }</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        if (!function.isRelevant()) {</span>
+<span class="fc" id="L87">            return</span>
+        }
+
+<span class="fc" id="L90">        collectParameters(function)</span>
+
+<span class="fc" id="L92">        super.visitNamedFunction(function)</span>
+<span class="fc" id="L93">    }</span>
+
+    private fun collectParameters(function: KtNamedFunction) {
+<span class="fc" id="L96">        val parameters = mutableMapOf&lt;String, KtParameter&gt;()</span>
+<span class="pc bpc" id="L97" title="2 of 4 branches missed.">        function.valueParameterList?.parameters?.forEach { parameter -&gt;</span>
+<span class="fc" id="L98">            val name = parameter.nameAsSafeName.identifier</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">            if (!allowedNames.matches(name)) {</span>
+<span class="fc" id="L100">                parameters[name] = parameter</span>
+            }
+<span class="fc" id="L102">        }</span>
+
+<span class="fc" id="L104">        function.accept(object : DetektVisitor() {</span>
+            override fun visitProperty(property: KtProperty) {
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">                if (property.isLocal) {</span>
+<span class="fc" id="L107">                    val name = property.nameAsSafeName.identifier</span>
+<span class="fc" id="L108">                    parameters.remove(name)</span>
+                }
+<span class="fc" id="L110">                super.visitProperty(property)</span>
+<span class="fc" id="L111">            }</span>
+
+            override fun visitReferenceExpression(expression: KtReferenceExpression) {
+<span class="fc bfc" id="L114" title="All 2 branches covered.">                if (expression.parent !is KtValueArgumentName) {</span>
+<span class="fc" id="L115">                    parameters.remove(expression.text.removeSurrounding(&quot;`&quot;))</span>
+                }
+<span class="fc" id="L117">                super.visitReferenceExpression(expression)</span>
+<span class="fc" id="L118">            }</span>
+        })
+
+<span class="fc" id="L121">        unusedParameters.addAll(parameters.values)</span>
+<span class="fc" id="L122">    }</span>
+
+<span class="fc bfc" id="L124" title="All 2 branches covered.">    private fun KtNamedFunction.isRelevant() = !isAllowedToHaveUnusedParameters()</span>
+
+    private fun KtNamedFunction.isAllowedToHaveUnusedParameters() =
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">        isAbstract() ||</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">            isOpen() ||</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">            isOverride() ||</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">            isOperator() ||</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">            isMainFunction() ||</span>
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">            isExternal() ||</span>
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">            isExpect() ||</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">            isActual() ||</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">            isProtected()</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

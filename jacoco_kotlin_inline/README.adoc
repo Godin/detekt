@@ -1,0 +1,7 @@
+```
+./gradlew jacocoMergedReport
+```
+
+```
+./code-coverage-report/build/reports/jacoco/jacocoMergedReport/jacocoMergedReport.xml
+```

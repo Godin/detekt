@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RedundantSuspendModifier.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.coroutines</a> &gt; <span class="el_source">RedundantSuspendModifier.kt</span></div><h1>RedundantSuspendModifier.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.coroutines
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.descriptors.PropertyDescriptor
+import org.jetbrains.kotlin.descriptors.VariableDescriptorWithAccessors
+import org.jetbrains.kotlin.descriptors.accessors
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtForExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtOperationReferenceExpression
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.BindingContext.DECLARATION_TO_DESCRIPTOR
+import org.jetbrains.kotlin.resolve.BindingContext.DELEGATED_PROPERTY_RESOLVED_CALL
+import org.jetbrains.kotlin.resolve.BindingContext.LOOP_RANGE_HAS_NEXT_RESOLVED_CALL
+import org.jetbrains.kotlin.resolve.BindingContext.LOOP_RANGE_ITERATOR_RESOLVED_CALL
+import org.jetbrains.kotlin.resolve.BindingContext.LOOP_RANGE_NEXT_RESOLVED_CALL
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
+
+/*
+ * Based on code from Kotlin project:
+ * https://github.com/JetBrains/kotlin/blob/v1.3.61/idea/src/org/jetbrains/kotlin/idea/inspections/RedundantSuspendModifierInspection.kt
+ */
+
+/**
+ * `suspend` modifier should only be used where needed, otherwise the function can only be used from other suspending
+ * functions. This needlessly restricts use of the function and should be avoided by removing the `suspend` modifier
+ * where it's not needed.
+ *
+ * &lt;noncompliant&gt;
+ * suspend fun normalFunction() {
+ *     println(&quot;string&quot;)
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun normalFunction() {
+ *     println(&quot;string&quot;)
+ * }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L57">class RedundantSuspendModifier(config: Config) : Rule(</span>
+<span class="fc" id="L58">    config,</span>
+<span class="fc" id="L59">    &quot;The `suspend` modifier is only needed for functions that contain suspending calls.&quot;</span>
+) {
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="pc bpc" id="L63" title="1 of 4 branches missed.">        val suspendModifier = function.modifierList?.getModifier(KtTokens.SUSPEND_KEYWORD) ?: return</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        if (!function.hasBody()) return</span>
+<span class="fc bfc" id="L65" title="All 4 branches covered.">        if (function.hasModifier(KtTokens.OVERRIDE_KEYWORD) || function.hasModifier(KtTokens.ACTUAL_KEYWORD)) return</span>
+
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        val descriptor = bindingContext[BindingContext.FUNCTION, function] ?: return</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (descriptor.modality == Modality.OPEN) return</span>
+
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (!function.anyDescendantOfType&lt;KtExpression&gt; { it.hasSuspendCalls() }) {</span>
+<span class="fc" id="L71">            report(CodeSmell(Entity.from(suspendModifier), &quot;Function has redundant `suspend` modifier.&quot;))</span>
+        }
+<span class="fc" id="L73">    }</span>
+
+    private fun KtExpression.isValidCandidateExpression(): Boolean =
+<span class="fc" id="L76">        when (this) {</span>
+<span class="pc bpc" id="L77" title="1 of 8 branches missed.">            is KtOperationReferenceExpression, is KtForExpression, is KtProperty, is KtNameReferenceExpression -&gt; true</span>
+            else -&gt; {
+<span class="fc" id="L79">                val parent = parent</span>
+<span class="pc bpc" id="L80" title="3 of 4 branches missed.">                if (parent is KtCallExpression &amp;&amp; parent.calleeExpression == this) {</span>
+<span class="nc" id="L81">                    true</span>
+                } else {
+<span class="pc bpc" id="L83" title="1 of 4 branches missed.">                    this is KtCallExpression &amp;&amp; this.calleeExpression is KtCallExpression</span>
+                }
+            }
+<span class="fc" id="L86">        }</span>
+
+    private fun KtExpression.hasSuspendCalls(): Boolean {
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (!isValidCandidateExpression()) return false</span>
+
+<span class="fc" id="L91">        return when (this) {</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            is KtForExpression -&gt; {</span>
+<span class="fc" id="L93">                val iteratorResolvedCall = bindingContext[LOOP_RANGE_ITERATOR_RESOLVED_CALL, loopRange]</span>
+<span class="fc" id="L94">                val loopRangeHasNextResolvedCall = bindingContext[LOOP_RANGE_HAS_NEXT_RESOLVED_CALL, loopRange]</span>
+<span class="fc" id="L95">                val loopRangeNextResolvedCall = bindingContext[LOOP_RANGE_NEXT_RESOLVED_CALL, loopRange]</span>
+<span class="fc" id="L96">                listOf(iteratorResolvedCall, loopRangeHasNextResolvedCall, loopRangeNextResolvedCall).any {</span>
+<span class="pc bpc" id="L97" title="3 of 6 branches missed.">                    it?.resultingDescriptor?.isSuspend == true</span>
+                }
+            }
+<span class="fc bfc" id="L100" title="All 2 branches covered.">            is KtProperty -&gt; {</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">                if (hasDelegateExpression()) {</span>
+<span class="fc" id="L102">                    val variableDescriptor =</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">                        bindingContext[DECLARATION_TO_DESCRIPTOR, this] as? VariableDescriptorWithAccessors</span>
+<span class="pc bpc" id="L104" title="2 of 4 branches missed.">                    val accessors = variableDescriptor?.accessors.orEmpty()</span>
+<span class="fc" id="L105">                    accessors.any { accessor -&gt;</span>
+<span class="fc" id="L106">                        val delegatedFunctionDescriptor =</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">                            bindingContext[DELEGATED_PROPERTY_RESOLVED_CALL, accessor]?.resultingDescriptor</span>
+<span class="pc bpc" id="L108" title="2 of 4 branches missed.">                        delegatedFunctionDescriptor?.isSuspend == true</span>
+                    }
+                } else {
+<span class="nc" id="L111">                    false</span>
+                }
+            }
+            else -&gt; {
+<span class="fc" id="L115">                val resolvedCall = getResolvedCall(bindingContext)</span>
+<span class="fc bfc" id="L116" title="All 10 branches covered.">                if ((resolvedCall?.resultingDescriptor as? FunctionDescriptor)?.isSuspend == true) {</span>
+<span class="fc" id="L117">                    true</span>
+                } else {
+<span class="pc bpc" id="L119" title="1 of 4 branches missed.">                    val propertyDescriptor = resolvedCall?.resultingDescriptor as? PropertyDescriptor</span>
+<span class="pc bpc" id="L120" title="3 of 4 branches missed.">                    val s = propertyDescriptor?.fqNameSafe?.asString()</span>
+<span class="pc bpc" id="L121" title="6 of 8 branches missed.">                    s?.startsWith(&quot;kotlin.coroutines.&quot;) == true &amp;&amp; s.endsWith(&quot;.coroutineContext&quot;)</span>
+                }
+            }
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

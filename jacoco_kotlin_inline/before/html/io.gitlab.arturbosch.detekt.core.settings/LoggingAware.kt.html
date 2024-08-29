@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoggingAware.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.settings</a> &gt; <span class="el_source">LoggingAware.kt</span></div><h1>LoggingAware.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.settings
+
+import io.github.detekt.tooling.api.spec.LoggingSpec
+import java.io.PrintStream
+import java.io.PrintWriter
+
+interface LoggingAware {
+
+    val outputChannel: Appendable
+    val errorChannel: Appendable
+
+    fun info(msg: String)
+    fun error(msg: String, error: Throwable)
+    fun debug(msg: () -&gt; String)
+}
+
+internal fun Throwable.printStacktraceRecursively(logger: Appendable) {
+<span class="nc" id="L18">    when (logger) {</span>
+<span class="nc bnc" id="L19" title="All 2 branches missed.">        is PrintStream -&gt; this.printStackTrace(logger)</span>
+<span class="nc bnc" id="L20" title="All 2 branches missed.">        is PrintWriter -&gt; this.printStackTrace(logger)</span>
+        else -&gt; {
+<span class="nc" id="L22">            stackTrace.forEach { logger.appendLine(it.toString()) }</span>
+<span class="nc bnc" id="L23" title="All 2 branches missed.">            cause?.printStacktraceRecursively(logger)</span>
+        }
+    }
+<span class="nc" id="L26">}</span>
+
+<span class="fc" id="L28">internal class LoggingFacade(</span>
+<span class="pc" id="L29">    val spec: LoggingSpec</span>
+) : LoggingAware {
+
+<span class="fc" id="L32">    override val outputChannel: Appendable = spec.outputChannel</span>
+<span class="pc" id="L33">    override val errorChannel: Appendable = spec.errorChannel</span>
+
+    override fun info(msg: String) {
+<span class="fc" id="L36">        outputChannel.appendLine(msg)</span>
+<span class="fc" id="L37">    }</span>
+
+    override fun error(msg: String, error: Throwable) {
+<span class="nc" id="L40">        errorChannel.appendLine(msg)</span>
+<span class="nc" id="L41">        error.printStacktraceRecursively(errorChannel)</span>
+<span class="nc" id="L42">    }</span>
+
+    override fun debug(msg: () -&gt; String) {
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (spec.debug) {</span>
+<span class="fc" id="L46">            outputChannel.appendLine(msg())</span>
+        }
+<span class="fc" id="L48">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NullableToStringCall.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">NullableToStringCall.kt</span></div><h1>NullableToStringCall.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isCalling
+import io.gitlab.arturbosch.detekt.rules.isNullable
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtSimpleNameExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateEntry
+import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelector
+
+/**
+ * Reports `toString()` calls with a nullable receiver that may return the string &quot;null&quot;.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo(a: Any?): String {
+ *     return a.toString()
+ * }
+ *
+ * fun bar(a: Any?): String {
+ *     return &quot;$a&quot;
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun foo(a: Any?): String {
+ *     return a?.toString() ?: &quot;-&quot;
+ * }
+ *
+ * fun bar(a: Any?): String {
+ *     return &quot;${a ?: &quot;-&quot;}&quot;
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L41">class NullableToStringCall(config: Config) : Rule(</span>
+<span class="fc" id="L42">    config,</span>
+<span class="fc" id="L43">    &quot;`toString()` on nullable receiver may return the string \&quot;null\&quot;&quot;</span>
+) {
+
+    override fun visitSimpleNameExpression(expression: KtSimpleNameExpression) {
+<span class="fc" id="L47">        super.visitSimpleNameExpression(expression)</span>
+
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        val callExpression = expression.parent as? KtCallExpression</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        val qualifiedExpression = (callExpression ?: expression).getQualifiedExpressionForSelector()</span>
+<span class="fc bfc" id="L51" title="All 6 branches covered.">        val stringTemplateEntry = (qualifiedExpression ?: callExpression ?: expression).parent as? KtStringTemplateEntry</span>
+
+<span class="fc" id="L53">        when {</span>
+<span class="pc bpc" id="L54" title="1 of 8 branches missed.">            callExpression?.isCalling(toString, bindingContext) == true -&gt; report(qualifiedExpression ?: callExpression)</span>
+<span class="fc bfc" id="L55" title="All 6 branches covered.">            stringTemplateEntry?.hasNullableExpression() == true -&gt; report(stringTemplateEntry)</span>
+        }
+<span class="fc" id="L57">    }</span>
+
+    private fun KtStringTemplateEntry.hasNullableExpression(): Boolean {
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">        val expression = this.expression ?: return false</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        val compilerResources = super.compilerResources ?: return false</span>
+<span class="fc" id="L62">        return expression.isNullable(</span>
+<span class="fc" id="L63">            bindingContext,</span>
+<span class="fc" id="L64">            compilerResources.languageVersionSettings,</span>
+<span class="fc" id="L65">            compilerResources.dataFlowValueFactory,</span>
+<span class="fc" id="L66">            shouldConsiderPlatformTypeAsNullable = false,</span>
+        )
+    }
+
+    private fun report(element: PsiElement) {
+<span class="fc" id="L71">        val codeSmell = CodeSmell(</span>
+<span class="fc" id="L72">            Entity.from(element),</span>
+<span class="fc" id="L73">            &quot;This call '${element.text}' may return the string \&quot;null\&quot;.&quot;</span>
+        )
+<span class="fc" id="L75">        report(codeSmell)</span>
+<span class="fc" id="L76">    }</span>
+
+    companion object {
+<span class="pc" id="L79">        val toString = FqName(&quot;kotlin.toString&quot;)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

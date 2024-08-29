@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnnotationSuppressor.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.suppressors</a> &gt; <span class="el_source">AnnotationSuppressor.kt</span></div><h1>AnnotationSuppressor.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.suppressors
+
+import io.github.detekt.psi.AnnotationExcluder
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtAnnotated
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+import org.jetbrains.kotlin.resolve.BindingContext
+
+/**
+ * Suppress all the issues that are raised under a code that is annotated with the annotations defined at
+ * `ignoreAnnotated`.
+ *
+ * @config ignoreAnnotated: List&lt;String&gt; The annotations can be defined just by its name or with its fully qualified
+ * name. If you don't run detekt with type solving the fully qualified name does not work.
+ */
+internal fun annotationSuppressorFactory(rule: Rule, bindingContext: BindingContext): Suppressor? {
+<span class="fc" id="L18">    val annotations = rule.config.valueOrDefault(&quot;ignoreAnnotated&quot;, emptyList&lt;String&gt;()).map {</span>
+<span class="fc" id="L19">        it.qualifiedNameGlobToRegex()</span>
+    }
+<span class="fc bfc" id="L21" title="All 4 branches covered.">    return if (annotations.isNotEmpty()) {</span>
+<span class="fc" id="L22">        Suppressor { finding -&gt;</span>
+<span class="fc" id="L23">            val element = finding.entity.ktElement</span>
+<span class="fc" id="L24">            element.isAnnotatedWith(AnnotationExcluder(element.containingKtFile, annotations, bindingContext))</span>
+        }
+    } else {
+<span class="fc" id="L27">        null</span>
+    }
+}
+
+private fun KtElement.isAnnotatedWith(excluder: AnnotationExcluder): Boolean =
+<span class="fc bfc" id="L32" title="All 4 branches covered.">    if (this is KtAnnotated &amp;&amp; excluder.shouldExclude(annotationEntries)) {</span>
+<span class="fc" id="L33">        true</span>
+    } else {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        getStrictParentOfType&lt;KtAnnotated&gt;()?.isAnnotatedWith(excluder) ?: false</span>
+<span class="fc" id="L36">    }</span>
+
+private fun String.qualifiedNameGlobToRegex(): Regex =
+<span class="fc" id="L39">    this</span>
+<span class="fc" id="L40">        .replace(&quot;.&quot;, &quot;&quot;&quot;\.&quot;&quot;&quot;)</span>
+<span class="fc" id="L41">        .replace(&quot;**&quot;, &quot;//&quot;)</span>
+<span class="fc" id="L42">        .replace(&quot;*&quot;, &quot;[^.]*&quot;)</span>
+<span class="fc" id="L43">        .replace(&quot;//&quot;, &quot;.*&quot;)</span>
+<span class="fc" id="L44">        .replace(&quot;?&quot;, &quot;.&quot;)</span>
+<span class="fc" id="L45">        .toRegex()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigProperty.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.api</a> &gt; <span class="el_source">ConfigProperty.kt</span></div><h1>ConfigProperty.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.api
+
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
+import kotlin.reflect.KProperty0
+
+/**
+ * Creates a delegated read-only property that can be used in [ConfigAware] objects. The name of the property is the
+ * key that is used during configuration lookup. The value of the property is evaluated only once.
+ *
+ * @param defaultValue the value that the property evaluates to when there is no key with the name of the property in
+ * the config. Although [T] is defined as [Any], only [String], [Int], [Boolean] and [List&lt;String&gt;] are supported.
+ */
+fun &lt;T : Any&gt; config(
+    defaultValue: T
+<span class="fc" id="L16">): ReadOnlyProperty&lt;Rule, T&gt; = config(defaultValue) { it }</span>
+
+/**
+ * Creates a delegated read-only property that can be used in [ConfigAware] objects. The name of the property is the
+ * key that is used during configuration lookup. The value of the property is evaluated and transformed only once.
+ *
+ * @param defaultValue the value that the property evaluates to when there is no key with the name of the property in
+ * the config. Although [T] is defined as [Any], only [String], [Int], [Boolean] and [List&lt;String&gt;] are supported.
+ * @param transformer a function that transforms the value from the configuration (or the default) into its final
+ * value. A typical use case for this is a conversion from a [String] into a [Regex].
+ */
+fun &lt;T : Any, U : Any&gt; config(
+    defaultValue: T,
+    transformer: (T) -&gt; U
+<span class="fc" id="L30">): ReadOnlyProperty&lt;Rule, U&gt; = TransformedConfigProperty(defaultValue, transformer)</span>
+
+/**
+ * Creates a delegated read-only property that can be used in [ConfigAware] objects. The name of the property is the
+ * key that is used during configuration lookup. If there is no such property, the value of the
+ * supplied [fallbackProperty] is also considered before using the [defaultValue].
+ * The value of the property is evaluated only once.
+ *
+ * This method is only intended to be used in migration scenarios where there is no way to update all configuration
+ * files immediately.
+ *
+ * @param fallbackProperty The reference to the configuration key to fall back to. This property must be defined as a
+ * configuration delegate.
+ * @param defaultValue the value that the property evaluates to when there is no key with the name of the property in
+ * the config. Although [T] is defined as [Any], only [String], [Int], [Boolean] and [List&lt;String&gt;] are supported.
+ */
+fun &lt;T : Any&gt; configWithFallback(
+    fallbackProperty: KProperty0&lt;T&gt;,
+    defaultValue: T
+<span class="fc" id="L49">): ReadOnlyProperty&lt;Rule, T&gt; = configWithFallback(fallbackProperty, defaultValue) { it }</span>
+
+/**
+ * Creates a delegated read-only property that can be used in [ConfigAware] objects. The name of the property is the
+ * key that is used during configuration lookup. If there is no such property, the value of the
+ * supplied [fallbackProperty] is also considered before using the [defaultValue].
+ * The value of the property is evaluated and transformed only once.
+ *
+ * This method is only intended to be used in migration scenarios where there is no way to update all configuration
+ * files immediately.
+ *
+ * @param fallbackProperty The reference to the configuration key to fall back to. This property must be defined as a
+ * configuration delegate.
+ * @param defaultValue the value that the property evaluates to when there is no key with the name of the property in
+ * the config. Although [T] is defined as [Any], only [String], [Int], [Boolean] and [List&lt;String&gt;] are supported.
+ * @param transformer a function that transforms the value from the configuration (or the default) into its final
+ * value.
+ */
+fun &lt;T : Any, U : Any&gt; configWithFallback(
+    fallbackProperty: KProperty0&lt;U&gt;,
+    defaultValue: T,
+    transformer: (T) -&gt; U
+): ReadOnlyProperty&lt;Rule, U&gt; =
+<span class="fc" id="L72">    FallbackConfigProperty(fallbackProperty, defaultValue, transformer)</span>
+
+/**
+ * Creates a delegated read-only property that can be used in [ConfigAware] objects. The name of the property is the
+ * key that is used during configuration lookup. The value of the property is evaluated only once.
+ *
+ * @param defaultValue the value that the property evaluates to when there is no key with the name of the property in
+ * the config. Although [T] is defined as [Any], only [String], [Int], [Boolean] and [List&lt;String&gt;] are supported.
+ * @param defaultAndroidValue the value that the property evaluates to when there is no key with the name of the
+ * property in the config and there is a configuration property in the rule set named &quot;android&quot; that is set to
+ * &lt;code&gt;true&lt;/code&gt;.
+ */
+fun &lt;T : Any&gt; configWithAndroidVariants(
+    defaultValue: T,
+    defaultAndroidValue: T,
+<span class="fc" id="L87">): ReadOnlyProperty&lt;Rule, T&gt; = configWithAndroidVariants(defaultValue, defaultAndroidValue) { it }</span>
+
+/**
+ * Creates a delegated read-only property that can be used in [ConfigAware] objects. The name of the property is the
+ * key that is used during configuration lookup. The value of the property is evaluated and transformed only once.
+ *
+ * @param defaultValue the value that the property evaluates to when there is no key with the name of the property in
+ * the config. Although [T] is defined as [Any], only [String], [Int], [Boolean] and [List&lt;String&gt;] are supported.
+ * @param defaultAndroidValue the value that the property evaluates to when there is no key with the name of the
+ * property in the config and there is a configuration property in the rule set named &quot;android&quot; that is set to
+ * &lt;code&gt;true&lt;/code&gt;.
+ * @param transformer a function that transforms the value from the configuration (or the default) into its final
+ * value.
+ */
+fun &lt;T : Any, U : Any&gt; configWithAndroidVariants(
+    defaultValue: T,
+    defaultAndroidValue: T,
+    transformer: (T) -&gt; U
+): ReadOnlyProperty&lt;Rule, U&gt; =
+<span class="fc" id="L106">    TransformedConfigPropertyWithAndroidVariants(defaultValue, defaultAndroidValue, transformer)</span>
+
+private fun &lt;T : Any&gt; getValueOrDefault(config: Config, propertyName: String, defaultValue: T): T {
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L110">    return when (defaultValue) {</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        is ValuesWithReason -&gt; config.getValuesWithReasonOrDefault(propertyName, defaultValue) as T</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        is List&lt;*&gt; -&gt; config.getListOrDefault(propertyName, defaultValue) as T</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        is String,</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        is Boolean,</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        is Int -&gt; config.valueOrDefault(propertyName, defaultValue)</span>
+
+<span class="fc" id="L117">        else -&gt; error(</span>
+<span class="fc" id="L118">            &quot;${defaultValue.javaClass} is not supported for delegated config property '$propertyName'. &quot; +</span>
+                &quot;Use one of String, Boolean, Int or List&lt;String&gt; instead.&quot;
+        )
+    }
+}
+
+private fun Config.getListOrDefault(propertyName: String, defaultValue: List&lt;*&gt;): List&lt;String&gt; =
+<span class="fc bfc" id="L125" title="All 2 branches covered.">    if (defaultValue.all { it is String }) {</span>
+<span class="fc" id="L126">        @Suppress(&quot;UNCHECKED_CAST&quot;)</span>
+<span class="fc" id="L127">        val defaultValueAsListOfStrings = defaultValue as List&lt;String&gt;</span>
+<span class="fc" id="L128">        valueOrDefault(propertyName, defaultValueAsListOfStrings)</span>
+    } else {
+<span class="fc" id="L130">        error(&quot;Only lists of strings are supported. '$propertyName' is invalid. &quot;)</span>
+<span class="fc" id="L131">    }</span>
+
+private fun Config.getValuesWithReasonOrDefault(
+    propertyName: String,
+    defaultValue: ValuesWithReason
+): ValuesWithReason {
+<span class="fc bfc" id="L137" title="All 2 branches covered.">    val valuesAsList: List&lt;*&gt; = valueOrNull(propertyName) ?: return defaultValue</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">    if (valuesAsList.all { it is String }) {</span>
+<span class="fc" id="L139">        return ValuesWithReason(values = valuesAsList.map { ValueWithReason(it as String) })</span>
+    }
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">    if (valuesAsList.all { it is Map&lt;*, *&gt; }) {</span>
+<span class="pc" id="L142">        return ValuesWithReason(</span>
+<span class="fc" id="L143">            valuesAsList</span>
+<span class="fc" id="L144">                .map { it as Map&lt;*, *&gt; }</span>
+<span class="fc" id="L145">                .map { dict -&gt;</span>
+<span class="fc" id="L146">                    try {</span>
+<span class="fc" id="L147">                        ValueWithReason(</span>
+<span class="fc" id="L148">                            value = dict[&quot;value&quot;] as String,</span>
+<span class="fc" id="L149">                            reason = dict[&quot;reason&quot;] as String?</span>
+                        )
+<span class="fc" id="L151">                    } catch (e: ClassCastException) {</span>
+<span class="fc" id="L152">                        throw Config.InvalidConfigurationError(e)</span>
+<span class="fc" id="L153">                    } catch (@Suppress(&quot;TooGenericExceptionCaught&quot;) e: NullPointerException) {</span>
+<span class="fc" id="L154">                        throw Config.InvalidConfigurationError(e)</span>
+<span class="fc" id="L155">                    }</span>
+                }
+        )
+    }
+<span class="nc" id="L159">    error(&quot;Only lists of strings or maps with keys 'value' and 'reason' are supported. '$propertyName' is invalid.&quot;)</span>
+}
+
+<span class="fc" id="L162">private abstract class MemoizedConfigProperty&lt;U : Any&gt; : ReadOnlyProperty&lt;Rule, U&gt; {</span>
+    private var value: U? = null
+
+    override fun getValue(thisRef: Rule, property: KProperty&lt;*&gt;): U =
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        value ?: doGetValue(thisRef, property).also { value = it }</span>
+
+    abstract fun doGetValue(thisRef: Rule, property: KProperty&lt;*&gt;): U
+}
+
+<span class="fc" id="L171">private class TransformedConfigPropertyWithAndroidVariants&lt;T : Any, U : Any&gt;(</span>
+<span class="fc" id="L172">    private val defaultValue: T,</span>
+<span class="fc" id="L173">    private val defaultAndroidValue: T,</span>
+<span class="fc" id="L174">    private val transform: (T) -&gt; U</span>
+<span class="fc" id="L175">) : MemoizedConfigProperty&lt;U&gt;() {</span>
+    override fun doGetValue(thisRef: Rule, property: KProperty&lt;*&gt;): U {
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">        val rulesetConfig = requireNotNull(thisRef.config.parent) {</span>
+<span class="nc" id="L178">            &quot;A rule that uses the 'configWithAndroidVariants' property delegate must have a parent config.&quot;</span>
+        }
+<span class="fc" id="L180">        val isAndroid = getValueOrDefault(rulesetConfig, &quot;android&quot;, false)</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">        val value = if (isAndroid) defaultAndroidValue else defaultValue</span>
+<span class="fc" id="L182">        return transform(getValueOrDefault(thisRef.config, property.name, value))</span>
+    }
+}
+
+<span class="fc" id="L186">private class TransformedConfigProperty&lt;T : Any, U : Any&gt;(</span>
+<span class="fc" id="L187">    private val defaultValue: T,</span>
+<span class="fc" id="L188">    private val transform: (T) -&gt; U</span>
+<span class="fc" id="L189">) : MemoizedConfigProperty&lt;U&gt;() {</span>
+    override fun doGetValue(thisRef: Rule, property: KProperty&lt;*&gt;): U =
+<span class="fc" id="L191">        transform(getValueOrDefault(thisRef.config, property.name, defaultValue))</span>
+}
+
+<span class="fc" id="L194">private class FallbackConfigProperty&lt;T : Any, U : Any&gt;(</span>
+<span class="fc" id="L195">    private val fallbackProperty: KProperty0&lt;U&gt;,</span>
+<span class="fc" id="L196">    private val defaultValue: T,</span>
+<span class="fc" id="L197">    private val transform: (T) -&gt; U</span>
+<span class="fc" id="L198">) : MemoizedConfigProperty&lt;U&gt;() {</span>
+    override fun doGetValue(thisRef: Rule, property: KProperty&lt;*&gt;): U {
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        if (thisRef.config.isConfigured(property.name)) {</span>
+<span class="fc" id="L201">            return transform(getValueOrDefault(thisRef.config, property.name, defaultValue))</span>
+        }
+<span class="fc bfc" id="L203" title="All 2 branches covered.">        if (thisRef.config.isConfigured(fallbackProperty.name)) {</span>
+<span class="fc" id="L204">            return fallbackProperty.get()</span>
+        }
+<span class="fc" id="L206">        return transform(defaultValue)</span>
+    }
+
+<span class="fc bfc" id="L209" title="All 2 branches covered.">    private fun Config.isConfigured(propertyName: String) = valueOrNull&lt;Any&gt;(propertyName) != null</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

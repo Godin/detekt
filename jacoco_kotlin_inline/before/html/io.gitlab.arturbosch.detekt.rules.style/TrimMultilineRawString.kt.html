@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TrimMultilineRawString.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">TrimMultilineRawString.kt</span></div><h1>TrimMultilineRawString.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isConstant
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtPsiUtil
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.psi.psiUtil.containingClass
+import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForReceiver
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+
+/**
+ * All the Raw strings that have more than one line should be followed by `trimMargin()` or `trimIndent()`.
+ *
+ * &lt;noncompliant&gt;
+ * &quot;&quot;&quot;
+ *   Hello World!
+ *   How are you?
+ * &quot;&quot;&quot;
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * &quot;&quot;&quot;
+ *   |  Hello World!
+ *   |  How are you?
+ * &quot;&quot;&quot;.trimMargin()
+ *
+ * &quot;&quot;&quot;
+ *   Hello World!
+ *   How are you?
+ * &quot;&quot;&quot;.trimIndent()
+ *
+ * &quot;&quot;&quot;Hello World! How are you?&quot;&quot;&quot;
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L47">class TrimMultilineRawString(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;Multiline raw strings should be followed by `trimMargin()` or `trimIndent()`.&quot;,</span>
+) {
+
+    @Configuration(&quot;allows to provide a list of multiline string trimming methods&quot;)
+<span class="fc" id="L53">    private val trimmingMethods: List&lt;String&gt; by config(listOf(&quot;trimIndent&quot;, &quot;trimMargin&quot;))</span>
+
+    override fun visitStringTemplateExpression(expression: KtStringTemplateExpression) {
+<span class="fc" id="L56">        super.visitStringTemplateExpression(expression)</span>
+
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (expression.isRawStringWithLineBreak() &amp;&amp;</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">            !expression.isTrimmed(trimmingMethods) &amp;&amp;</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">            !expression.isExpectedAsConstant()</span>
+        ) {
+<span class="fc" id="L62">            report(</span>
+<span class="fc" id="L63">                CodeSmell(</span>
+<span class="fc" id="L64">                    Entity.from(expression),</span>
+<span class="fc" id="L65">                    &quot;Multiline raw strings should be followed by `trimMargin()` or `trimIndent()`&quot;,</span>
+                )
+            )
+        }
+<span class="fc" id="L69">    }</span>
+}
+
+fun KtStringTemplateExpression.isRawStringWithLineBreak(): Boolean =
+<span class="fc bfc" id="L73" title="All 2 branches covered.">    text.startsWith(&quot;\&quot;\&quot;\&quot;&quot;) &amp;&amp;</span>
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        text.endsWith(&quot;\&quot;\&quot;\&quot;&quot;) &amp;&amp;</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        entries.any {</span>
+<span class="pc bpc" id="L76" title="2 of 4 branches missed.">            val literalText = (it as? KtLiteralStringTemplateEntry)?.text</span>
+<span class="pc bpc" id="L77" title="1 of 4 branches missed.">            literalText != null &amp;&amp; &quot;\n&quot; in literalText</span>
+<span class="fc" id="L78">        }</span>
+
+fun KtStringTemplateExpression.isTrimmed(trimmingMethods: List&lt;String&gt;): Boolean {
+<span class="fc" id="L81">    val nextCall = getQualifiedExpressionForReceiver()</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        ?.selectorExpression</span>
+<span class="pc bpc" id="L83" title="1 of 4 branches missed.">        ?.let { it as? KtCallExpression }</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        ?.calleeExpression</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        ?.text</span>
+
+<span class="fc" id="L87">    return nextCall in trimmingMethods</span>
+}
+
+@Suppress(&quot;ReturnCount&quot;)
+private fun KtStringTemplateExpression.isExpectedAsConstant(): Boolean {
+<span class="fc" id="L92">    val expression = KtPsiUtil.safeDeparenthesize(this)</span>
+
+<span class="fc bfc" id="L94" title="All 4 branches covered.">    val property = getStrictParentOfType&lt;KtProperty&gt;()?.takeIf { it.initializer == expression }</span>
+<span class="fc bfc" id="L95" title="All 4 branches covered.">    if (property != null &amp;&amp; property.isConstant()) return true</span>
+
+<span class="fc" id="L97">    val argument = expression.getStrictParentOfType&lt;KtValueArgument&gt;()</span>
+<span class="pc bpc" id="L98" title="1 of 4 branches missed.">        ?.takeIf { it.getArgumentExpression() == expression }</span>
+<span class="pc bpc" id="L99" title="1 of 6 branches missed.">    if (argument?.parent?.parent is KtAnnotationEntry) return true</span>
+
+<span class="fc" id="L101">    val parameter = expression.getStrictParentOfType&lt;KtParameter&gt;()</span>
+<span class="pc bpc" id="L102" title="1 of 4 branches missed.">        ?.takeIf { it.defaultValue == expression }</span>
+<span class="pc bpc" id="L103" title="1 of 6 branches missed.">    val primaryConstructor = parameter?.parent?.parent as? KtPrimaryConstructor</span>
+<span class="pc bpc" id="L104" title="1 of 8 branches missed.">    if (primaryConstructor?.containingClass()?.isAnnotation() == true) return true</span>
+
+<span class="fc" id="L106">    return false</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

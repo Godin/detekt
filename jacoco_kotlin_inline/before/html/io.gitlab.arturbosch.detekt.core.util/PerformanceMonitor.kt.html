@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PerformanceMonitor.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.util</a> &gt; <span class="el_source">PerformanceMonitor.kt</span></div><h1>PerformanceMonitor.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.util
+
+import io.gitlab.arturbosch.detekt.api.PropertiesAware
+import io.gitlab.arturbosch.detekt.api.getOrNull
+import kotlin.time.Duration
+import kotlin.time.measureTimedValue
+
+<span class="fc" id="L8">class PerformanceMonitor {</span>
+
+    enum class Phase {
+<span class="fc" id="L11">        LoadConfig,</span>
+<span class="fc" id="L12">        CreateSettings,</span>
+<span class="fc" id="L13">        ValidateConfig,</span>
+<span class="fc" id="L14">        Parsing,</span>
+<span class="fc" id="L15">        Binding,</span>
+<span class="fc" id="L16">        LoadingExtensions,</span>
+<span class="fc" id="L17">        Analyzer,</span>
+<span class="fc" id="L18">        Reporting,</span>
+    }
+
+<span class="pc" id="L21">    data class Entry(val phase: Phase, val duration: Duration)</span>
+
+<span class="fc" id="L23">    private val finished: MutableList&lt;Entry&gt; = mutableListOf()</span>
+
+<span class="fc" id="L25">    fun allFinished(): List&lt;Entry&gt; = finished</span>
+
+    fun &lt;R&gt; measure(phase: Phase, block: () -&gt; R): R {
+<span class="fc" id="L28">        val timedBlockExecution = measureTimedValue { block() }</span>
+<span class="fc" id="L29">        finished.add(Entry(phase, timedBlockExecution.duration))</span>
+<span class="fc" id="L30">        return timedBlockExecution.value</span>
+    }
+}
+
+internal const val MONITOR_PROPERTY_KEY = &quot;detekt.core.monitor&quot;
+
+internal fun PropertiesAware.getOrCreateMonitor() =
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">    getOrNull(MONITOR_PROPERTY_KEY) ?: PerformanceMonitor().also { register(MONITOR_PROPERTY_KEY, it) }</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LLOC.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.metrics.processors.util</a> &gt; <span class="el_source">LLOC.kt</span></div><h1>LLOC.kt</h1><pre class="source lang-java linenums">package io.github.detekt.metrics.processors.util
+
+object LLOC {
+
+<span class="fc" id="L5">    private val comments = arrayOf(&quot;//&quot;, &quot;/*&quot;, &quot;*/&quot;, &quot;*&quot;)</span>
+<span class="fc" id="L6">    private val escapes = arrayOf(&quot;import&quot;, &quot;package&quot;)</span>
+
+<span class="fc" id="L8">    fun analyze(</span>
+        lines: List&lt;String&gt;,
+<span class="fc" id="L10">        isCommentMode: Boolean = false,</span>
+<span class="fc" id="L11">        isFullMode: Boolean = false</span>
+<span class="fc" id="L12">    ): Int = LLOCCounter(lines, isCommentMode, isFullMode).run()</span>
+
+<span class="pc" id="L14">    private class LLOCCounter(</span>
+<span class="fc" id="L15">        private val lines: List&lt;String&gt;,</span>
+<span class="pc" id="L16">        private val isCommentMode: Boolean = false,</span>
+<span class="pc" id="L17">        private val isFullMode: Boolean = false</span>
+<span class="nc" id="L18">    ) {</span>
+
+        private var counter = 0
+        private var openedBrackets = 0
+        private var closedBrackets = 0
+        private var escape: Boolean = false
+
+        @Suppress(&quot;LoopWithTooManyJumpStatements&quot;)
+        fun run(): Int {
+<span class="fc bfc" id="L27" title="All 2 branches covered.">            for (line in lines) {</span>
+<span class="fc" id="L28">                val trimmed = line.trim()</span>
+
+<span class="fc bfc" id="L30" title="All 4 branches covered.">                if (trimmed.isEmpty()) {</span>
+<span class="fc" id="L31">                    continue</span>
+                }
+
+<span class="fc" id="L34">                countOrEscapeComment(trimmed)</span>
+<span class="fc bfc" id="L35" title="All 2 branches covered.">                if (escape) {</span>
+<span class="fc" id="L36">                    continue</span>
+                }
+
+<span class="fc" id="L39">                countOrEscapeAdditionalStatements(trimmed)</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">                if (escape) {</span>
+<span class="fc" id="L41">                    continue</span>
+                }
+
+<span class="fc" id="L44">                countStatementsAndDeclarations(trimmed)</span>
+            }
+
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">            return counter + if (openedBrackets - closedBrackets == 0) openedBrackets else -1</span>
+        }
+
+        private fun countStatementsAndDeclarations(trimmed: String) {
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">            if (trimmed.contains(&quot;;&quot;)) {</span>
+<span class="nc" id="L52">                counter++</span>
+            }
+
+<span class="fc bfc" id="L55" title="All 2 branches covered.">            if (trimmed.contains(&quot;{&quot;)) {</span>
+<span class="fc" id="L56">                openedBrackets += frequency(trimmed, &quot;{&quot;)</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">            } else if (trimmed.length != 1) {</span>
+<span class="fc" id="L58">                counter++</span>
+            }
+
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            if (trimmed.contains(&quot;}&quot;)) {</span>
+<span class="fc" id="L62">                closedBrackets += frequency(trimmed, &quot;}&quot;)</span>
+            }
+<span class="fc" id="L64">        }</span>
+
+        private fun countOrEscapeAdditionalStatements(trimmed: String) {
+<span class="fc" id="L67">            escape = isEscaped(trimmed, escapes)</span>
+<span class="pc bpc" id="L68" title="1 of 4 branches missed.">            if (escape &amp;&amp; isFullMode) {</span>
+<span class="nc" id="L69">                counter++</span>
+            }
+<span class="fc" id="L71">        }</span>
+
+        private fun countOrEscapeComment(trimmed: String) {
+<span class="fc" id="L74">            escape = isEscaped(trimmed, comments)</span>
+<span class="pc bpc" id="L75" title="3 of 4 branches missed.">            if (isCommentMode &amp;&amp; escape) {</span>
+<span class="nc" id="L76">                counter++</span>
+            }
+<span class="fc" id="L78">        }</span>
+
+<span class="fc" id="L80">        private fun isEscaped(trimmed: String, rules: Array&lt;String&gt;): Boolean = rules.any { trimmed.startsWith(it) }</span>
+
+        private fun frequency(source: String, part: String): Int {
+<span class="pc bpc" id="L83" title="4 of 8 branches missed.">            if (source.isEmpty() || part.isEmpty()) {</span>
+<span class="nc" id="L84">                return 0</span>
+            }
+
+<span class="fc" id="L87">            var count = 0</span>
+<span class="fc" id="L88">            var pos = source.indexOf(part, 0)</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            while (pos != -1) {</span>
+<span class="fc" id="L90">                pos += part.length</span>
+<span class="fc" id="L91">                count++</span>
+<span class="fc" id="L92">                pos = source.indexOf(part, pos)</span>
+            }
+
+<span class="fc" id="L95">            return count</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

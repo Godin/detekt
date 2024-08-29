@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CascadingCallWrapping.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">CascadingCallWrapping.kt</span></div><h1>CascadingCallWrapping.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.github.detekt.psi.absolutePath
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Location
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.TextLocation
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtUnaryExpression
+import org.jetbrains.kotlin.psi.psiUtil.endOffset
+import org.jetbrains.kotlin.psi.psiUtil.startOffset
+
+/**
+ * Requires that all chained calls are placed on a new line if a preceding one is.
+ *
+ * &lt;noncompliant&gt;
+ * foo()
+ *   .bar().baz()
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * foo().bar().baz()
+ *
+ * foo()
+ *   .bar()
+ *   .baz()
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L36">class CascadingCallWrapping(config: Config) : Rule(</span>
+<span class="fc" id="L37">    config,</span>
+<span class="fc" id="L38">    &quot;If a chained call is wrapped to a new line, subsequent chained calls should be as well.&quot;</span>
+) {
+
+    @Configuration(&quot;require trailing elvis expressions to be wrapped on a new line&quot;)
+<span class="fc" id="L42">    private val includeElvis: Boolean by config(true)</span>
+
+    override fun visitQualifiedExpression(expression: KtQualifiedExpression) {
+<span class="fc" id="L45">        super.visitQualifiedExpression(expression)</span>
+
+<span class="fc" id="L47">        checkExpression(expression, callExpression = expression.selectorExpression)</span>
+<span class="fc" id="L48">    }</span>
+
+    override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc" id="L51">        super.visitBinaryExpression(expression)</span>
+
+<span class="pc bpc" id="L53" title="1 of 4 branches missed.">        if (includeElvis &amp;&amp; expression.operationToken == KtTokens.ELVIS) {</span>
+<span class="fc" id="L54">            checkExpression(expression, callExpression = expression.right)</span>
+        }
+<span class="fc" id="L56">    }</span>
+
+    private fun checkExpression(expression: KtExpression, callExpression: KtExpression?) {
+<span class="fc bfc" id="L59" title="All 4 branches covered.">        if (!expression.containsNewline() &amp;&amp; expression.receiverContainsNewline()) {</span>
+<span class="pc bpc" id="L60" title="3 of 6 branches missed.">            val callTextOrEmpty = callExpression?.text?.let { &quot; `$it`&quot; }.orEmpty()</span>
+<span class="fc" id="L61">            report(</span>
+<span class="fc" id="L62">                CodeSmell(</span>
+<span class="fc" id="L63">                    entity = expression.toErrorReportEntity(),</span>
+<span class="fc" id="L64">                    message = &quot;Chained call$callTextOrEmpty should be wrapped to a new line since preceding calls were.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L68">    }</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun KtExpression.containsNewline(): Boolean {
+<span class="fc" id="L72">        val lhs: KtExpression</span>
+<span class="fc" id="L73">        val rhs: KtExpression</span>
+
+<span class="fc" id="L75">        when (this) {</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">            is KtQualifiedExpression -&gt; {</span>
+<span class="fc" id="L77">                lhs = receiverExpression</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">                rhs = selectorExpression ?: return false</span>
+            }
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">            is KtBinaryExpression -&gt; {</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">                if (operationToken != KtTokens.ELVIS) return false</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">                lhs = left ?: return false</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">                rhs = right ?: return false</span>
+            }
+<span class="nc" id="L85">            else -&gt; return false</span>
+        }
+
+<span class="fc" id="L88">        val receiverEnd = lhs.startOffsetInParent + lhs.textLength</span>
+<span class="fc" id="L89">        val selectorStart = rhs.startOffsetInParent</span>
+
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        return (receiverEnd..&lt;selectorStart).any { text[it] == '\n' }</span>
+    }
+
+    private fun KtExpression.receiverContainsNewline(): Boolean {
+<span class="fc" id="L95">        val lhs = when (this) {</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">            is KtQualifiedExpression -&gt; receiverExpression</span>
+<span class="pc bpc" id="L97" title="2 of 4 branches missed.">            is KtBinaryExpression -&gt; left ?: return false</span>
+<span class="nc" id="L98">            else -&gt; return false</span>
+        }
+
+<span class="fc" id="L101">        return when (lhs) {</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">            is KtQualifiedExpression -&gt; lhs.containsNewline()</span>
+<span class="pc bpc" id="L103" title="3 of 8 branches missed.">            is KtUnaryExpression -&gt; (lhs.baseExpression as? KtQualifiedExpression)?.containsNewline() == true</span>
+<span class="fc" id="L104">            else -&gt; false</span>
+        }
+    }
+
+    private fun KtExpression.toErrorReportEntity(): Entity {
+<span class="fc" id="L109">        return when (this) {</span>
+<span class="pc bpc" id="L110" title="1 of 4 branches missed.">            is KtQualifiedExpression -&gt; Entity.from(this.selectorExpression ?: this)</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">            is KtBinaryExpression -&gt; {</span>
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">                val rhs = this.right ?: return Entity.from(this)</span>
+<span class="fc" id="L113">                val operationSourceLocation = Location.from(operationReference).source</span>
+<span class="fc" id="L114">                val rhsSourceLocation = Location.from(rhs).endSource</span>
+<span class="fc" id="L115">                val textLocation = TextLocation(operationReference.startOffset, rhs.endOffset)</span>
+<span class="fc" id="L116">                Entity.from(</span>
+<span class="fc" id="L117">                    this,</span>
+<span class="fc" id="L118">                    Location(operationSourceLocation, rhsSourceLocation, textLocation, containingFile.absolutePath())</span>
+                )
+            }
+<span class="nc" id="L121">            else -&gt; Entity.from(this)</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

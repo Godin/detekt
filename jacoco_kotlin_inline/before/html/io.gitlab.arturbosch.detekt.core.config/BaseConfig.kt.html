@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaseConfig.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config</a> &gt; <span class="el_source">BaseConfig.kt</span></div><h1>BaseConfig.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Config.Companion.CONFIG_SEPARATOR
+import kotlin.reflect.KClass
+
+<span class="fc" id="L7">private val ALLOWED_BOOL_VALUES = setOf(&quot;true&quot;, &quot;false&quot;)</span>
+
+private fun Config.keySequence(key: String): String =
+<span class="fc bfc" id="L10" title="All 2 branches covered.">    if (parentPath == null) key else &quot;$parentPath $CONFIG_SEPARATOR $key&quot;</span>
+
+<span class="fc" id="L12">fun Config.valueOrDefaultInternal(</span>
+    key: String,
+    result: Any?,
+    default: Any,
+<span class="fc" id="L16">    parser: (result: String, default: Any) -&gt; Any = ::tryParseBasedOnDefault</span>
+): Any =
+<span class="fc" id="L18">    try {</span>
+<span class="fc bfc" id="L19" title="All 2 branches covered.">        if (result != null) {</span>
+<span class="fc" id="L20">            when {</span>
+<span class="fc bfc" id="L21" title="All 2 branches covered.">                result is String -&gt; parser(result, default)</span>
+<span class="fc bfc" id="L22" title="All 2 branches covered.">                result is List&lt;*&gt; -&gt; {</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">                    if (default !is List&lt;*&gt;) {</span>
+<span class="fc" id="L24">                        throw ClassCastException()</span>
+                    }
+<span class="fc bfc" id="L26" title="All 2 branches covered.">                    check(result.all { it is String }) {</span>
+<span class="fc" id="L27">                        &quot;Only lists of strings are supported. Value \&quot;$result\&quot; set &quot; +</span>
+<span class="fc" id="L28">                            &quot;for config parameter \&quot;${keySequence(key)}\&quot; contains non-string values.&quot;</span>
+                    }
+<span class="fc" id="L30">                    result.map { it as String }</span>
+                }
+
+<span class="fc bfc" id="L33" title="All 2 branches covered.">                default::class in PRIMITIVES &amp;&amp;</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">                    result::class != default::class -&gt; throw ClassCastException()</span>
+
+<span class="fc" id="L36">                else -&gt; result</span>
+            }
+        } else {
+<span class="fc" id="L39">            default</span>
+        }
+<span class="fc" id="L41">    } catch (_: ClassCastException) {</span>
+<span class="fc" id="L42">        error(</span>
+<span class="fc" id="L43">            &quot;Value \&quot;$result\&quot; set for config parameter \&quot;${keySequence(key)}\&quot; is not of&quot; +</span>
+<span class="fc" id="L44">                &quot; required type ${default::class.simpleName}.&quot;</span>
+        )
+<span class="fc" id="L46">    } catch (_: NumberFormatException) {</span>
+<span class="fc" id="L47">        error(</span>
+<span class="fc" id="L48">            &quot;Value \&quot;$result\&quot; set for config parameter \&quot;${keySequence(key)}\&quot; is not of&quot; +</span>
+<span class="fc" id="L49">                &quot; required type ${default::class.simpleName}.&quot;</span>
+        )
+<span class="fc" id="L51">    }</span>
+
+<span class="fc" id="L53">fun tryParseBasedOnDefault(result: String, defaultResult: Any): Any = when (defaultResult) {</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">    is Int -&gt; result.toInt()</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">    is Boolean -&gt;</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (result in ALLOWED_BOOL_VALUES) {</span>
+<span class="fc" id="L57">            result.toBoolean()</span>
+        } else {
+<span class="fc" id="L59">            throw ClassCastException()</span>
+        }
+
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">    is Double -&gt; result.toDouble()</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">    is String -&gt; result</span>
+<span class="nc" id="L64">    else -&gt; throw ClassCastException()</span>
+<span class="fc" id="L65">}</span>
+
+<span class="fc" id="L67">private val PRIMITIVES: Set&lt;KClass&lt;out Any&gt;&gt; = setOf(</span>
+<span class="fc" id="L68">    Int::class,</span>
+    Boolean::class,
+    Float::class,
+    Double::class,
+    String::class,
+    Short::class,
+    Char::class,
+    Long::class
+)
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

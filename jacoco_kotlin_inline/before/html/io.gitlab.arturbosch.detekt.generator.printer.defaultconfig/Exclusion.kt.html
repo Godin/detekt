@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Exclusion.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.printer.defaultconfig</a> &gt; <span class="el_source">Exclusion.kt</span></div><h1>Exclusion.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.printer.defaultconfig
+
+import io.gitlab.arturbosch.detekt.generator.collection.Rule
+
+/**
+ * Holds a list of extra exclusions for rules and rule sets.
+ */
+<span class="fc" id="L8">val exclusions = arrayOf(TestExclusions, KotlinScriptExclusions, KotlinScriptAndTestExclusions)</span>
+
+/**
+ * Tracks rules and rule sets which needs an extra `excludes: $pattern` property
+ * when printing the default detekt config yaml file.
+ */
+<span class="fc" id="L14">abstract class Exclusions {</span>
+
+    abstract val pattern: String
+<span class="fc" id="L17">    open val ruleSets: Set&lt;String&gt; = emptySet()</span>
+    abstract val rules: Set&lt;String&gt;
+
+<span class="fc" id="L20">    fun isExcluded(rule: Rule) = rule.name in rules</span>
+
+    companion object {
+<span class="fc" id="L23">        internal val testFolders = listOf(</span>
+<span class="fc" id="L24">            &quot;test&quot;,</span>
+<span class="fc" id="L25">            &quot;androidTest&quot;,</span>
+<span class="fc" id="L26">            &quot;commonTest&quot;,</span>
+<span class="fc" id="L27">            &quot;jvmTest&quot;,</span>
+<span class="fc" id="L28">            &quot;androidUnitTest&quot;,</span>
+<span class="fc" id="L29">            &quot;androidInstrumentedTest&quot;,</span>
+<span class="fc" id="L30">            &quot;jsTest&quot;,</span>
+<span class="fc" id="L31">            &quot;iosTest&quot;,</span>
+        )
+    }
+}
+
+private object TestExclusions : Exclusions() {
+<span class="fc" id="L37">    override val pattern = testFolders.map { &quot;**/$it/**&quot; }</span>
+<span class="fc" id="L38">        .joinToString(prefix = &quot;[&quot;, separator = &quot;, &quot;, postfix = &quot;]&quot;) { &quot;'$it'&quot; }</span>
+<span class="fc" id="L39">    override val ruleSets = emptySet&lt;String&gt;()</span>
+<span class="fc" id="L40">    override val rules = setOf(</span>
+<span class="fc" id="L41">        &quot;FunctionNaming&quot;,</span>
+<span class="fc" id="L42">        &quot;LateinitUsage&quot;,</span>
+<span class="fc" id="L43">        &quot;StringLiteralDuplication&quot;,</span>
+<span class="fc" id="L44">        &quot;SpreadOperator&quot;,</span>
+<span class="fc" id="L45">        &quot;TooManyFunctions&quot;,</span>
+<span class="fc" id="L46">        &quot;ForEachOnRange&quot;,</span>
+<span class="fc" id="L47">        &quot;TooGenericExceptionCaught&quot;,</span>
+<span class="fc" id="L48">        &quot;InstanceOfCheckForException&quot;,</span>
+<span class="fc" id="L49">        &quot;ThrowingExceptionsWithoutMessageOrCause&quot;,</span>
+<span class="fc" id="L50">        &quot;UndocumentedPublicClass&quot;,</span>
+<span class="fc" id="L51">        &quot;UndocumentedPublicFunction&quot;,</span>
+<span class="fc" id="L52">        &quot;UndocumentedPublicProperty&quot;,</span>
+<span class="fc" id="L53">        &quot;UnsafeCallOnNullableType&quot;,</span>
+<span class="fc" id="L54">        &quot;KDocReferencesNonPublicProperty&quot;,</span>
+    )
+}
+
+private object KotlinScriptExclusions : Exclusions() {
+<span class="pc" id="L59">    override val pattern = &quot;['**/*.kts']&quot;</span>
+<span class="fc" id="L60">    override val rules = setOf(&quot;MissingPackageDeclaration&quot;)</span>
+}
+
+private object KotlinScriptAndTestExclusions : Exclusions() {
+<span class="fc" id="L64">    override val pattern = (testFolders.map { &quot;**/$it/**&quot; } + &quot;**/*.kts&quot;)</span>
+<span class="fc" id="L65">        .joinToString(prefix = &quot;[&quot;, separator = &quot;, &quot;, postfix = &quot;]&quot;) { &quot;'$it'&quot; }</span>
+<span class="fc" id="L66">    override val rules = setOf(&quot;MagicNumber&quot;)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

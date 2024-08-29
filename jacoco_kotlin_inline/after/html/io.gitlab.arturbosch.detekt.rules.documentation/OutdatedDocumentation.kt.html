@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OutdatedDocumentation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.documentation</a> &gt; <span class="el_source">OutdatedDocumentation.kt</span></div><h1>OutdatedDocumentation.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.documentation
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isInternal
+import org.jetbrains.kotlin.kdoc.parser.KDocKnownTag
+import org.jetbrains.kotlin.kdoc.psi.api.KDoc
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocSection
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocTag
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.KtSecondaryConstructor
+import org.jetbrains.kotlin.psi.psiUtil.PsiChildRange
+import org.jetbrains.kotlin.psi.psiUtil.allChildren
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+import org.jetbrains.kotlin.psi.psiUtil.isPropertyParameter
+import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
+
+/**
+ * This rule will report any class, function or constructor with KDoc that does not match the declaration signature.
+ * If KDoc is not present or does not contain any @param or @property tags, rule violation will not be reported.
+ * By default, both type and value parameters need to be matched and declarations orders must be preserved. You can
+ * turn off these features using configuration options.
+ *
+ * &lt;noncompliant&gt;
+ * /**
+ *  * @param someParam
+ *  * @property someProp
+ *  */
+ * class MyClass(otherParam: String, val otherProp: String)
+ *
+ * /**
+ *  * @param T
+ *  * @param someParam
+ *  */
+ * fun &lt;T, S&gt; myFun(someParam: String)
+ *
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * /**
+ *  * @param someParam
+ *  * @property someProp
+ *  */
+ * class MyClass(someParam: String, val someProp: String)
+ *
+ * /**
+ *  * @param T
+ *  * @param S
+ *  * @param someParam
+ *  */
+ * fun &lt;T, S&gt; myFun(someParam: String)
+ *
+ * &lt;/compliant&gt;
+ */
+@Suppress(&quot;TooManyFunctions&quot;)
+<span class="fc" id="L64">class OutdatedDocumentation(config: Config) : Rule(</span>
+<span class="fc" id="L65">    config,</span>
+<span class="fc" id="L66">    &quot;KDoc comments should match the actual function or class signature&quot;</span>
+) {
+
+    @Configuration(&quot;if type parameters should be matched&quot;)
+<span class="fc" id="L70">    private val matchTypeParameters: Boolean by config(true)</span>
+
+    @Configuration(&quot;if the order of declarations should be preserved&quot;)
+<span class="fc" id="L73">    private val matchDeclarationsOrder: Boolean by config(true)</span>
+
+    @Configuration(&quot;if we allow constructor parameters to be marked as @param instead of @property&quot;)
+<span class="fc" id="L76">    private val allowParamOnConstructorProperties: Boolean by config(false)</span>
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc" id="L79">        super.visitClass(klass)</span>
+<span class="fc" id="L80">        val classDeclarations = getClassDeclarations(klass)</span>
+        (
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            isDocumentationOutdated(klass) { classDeclarations } &amp;&amp;</span>
+                (
+                    // checking below only if constructor in internal or private
+<span class="fc bfc" id="L85" title="All 2 branches covered.">                    isInternalOrPrivate(klass.primaryConstructor).not() ||</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">                        isDocumentationOutdated(klass) {</span>
+                            // case when only property can be documented
+<span class="fc bfc" id="L88" title="All 2 branches covered.">                            classDeclarations.filterNot { it.type == DeclarationType.PARAM }</span>
+                        }
+                    )
+            )
+<span class="fc" id="L92">            .ifTrue {</span>
+<span class="fc" id="L93">                reportCodeSmell(klass)</span>
+<span class="fc" id="L94">            }</span>
+<span class="fc" id="L95">    }</span>
+
+    override fun visitSecondaryConstructor(constructor: KtSecondaryConstructor) {
+<span class="fc" id="L98">        super.visitSecondaryConstructor(constructor)</span>
+<span class="fc" id="L99">        isDocumentationOutdated(constructor) { getSecondaryConstructorDeclarations(constructor) }.ifTrue {</span>
+<span class="fc" id="L100">            reportCodeSmell(constructor)</span>
+<span class="fc" id="L101">        }</span>
+<span class="fc" id="L102">    }</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc" id="L105">        super.visitNamedFunction(function)</span>
+<span class="fc" id="L106">        isDocumentationOutdated(function) { getFunctionDeclarations(function) }.ifTrue {</span>
+<span class="fc" id="L107">            reportCodeSmell(function)</span>
+<span class="fc" id="L108">        }</span>
+<span class="fc" id="L109">    }</span>
+
+    private fun getClassDeclarations(klass: KtClass): List&lt;Declaration&gt; {
+<span class="fc" id="L112">        val ctor = klass.primaryConstructor</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        val constructorDeclarations = if (ctor != null) getPrimaryConstructorDeclarations(ctor) else emptyList()</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        val typeParams = if (matchTypeParameters) {</span>
+<span class="fc" id="L115">            klass.typeParameters.mapNotNull { it.name.toParamOrNull() }</span>
+        } else {
+<span class="fc" id="L117">            emptyList()</span>
+        }
+<span class="fc" id="L119">        return typeParams + constructorDeclarations</span>
+    }
+
+    private fun getFunctionDeclarations(function: KtNamedFunction): List&lt;Declaration&gt; {
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        val typeParams = if (matchTypeParameters) {</span>
+<span class="fc" id="L124">            function.typeParameters.mapNotNull { it.name.toParamOrNull() }</span>
+        } else {
+<span class="fc" id="L126">            emptyList()</span>
+        }
+<span class="fc" id="L128">        val valueParams = function.valueParameters.mapNotNull { it.name.toParamOrNull() }</span>
+<span class="fc" id="L129">        return typeParams + valueParams</span>
+    }
+
+    private fun getPrimaryConstructorDeclarations(constructor: KtPrimaryConstructor): List&lt;Declaration&gt; =
+<span class="fc" id="L133">        getDeclarationsForValueParameters(constructor.valueParameters)</span>
+
+    private fun getSecondaryConstructorDeclarations(constructor: KtSecondaryConstructor): List&lt;Declaration&gt; =
+<span class="fc" id="L136">        getDeclarationsForValueParameters(constructor.valueParameters)</span>
+
+    private fun getDeclarationsForValueParameters(valueParameters: List&lt;KtParameter&gt;): List&lt;Declaration&gt; =
+<span class="fc" id="L139">        valueParameters.mapNotNull {</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">            it.name?.let { name -&gt;</span>
+<span class="fc bfc" id="L141" title="All 4 branches covered.">                val type = if (it.isPropertyParameter() &amp;&amp; it.isPrivate().not()) {</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">                    if (allowParamOnConstructorProperties) {</span>
+<span class="fc" id="L143">                        DeclarationType.ANY</span>
+                    } else {
+<span class="fc" id="L145">                        DeclarationType.PROPERTY</span>
+                    }
+                } else {
+<span class="fc" id="L148">                    DeclarationType.PARAM</span>
+                }
+<span class="fc" id="L150">                Declaration(name, type)</span>
+<span class="fc" id="L151">            }</span>
+<span class="fc" id="L152">        }</span>
+
+<span class="fc" id="L154">    private fun getDocDeclarations(doc: KDoc): List&lt;Declaration&gt; = processDocChildren(doc.allChildren)</span>
+
+    private fun processDocChildren(children: PsiChildRange): List&lt;Declaration&gt; =
+<span class="fc" id="L157">        children</span>
+<span class="fc" id="L158">            .map {</span>
+<span class="fc" id="L159">                when (it) {</span>
+<span class="fc bfc" id="L160" title="All 2 branches covered.">                    is KDocSection -&gt; processDocChildren(it.allChildren)</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">                    is KDocTag -&gt; processDocTag(it)</span>
+<span class="fc" id="L162">                    else -&gt; emptyList()</span>
+<span class="fc" id="L163">                }</span>
+            }
+<span class="fc" id="L165">            .fold(emptyList()) { acc, declarations -&gt; acc + declarations }</span>
+
+    @Suppress(&quot;ElseCaseInsteadOfExhaustiveWhen&quot;)
+    private fun processDocTag(docTag: KDocTag): List&lt;Declaration&gt; {
+<span class="fc" id="L169">        val knownTag = docTag.knownTag</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">        val subjectName = docTag.getSubjectName() ?: return emptyList()</span>
+<span class="pc bpc" id="L171" title="2 of 5 branches missed.">        return when (knownTag) {</span>
+<span class="fc" id="L172">            KDocKnownTag.PARAM -&gt; listOf(Declaration(subjectName, DeclarationType.PARAM))</span>
+<span class="fc" id="L173">            KDocKnownTag.PROPERTY -&gt; listOf(Declaration(subjectName, DeclarationType.PROPERTY))</span>
+<span class="nc" id="L174">            else -&gt; emptyList()</span>
+        }
+    }
+
+    private fun isDocumentationOutdated(
+        element: KtNamedDeclaration,
+        elementDeclarationsProvider: () -&gt; List&lt;Declaration&gt;,
+    ): Boolean {
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        val doc = element.docComment ?: return false</span>
+<span class="fc" id="L183">        val docDeclarations = getDocDeclarations(doc)</span>
+<span class="fc bfc" id="L184" title="All 4 branches covered.">        return if (docDeclarations.isNotEmpty()) {</span>
+<span class="fc" id="L185">            val elementDeclarations = elementDeclarationsProvider()</span>
+<span class="fc bfc" id="L186" title="All 2 branches covered.">            !declarationsMatch(docDeclarations, elementDeclarations)</span>
+        } else {
+<span class="fc" id="L188">            false</span>
+        }
+    }
+
+    private fun isInternalOrPrivate(primaryConstructor: KtPrimaryConstructor?): Boolean {
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">        primaryConstructor ?: return false</span>
+<span class="pc bpc" id="L194" title="1 of 4 branches missed.">        return primaryConstructor.isInternal() || primaryConstructor.isPrivate()</span>
+    }
+
+    private fun declarationsMatch(
+        doc: List&lt;Declaration&gt;,
+        element: List&lt;Declaration&gt;,
+    ): Boolean {
+<span class="fc bfc" id="L201" title="All 2 branches covered.">        if (doc.size != element.size) {</span>
+<span class="fc" id="L202">            return false</span>
+        }
+
+<span class="fc bfc" id="L205" title="All 2 branches covered.">        val zippedElements = if (matchDeclarationsOrder) {</span>
+<span class="fc" id="L206">            doc.zip(element)</span>
+        } else {
+<span class="fc" id="L208">            doc.sortedBy { it.name }.zip(element.sortedBy { it.name })</span>
+        }
+
+<span class="fc" id="L211">        return zippedElements.all { (doc, element) -&gt; declarationMatches(doc, element) }</span>
+    }
+
+    private fun declarationMatches(doc: Declaration, element: Declaration): Boolean =
+<span class="fc bfc" id="L215" title="All 6 branches covered.">        element.name == doc.name &amp;&amp; (element.type == DeclarationType.ANY || element.type == doc.type)</span>
+
+    private fun reportCodeSmell(element: KtNamedDeclaration) {
+<span class="fc" id="L218">        report(</span>
+<span class="fc" id="L219">            CodeSmell(</span>
+<span class="fc" id="L220">                Entity.atName(element),</span>
+<span class="fc" id="L221">                &quot;Documentation of ${element.nameAsSafeName} is outdated&quot;</span>
+            )
+        )
+<span class="fc" id="L224">    }</span>
+
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">    private fun String?.toParamOrNull(): Declaration? = this?.let { Declaration(it, DeclarationType.PARAM) }</span>
+
+<span class="fc" id="L228">    data class Declaration(</span>
+<span class="fc" id="L229">        val name: String,</span>
+<span class="fc" id="L230">        val type: DeclarationType,</span>
+    )
+
+    enum class DeclarationType {
+<span class="fc" id="L234">        PARAM,</span>
+<span class="fc" id="L235">        PROPERTY,</span>
+<span class="fc" id="L236">        ANY</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

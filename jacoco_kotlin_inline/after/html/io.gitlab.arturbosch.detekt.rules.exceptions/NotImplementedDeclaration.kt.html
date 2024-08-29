@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotImplementedDeclaration.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.exceptions</a> &gt; <span class="el_source">NotImplementedDeclaration.kt</span></div><h1>NotImplementedDeclaration.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.exceptions
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtThrowExpression
+import org.jetbrains.kotlin.resolve.calls.util.getCalleeExpressionIfAny
+
+/**
+ * This rule reports all exceptions of the type `NotImplementedError` that are thrown. It also reports all `TODO(..)`
+ * functions.
+ * These indicate that functionality is still under development and will not work properly. Both of these should only
+ * serve as temporary declarations and should not be put into production environments.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo() {
+ *     throw NotImplementedError()
+ * }
+ *
+ * fun todo() {
+ *     TODO(&quot;&quot;)
+ * }
+ * &lt;/noncompliant&gt;
+ */
+<span class="fc" id="L27">class NotImplementedDeclaration(config: Config) : Rule(</span>
+<span class="fc" id="L28">    config,</span>
+<span class="fc" id="L29">    &quot;The NotImplementedDeclaration should only be used when a method stub is necessary. &quot; +</span>
+        &quot;This defers the development of the functionality of this function. &quot; +
+        &quot;Hence, the `NotImplementedDeclaration` should only serve as a temporary declaration. &quot; +
+        &quot;Before releasing, this type of declaration should be removed.&quot;
+) {
+
+    override fun visitThrowExpression(expression: KtThrowExpression) {
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">        val calleeExpression = expression.thrownExpression?.getCalleeExpressionIfAny()</span>
+<span class="pc bpc" id="L37" title="2 of 4 branches missed.">        if (calleeExpression?.text == &quot;NotImplementedError&quot;) {</span>
+<span class="fc" id="L38">            report(CodeSmell(Entity.from(expression), description))</span>
+        }
+<span class="fc" id="L40">    }</span>
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="pc bpc" id="L43" title="2 of 4 branches missed.">        if (expression.calleeExpression?.text == &quot;TODO&quot;) {</span>
+<span class="fc" id="L44">            val size = expression.valueArguments.size</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">            if (size == 0 || size == 1) {</span>
+<span class="fc" id="L46">                report(CodeSmell(Entity.from(expression), description))</span>
+            }
+        }
+<span class="fc" id="L49">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

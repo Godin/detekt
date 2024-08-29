@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Main.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.cli</a> &gt; <span class="el_source">Main.kt</span></div><h1>Main.kt</h1><pre class="source lang-java linenums">@file:JvmName(&quot;Main&quot;)
+
+package io.gitlab.arturbosch.detekt.cli
+
+import io.github.detekt.tooling.api.AnalysisResult
+import io.github.detekt.tooling.api.InvalidConfig
+import io.github.detekt.tooling.api.IssuesFound
+import io.github.detekt.tooling.api.UnexpectedError
+import io.github.detekt.tooling.internal.NotApiButProbablyUsedByUsers
+import io.gitlab.arturbosch.detekt.api.internal.whichKotlin
+import io.gitlab.arturbosch.detekt.cli.runners.ConfigExporter
+import io.gitlab.arturbosch.detekt.cli.runners.Executable
+import io.gitlab.arturbosch.detekt.cli.runners.Runner
+import io.gitlab.arturbosch.detekt.cli.runners.VersionPrinter
+import org.jetbrains.kotlin.config.KotlinCompilerVersion
+import java.io.PrintStream
+import kotlin.system.exitProcess
+
+fun main(args: Array&lt;String&gt;) {
+<span class="nc" id="L20">    val result = CliRunner().run(args)</span>
+    @Suppress(&quot;ForbiddenMethodCall&quot;)
+<span class="nc" id="L22">    when (val error = result.error) {</span>
+<span class="nc bnc" id="L23" title="All 4 branches missed.">        is InvalidConfig, is IssuesFound -&gt; println(error.message)</span>
+<span class="nc bnc" id="L24" title="All 2 branches missed.">        is UnexpectedError -&gt; {</span>
+<span class="nc" id="L25">            when (val cause = error.cause) {</span>
+<span class="nc bnc" id="L26" title="All 2 branches missed.">                is HelpRequest -&gt; {</span>
+<span class="nc" id="L27">                    println(cause.usageText)</span>
+<span class="nc" id="L28">                    exitProcess(0)</span>
+                }
+<span class="nc bnc" id="L30" title="All 2 branches missed.">                is HandledArgumentViolation -&gt; {</span>
+<span class="nc" id="L31">                    println(cause.message)</span>
+<span class="nc" id="L32">                    println(cause.usageText)</span>
+                }
+<span class="nc" id="L34">                else -&gt; cause.printStackTrace()</span>
+            }
+        }
+<span class="nc" id="L37">        else -&gt; Unit // print nothing extra when there is no error</span>
+    }
+<span class="nc" id="L39">    exitProcess(result.exitCode())</span>
+}
+
+@NotApiButProbablyUsedByUsers
+@Deprecated(
+    &quot;Don't build a runner yourself.&quot;,
+    ReplaceWith(
+        &quot;DetektCli.load().run(args, outputPrinter, errorPrinter)&quot;,
+        &quot;io.github.detekt.tooling.api.DetektCli&quot;
+    )
+)
+fun buildRunner(
+    args: Array&lt;String&gt;,
+    outputPrinter: PrintStream,
+    errorPrinter: PrintStream
+): Executable {
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">    check(KotlinCompilerVersion.VERSION == whichKotlin()) {</span>
+<span class="nc" id="L56">        &quot;&quot;&quot;</span>
+<span class="nc" id="L57">            detekt was compiled with Kotlin ${whichKotlin()} but is currently running with ${KotlinCompilerVersion.VERSION}.</span>
+            This is not supported. See https://detekt.dev/docs/gettingstarted/gradle#dependencies for more information.
+<span class="nc" id="L59">        &quot;&quot;&quot;.trimIndent()</span>
+    }
+<span class="fc" id="L61">    val arguments = parseArguments(args)</span>
+<span class="fc" id="L62">    return when {</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        arguments.showVersion -&gt; VersionPrinter(outputPrinter)</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        arguments.generateConfig != null -&gt; ConfigExporter(arguments, outputPrinter)</span>
+<span class="fc" id="L65">        else -&gt; Runner(arguments, outputPrinter, errorPrinter)</span>
+    }
+}
+
+@Suppress(&quot;detekt.MagicNumber&quot;)
+<span class="pc" id="L70">internal fun AnalysisResult.exitCode(): Int = when (error) {</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">    is UnexpectedError -&gt; 1</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">    is IssuesFound -&gt; 2</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">    is InvalidConfig -&gt; 3</span>
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">    null -&gt; 0</span>
+<span class="fc" id="L75">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

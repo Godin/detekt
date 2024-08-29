@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CyclomaticComplexity.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.metrics</a> &gt; <span class="el_source">CyclomaticComplexity.kt</span></div><h1>CyclomaticComplexity.kt</h1><pre class="source lang-java linenums">package io.github.detekt.metrics
+
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtBreakExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtContinueExpression
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtLoopExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
+import org.jetbrains.kotlin.psi.KtTryExpression
+import org.jetbrains.kotlin.psi.KtWhenEntry
+import org.jetbrains.kotlin.psi.KtWhenExpression
+import org.jetbrains.kotlin.psi.psiUtil.getCallNameExpression
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+
+/**
+ * Counts the cyclomatic complexity of nodes.
+ */
+@Suppress(&quot;TooManyFunctions&quot;)
+<span class="fc" id="L25">class CyclomaticComplexity(private val config: Config) : DetektVisitor() {</span>
+
+<span class="fc" id="L27">    class Config(</span>
+<span class="fc" id="L28">        var ignoreSimpleWhenEntries: Boolean = false,</span>
+<span class="fc" id="L29">        var ignoreNestingFunctions: Boolean = false,</span>
+<span class="fc" id="L30">        var ignoreLocalFunctions: Boolean = false,</span>
+<span class="fc" id="L31">        var nestingFunctions: Set&lt;String&gt; = DEFAULT_NESTING_FUNCTIONS</span>
+<span class="fc" id="L32">    )</span>
+
+<span class="fc" id="L34">    var complexity: Int = 0</span>
+        private set
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        if (!isInsideObjectLiteral(function)) {</span>
+<span class="fc" id="L39">            complexity++</span>
+<span class="fc bfc" id="L40" title="All 4 branches covered.">            if (!isInsideNamedFunction(function) || !config.ignoreLocalFunctions) {</span>
+<span class="fc" id="L41">                super.visitNamedFunction(function)</span>
+            }
+        }
+<span class="fc" id="L44">    }</span>
+
+    private fun isInsideObjectLiteral(function: KtNamedFunction) =
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        function.getStrictParentOfType&lt;KtObjectLiteralExpression&gt;() != null</span>
+
+    private fun isInsideNamedFunction(function: KtNamedFunction) =
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        function.getStrictParentOfType&lt;KtNamedFunction&gt;() != null</span>
+
+    override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        if (expression.operationToken in CONDITIONALS) {</span>
+<span class="fc" id="L54">            complexity++</span>
+        }
+<span class="fc" id="L56">        super.visitBinaryExpression(expression)</span>
+<span class="fc" id="L57">    }</span>
+
+    override fun visitContinueExpression(expression: KtContinueExpression) {
+<span class="fc" id="L60">        complexity++</span>
+<span class="fc" id="L61">        super.visitContinueExpression(expression)</span>
+<span class="fc" id="L62">    }</span>
+
+    override fun visitBreakExpression(expression: KtBreakExpression) {
+<span class="fc" id="L65">        complexity++</span>
+<span class="fc" id="L66">        super.visitBreakExpression(expression)</span>
+<span class="fc" id="L67">    }</span>
+
+    override fun visitIfExpression(expression: KtIfExpression) {
+<span class="fc" id="L70">        complexity++</span>
+<span class="fc" id="L71">        super.visitIfExpression(expression)</span>
+<span class="fc" id="L72">    }</span>
+
+    override fun visitLoopExpression(loopExpression: KtLoopExpression) {
+<span class="fc" id="L75">        complexity++</span>
+<span class="fc" id="L76">        super.visitLoopExpression(loopExpression)</span>
+<span class="fc" id="L77">    }</span>
+
+    override fun visitWhenExpression(expression: KtWhenExpression) {
+<span class="fc" id="L80">        val entries = expression.extractEntries()</span>
+<span class="fc bfc" id="L81" title="All 4 branches covered.">        complexity += if (config.ignoreSimpleWhenEntries &amp;&amp; entries.count() == 0) 1 else entries.count()</span>
+<span class="fc" id="L82">        super.visitWhenExpression(expression)</span>
+<span class="fc" id="L83">    }</span>
+
+    private fun KtWhenExpression.extractEntries(): Sequence&lt;KtWhenEntry&gt; {
+<span class="fc" id="L86">        val entries = entries.asSequence()</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        return if (config.ignoreSimpleWhenEntries) entries.filter { it.expression is KtBlockExpression } else entries</span>
+    }
+
+    override fun visitTryExpression(expression: KtTryExpression) {
+<span class="fc" id="L91">        complexity += expression.catchClauses.size</span>
+<span class="fc" id="L92">        super.visitTryExpression(expression)</span>
+<span class="fc" id="L93">    }</span>
+
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">    private fun KtCallExpression.isUsedForNesting(): Boolean = when (getCallNameExpression()?.text) {</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">        in config.nestingFunctions -&gt; true</span>
+<span class="fc" id="L97">        else -&gt; false</span>
+<span class="fc" id="L98">    }</span>
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc bfc" id="L101" title="All 4 branches covered.">        if (!config.ignoreNestingFunctions &amp;&amp; expression.isUsedForNesting()) {</span>
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">            val lambdaExpression = expression.lambdaArguments.firstOrNull()?.getLambdaExpression()</span>
+<span class="pc bpc" id="L103" title="2 of 4 branches missed.">            if (lambdaExpression?.bodyExpression != null) {</span>
+<span class="fc" id="L104">                complexity++</span>
+            }
+        }
+<span class="fc" id="L107">        super.visitCallExpression(expression)</span>
+<span class="fc" id="L108">    }</span>
+
+    companion object {
+
+<span class="pc" id="L112">        val CONDITIONALS = setOf(KtTokens.ELVIS, KtTokens.ANDAND, KtTokens.OROR)</span>
+<span class="fc" id="L113">        val DEFAULT_NESTING_FUNCTIONS = setOf(</span>
+<span class="fc" id="L114">            &quot;run&quot;,</span>
+<span class="fc" id="L115">            &quot;let&quot;,</span>
+<span class="fc" id="L116">            &quot;apply&quot;,</span>
+<span class="fc" id="L117">            &quot;with&quot;,</span>
+<span class="fc" id="L118">            &quot;also&quot;,</span>
+<span class="fc" id="L119">            &quot;use&quot;,</span>
+<span class="fc" id="L120">            &quot;forEach&quot;,</span>
+<span class="fc" id="L121">            &quot;isNotNull&quot;,</span>
+<span class="fc" id="L122">            &quot;ifNull&quot;</span>
+        )
+
+<span class="fc" id="L125">        fun calculate(node: KtElement, configure: (Config.() -&gt; Unit)? = null): Int {</span>
+<span class="fc" id="L126">            val config = Config()</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">            configure?.invoke(config)</span>
+<span class="fc" id="L128">            val visitor = CyclomaticComplexity(config)</span>
+<span class="fc" id="L129">            node.accept(visitor)</span>
+<span class="fc" id="L130">            return visitor.complexity</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

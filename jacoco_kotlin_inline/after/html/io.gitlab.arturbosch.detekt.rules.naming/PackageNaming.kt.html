@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PackageNaming.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.naming</a> &gt; <span class="el_source">PackageNaming.kt</span></div><h1>PackageNaming.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.naming
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.psi.KtPackageDirective
+
+/**
+ * Reports package names that do not follow the specified naming convention.
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+@Alias(&quot;PackageName&quot;)
+<span class="fc" id="L18">class PackageNaming(config: Config) : Rule(</span>
+<span class="fc" id="L19">    config,</span>
+<span class="fc" id="L20">    &quot;Package names should match the naming convention set in the configuration.&quot;</span>
+) {
+
+    @Configuration(&quot;naming pattern&quot;)
+<span class="fc" id="L24">    private val packagePattern: Regex by config(&quot;&quot;&quot;[a-z]+(\.[a-z][A-Za-z0-9]*)*&quot;&quot;&quot;) { it.toRegex() }</span>
+
+    override fun visitPackageDirective(directive: KtPackageDirective) {
+<span class="fc" id="L27">        val name = directive.qualifiedName</span>
+<span class="fc bfc" id="L28" title="All 6 branches covered.">        if (name.isNotEmpty() &amp;&amp; !name.matches(packagePattern)) {</span>
+<span class="fc" id="L29">            report(</span>
+<span class="fc" id="L30">                CodeSmell(</span>
+<span class="fc" id="L31">                    Entity.from(directive),</span>
+<span class="fc" id="L32">                    message = &quot;Package name should match the pattern: $packagePattern&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L36">    }</span>
+
+    companion object {
+        const val PACKAGE_PATTERN = &quot;packagePattern&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RethrowCaughtException.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.exceptions</a> &gt; <span class="el_source">RethrowCaughtException.kt</span></div><h1>RethrowCaughtException.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.exceptions
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtCatchClause
+import org.jetbrains.kotlin.psi.KtThrowExpression
+import org.jetbrains.kotlin.psi.KtTryExpression
+import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
+
+/**
+ * This rule reports all exceptions that are caught and then later re-thrown without modification.
+ * It ignores cases:
+ * 1. When caught exceptions that are rethrown if there is work done before that.
+ * 2. When there are more than one catch in try block and at least one of them has some work.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo() {
+ *     try {
+ *         // ...
+ *     } catch (e: IOException) {
+ *         throw e
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun foo() {
+ *     try {
+ *         // ...
+ *     } catch (e: IOException) {
+ *         throw MyException(e)
+ *     }
+ *     try {
+ *         // ...
+ *     } catch (e: IOException) {
+ *         print(e)
+ *         throw e
+ *     }
+ *     try {
+ *         // ...
+ *     } catch (e: IOException) {
+ *         print(e.message)
+ *         throw e
+ *     }
+ *
+ *     try {
+ *         // ...
+ *     } catch (e: IOException) {
+ *         throw e
+ *     } catch (e: Exception) {
+ *         print(e.message)
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.16.0&quot;)
+<span class="fc" id="L60">class RethrowCaughtException(config: Config) : Rule(</span>
+<span class="fc" id="L61">    config,</span>
+<span class="fc" id="L62">    &quot;Do not rethrow a caught exception of the same type.&quot;</span>
+) {
+
+    override fun visitTryExpression(tryExpr: KtTryExpression) {
+<span class="fc" id="L66">        val catchClauses = tryExpr.getChildrenOfType&lt;KtCatchClause&gt;()</span>
+<span class="fc" id="L67">        catchClauses.map { violatingThrowExpressionFrom(it) }</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            .takeLastWhile { it != null }</span>
+<span class="fc" id="L69">            .forEach { violation -&gt;</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">                violation?.let {</span>
+<span class="fc" id="L71">                    report(CodeSmell(Entity.from(it), description))</span>
+<span class="fc" id="L72">                }</span>
+<span class="fc" id="L73">            }</span>
+<span class="fc" id="L74">        super.visitTryExpression(tryExpr)</span>
+<span class="fc" id="L75">    }</span>
+
+    private fun violatingThrowExpressionFrom(catchClause: KtCatchClause): KtThrowExpression? {
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        val exceptionName = catchClause.catchParameter?.name</span>
+<span class="pc bpc" id="L79" title="2 of 6 branches missed.">        val throwExpression = catchClause.catchBody?.children?.firstOrNull() as? KtThrowExpression</span>
+<span class="pc bpc" id="L80" title="1 of 6 branches missed.">        if (throwExpression?.thrownExpression?.text == exceptionName) {</span>
+<span class="fc" id="L81">            return throwExpression</span>
+        }
+<span class="fc" id="L83">        return null</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

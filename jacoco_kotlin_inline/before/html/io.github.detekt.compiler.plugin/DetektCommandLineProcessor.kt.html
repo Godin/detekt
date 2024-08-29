@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DetektCommandLineProcessor.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.compiler.plugin</a> &gt; <span class="el_source">DetektCommandLineProcessor.kt</span></div><h1>DetektCommandLineProcessor.kt</h1><pre class="source lang-java linenums">package io.github.detekt.compiler.plugin
+
+import org.jetbrains.kotlin.compiler.plugin.AbstractCliOption
+import org.jetbrains.kotlin.compiler.plugin.CliOption
+import org.jetbrains.kotlin.compiler.plugin.CliOptionProcessingException
+import org.jetbrains.kotlin.compiler.plugin.CommandLineProcessor
+import org.jetbrains.kotlin.config.CompilerConfiguration
+import java.io.ByteArrayInputStream
+import java.io.ObjectInputStream
+import java.util.Base64
+import kotlin.io.path.Path
+
+<span class="fc" id="L13">class DetektCommandLineProcessor : CommandLineProcessor {</span>
+
+<span class="fc" id="L15">    override val pluginId: String = &quot;detekt-compiler-plugin&quot;</span>
+
+<span class="fc" id="L17">    @Suppress(&quot;StringLiteralDuplication&quot;)</span>
+<span class="fc" id="L18">    override val pluginOptions: Collection&lt;AbstractCliOption&gt; = listOf(</span>
+<span class="fc" id="L19">        CliOption(</span>
+<span class="fc" id="L20">            Options.CONFIG,</span>
+<span class="fc" id="L21">            &quot;&lt;path|paths&gt;&quot;,</span>
+<span class="fc" id="L22">            &quot;Comma separated paths to detekt config files.&quot;,</span>
+<span class="fc" id="L23">            false,</span>
+<span class="fc" id="L24">            allowMultipleOccurrences = true,</span>
+        ),
+<span class="fc" id="L26">        CliOption(</span>
+<span class="fc" id="L27">            Options.CONFIG_DIGEST,</span>
+<span class="fc" id="L28">            &quot;&lt;digest&gt;&quot;,</span>
+<span class="fc" id="L29">            &quot;A digest calculated from the content of the config files. Used for Gradle incremental task invalidation.&quot;,</span>
+<span class="fc" id="L30">            false</span>
+        ),
+<span class="fc" id="L32">        CliOption(</span>
+<span class="fc" id="L33">            Options.BASELINE,</span>
+<span class="fc" id="L34">            &quot;&lt;path&gt;&quot;,</span>
+<span class="fc" id="L35">            &quot;Path to a detekt baseline file.&quot;,</span>
+<span class="fc" id="L36">            false</span>
+        ),
+<span class="fc" id="L38">        CliOption(</span>
+<span class="fc" id="L39">            Options.DEBUG,</span>
+<span class="fc" id="L40">            &quot;&lt;true|false&gt;&quot;,</span>
+<span class="fc" id="L41">            &quot;Print debug messages.&quot;,</span>
+<span class="fc" id="L42">            false</span>
+        ),
+<span class="fc" id="L44">        CliOption(</span>
+<span class="fc" id="L45">            Options.IS_ENABLED,</span>
+<span class="fc" id="L46">            &quot;&lt;true|false&gt;&quot;,</span>
+<span class="fc" id="L47">            &quot;Should detekt run?&quot;,</span>
+<span class="fc" id="L48">            false</span>
+        ),
+<span class="fc" id="L50">        CliOption(</span>
+<span class="fc" id="L51">            Options.USE_DEFAULT_CONFIG,</span>
+<span class="fc" id="L52">            &quot;&lt;true|false&gt;&quot;,</span>
+<span class="fc" id="L53">            &quot;Use the default detekt config as baseline.&quot;,</span>
+<span class="fc" id="L54">            false</span>
+        ),
+<span class="fc" id="L56">        CliOption(</span>
+<span class="fc" id="L57">            Options.ALL_RULES,</span>
+<span class="fc" id="L58">            &quot;&lt;true|false&gt;&quot;,</span>
+<span class="fc" id="L59">            &quot;Turns on all the rules.&quot;,</span>
+<span class="fc" id="L60">            false</span>
+        ),
+<span class="fc" id="L62">        CliOption(</span>
+<span class="fc" id="L63">            Options.DISABLE_DEFAULT_RULE_SETS,</span>
+<span class="fc" id="L64">            &quot;&lt;true|false&gt;&quot;,</span>
+<span class="fc" id="L65">            &quot;Disables all default detekt rulesets and will only run detekt with custom rules &quot; +</span>
+                &quot;defined in plugins passed in with `detektPlugins` configuration.&quot;,
+<span class="fc" id="L67">            false</span>
+        ),
+<span class="fc" id="L69">        CliOption(</span>
+<span class="fc" id="L70">            Options.PARALLEL,</span>
+<span class="fc" id="L71">            &quot;&lt;true|false&gt;&quot;,</span>
+<span class="fc" id="L72">            &quot;Enables parallel compilation and analysis of source files.&quot;,</span>
+<span class="fc" id="L73">            false</span>
+        ),
+<span class="fc" id="L75">        CliOption(</span>
+<span class="fc" id="L76">            Options.ROOT_PATH,</span>
+<span class="fc" id="L77">            &quot;&lt;path&gt;&quot;,</span>
+<span class="fc" id="L78">            &quot;Root path used to relativize paths when using exclude patterns.&quot;,</span>
+<span class="fc" id="L79">            false</span>
+        ),
+<span class="fc" id="L81">        CliOption(</span>
+<span class="fc" id="L82">            Options.EXCLUDES,</span>
+<span class="fc" id="L83">            &quot;&lt;base64-encoded globs&gt;&quot;,</span>
+<span class="fc" id="L84">            &quot;A base64-encoded list of the globs used to exclude paths from scanning.&quot;,</span>
+<span class="fc" id="L85">            false</span>
+        ),
+<span class="fc" id="L87">        CliOption(</span>
+<span class="fc" id="L88">            Options.REPORT,</span>
+<span class="fc" id="L89">            &quot;&lt;report-id:path&gt;&quot;,</span>
+<span class="fc" id="L90">            &quot;Generates a report for given 'report-id' and stores it on given 'path'. &quot; +</span>
+                &quot;Available 'report-id' values: 'txt', 'xml', 'html'.&quot;,
+<span class="fc" id="L92">            false,</span>
+<span class="fc" id="L93">            allowMultipleOccurrences = true</span>
+        )
+    )
+
+    override fun processOption(option: AbstractCliOption, value: String, configuration: CompilerConfiguration) {
+<span class="pc bpc" id="L98" title="11 of 13 branches missed.">        when (option.optionName) {</span>
+<span class="nc" id="L99">            Options.BASELINE -&gt; configuration.put(Keys.BASELINE, Path(value))</span>
+<span class="nc" id="L100">            Options.CONFIG -&gt; configuration.appendList(Keys.CONFIG, Path(value))</span>
+<span class="nc" id="L101">            Options.CONFIG_DIGEST -&gt; configuration.put(Keys.CONFIG_DIGEST, value)</span>
+<span class="nc" id="L102">            Options.DEBUG -&gt; configuration.put(Keys.DEBUG, value.toBoolean())</span>
+<span class="nc" id="L103">            Options.IS_ENABLED -&gt; configuration.put(Keys.IS_ENABLED, value.toBoolean())</span>
+<span class="fc" id="L104">            Options.USE_DEFAULT_CONFIG -&gt; configuration.put(Keys.USE_DEFAULT_CONFIG, value.toBoolean())</span>
+<span class="nc" id="L105">            Options.ALL_RULES -&gt; configuration.put(Keys.ALL_RULES, value.toBoolean())</span>
+<span class="nc" id="L106">            Options.DISABLE_DEFAULT_RULE_SETS -&gt; configuration.put(Keys.DISABLE_DEFAULT_RULE_SETS, value.toBoolean())</span>
+<span class="nc" id="L107">            Options.PARALLEL -&gt; configuration.put(Keys.PARALLEL, value.toBoolean())</span>
+<span class="fc" id="L108">            Options.ROOT_PATH -&gt; configuration.put(Keys.ROOT_PATH, Path(value))</span>
+<span class="nc" id="L109">            Options.EXCLUDES -&gt; configuration.put(Keys.EXCLUDES, value.decodeToGlobSet())</span>
+<span class="nc" id="L110">            Options.REPORT -&gt; configuration.put(</span>
+<span class="nc" id="L111">                Keys.REPORTS,</span>
+<span class="nc" id="L112">                value.substringBefore(':'),</span>
+<span class="nc" id="L113">                Path(value.substringAfter(':')),</span>
+            )
+<span class="nc" id="L115">            else -&gt; throw CliOptionProcessingException(&quot;Unknown option: ${option.optionName}&quot;)</span>
+        }
+<span class="fc" id="L117">    }</span>
+}
+
+private fun String.decodeToGlobSet(): List&lt;String&gt; {
+<span class="nc" id="L121">    val b = Base64.getDecoder().decode(this)</span>
+<span class="nc" id="L122">    val bi = ByteArrayInputStream(b)</span>
+
+<span class="nc" id="L124">    return ObjectInputStream(bi).use { inputStream -&gt;</span>
+<span class="nc" id="L125">        val globs = mutableListOf&lt;String&gt;()</span>
+
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        repeat(inputStream.readInt()) {</span>
+<span class="nc" id="L128">            globs.add(inputStream.readUTF())</span>
+<span class="nc" id="L129">        }</span>
+
+<span class="nc" id="L131">        globs</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

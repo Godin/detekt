@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VariableNaming.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.naming</a> &gt; <span class="el_source">VariableNaming.kt</span></div><h1>VariableNaming.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.naming
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import io.gitlab.arturbosch.detekt.rules.naming.util.isContainingExcludedClassOrObject
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.psiUtil.getNonStrictParentOfType
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+import org.jetbrains.kotlin.resolve.calls.util.isSingleUnderscore
+
+/**
+ * Reports variable names that do not follow the specified naming convention.
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+@Alias(&quot;PropertyName&quot;)
+<span class="fc" id="L24">class VariableNaming(config: Config) : Rule(</span>
+<span class="fc" id="L25">    config,</span>
+<span class="fc" id="L26">    &quot;Variable names should follow the naming convention set in the projects configuration.&quot;</span>
+) {
+
+    @Configuration(&quot;naming pattern&quot;)
+<span class="fc" id="L30">    private val variablePattern: Regex by config(&quot;[a-z][A-Za-z0-9]*&quot;, String::toRegex)</span>
+
+    @Configuration(&quot;naming pattern&quot;)
+<span class="fc" id="L33">    private val privateVariablePattern: Regex by config(&quot;(_)?[a-z][A-Za-z0-9]*&quot;, String::toRegex)</span>
+
+    @Configuration(&quot;ignores variables in classes which match this regex&quot;)
+<span class="fc" id="L36">    private val excludeClassPattern: Regex by config(&quot;$^&quot;, String::toRegex)</span>
+
+    @Configuration(&quot;ignores member properties that have the override modifier&quot;)
+    @Deprecated(&quot;This configuration is ignored and will be removed in the future&quot;)
+    @Suppress(&quot;unused&quot;)
+<span class="pc" id="L41">    private val ignoreOverridden: Boolean by config(true)</span>
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (property.isPropertyTopLevelOrInCompanion()) {</span>
+<span class="fc" id="L45">            return</span>
+        }
+<span class="pc bpc" id="L47" title="1 of 4 branches missed.">        if (property.isSingleUnderscore || property.isContainingExcludedClassOrObject(excludeClassPattern)) {</span>
+<span class="fc" id="L48">            return</span>
+        }
+
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        if (property.isOverride()) {</span>
+<span class="fc" id="L52">            return</span>
+        }
+
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        val identifier = property.name ?: return</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (property.isPrivate()) {</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">            if (!identifier.matches(privateVariablePattern)) {</span>
+<span class="fc" id="L58">                report(property, &quot;Private variable names should match the pattern: $privateVariablePattern&quot;)</span>
+            }
+        } else {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            if (!identifier.matches(variablePattern)) {</span>
+<span class="fc" id="L62">                report(property, &quot;Variable names should match the pattern: $variablePattern&quot;)</span>
+            }
+        }
+<span class="fc" id="L65">    }</span>
+
+    private fun KtProperty.isPropertyTopLevelOrInCompanion(): Boolean =
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        this.nameAsSafeName.isSpecial ||</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            this.getNonStrictParentOfType&lt;KtObjectDeclaration&gt;() != null ||</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">            this.isTopLevel ||</span>
+<span class="pc bpc" id="L71" title="3 of 6 branches missed.">            this.nameIdentifier?.parent?.javaClass == null</span>
+
+    private fun report(property: KtProperty, message: String) {
+<span class="fc" id="L74">        report(</span>
+<span class="fc" id="L75">            CodeSmell(</span>
+<span class="fc" id="L76">                Entity.atName(property),</span>
+<span class="fc" id="L77">                message = message</span>
+            )
+        )
+<span class="fc" id="L80">    }</span>
+
+    companion object {
+        const val EXCLUDE_CLASS_PATTERN = &quot;excludeClassPattern&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

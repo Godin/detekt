@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KotlinCoreEnvironmentWrapper.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.test.utils</a> &gt; <span class="el_source">KotlinCoreEnvironmentWrapper.kt</span></div><h1>KotlinCoreEnvironmentWrapper.kt</h1><pre class="source lang-java linenums">package io.github.detekt.test.utils
+
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.com.intellij.openapi.Disposable
+import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
+import java.io.File
+
+/**
+ * Make sure to always call [dispose] or use a [use] block when working with [KotlinCoreEnvironment]s.
+ */
+<span class="fc" id="L11">class KotlinCoreEnvironmentWrapper(</span>
+<span class="fc" id="L12">    private var environment: KotlinCoreEnvironment?,</span>
+<span class="fc" id="L13">    private val disposable: Disposable</span>
+) {
+
+    val env: KotlinCoreEnvironment
+<span class="pc bpc" id="L17" title="1 of 2 branches missed.">        get() = checkNotNull(environment) { &quot;Environment already disposed.&quot; }</span>
+
+    fun dispose() {
+<span class="fc" id="L20">        Disposer.dispose(disposable)</span>
+<span class="fc" id="L21">        environment = null</span>
+<span class="fc" id="L22">    }</span>
+}
+
+/**
+ * Create a {@link KotlinCoreEnvironmentWrapper} used for test.
+ *
+ * @param additionalRootPaths the optional JVM classpath roots list.
+ */
+<span class="nc" id="L30">fun createEnvironment(</span>
+<span class="nc" id="L31">    additionalRootPaths: List&lt;File&gt; = emptyList(),</span>
+<span class="nc" id="L32">    additionalJavaSourceRootPaths: List&lt;File&gt; = emptyList()</span>
+<span class="fc" id="L33">): KotlinCoreEnvironmentWrapper = KtTestCompiler.createEnvironment(additionalRootPaths, additionalJavaSourceRootPaths)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

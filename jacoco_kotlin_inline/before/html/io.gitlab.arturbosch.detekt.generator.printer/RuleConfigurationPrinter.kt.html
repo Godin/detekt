@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RuleConfigurationPrinter.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.printer</a> &gt; <span class="el_source">RuleConfigurationPrinter.kt</span></div><h1>RuleConfigurationPrinter.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.printer
+
+import io.github.detekt.utils.bold
+import io.github.detekt.utils.code
+import io.github.detekt.utils.crossOut
+import io.github.detekt.utils.description
+import io.github.detekt.utils.h4
+import io.github.detekt.utils.item
+import io.github.detekt.utils.list
+import io.github.detekt.utils.markdown
+import io.gitlab.arturbosch.detekt.generator.collection.Configuration
+
+internal object RuleConfigurationPrinter : DocumentationPrinter&lt;List&lt;Configuration&gt;&gt; {
+
+    override fun print(item: List&lt;Configuration&gt;): String {
+<span class="fc bfc" id="L16" title="All 2 branches covered.">        if (item.isEmpty()) return &quot;&quot;</span>
+<span class="fc" id="L17">        return markdown {</span>
+<span class="fc" id="L18">            h4 { &quot;Configuration options:&quot; }</span>
+<span class="fc" id="L19">            list {</span>
+<span class="fc" id="L20">                item.forEach {</span>
+<span class="fc" id="L21">                    val defaultValues = it.defaultValue.printAsMarkdownCode()</span>
+<span class="fc bfc" id="L22" title="All 2 branches covered.">                    val defaultAndroidValues = it.defaultAndroidValue?.printAsMarkdownCode()</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">                    val defaultString = if (defaultAndroidValues != null) {</span>
+<span class="fc" id="L24">                        &quot;(default: ${code { defaultValues }}) (android default: ${code { defaultAndroidValues }})&quot;</span>
+                    } else {
+<span class="fc" id="L26">                        &quot;(default: ${code { defaultValues }})&quot;</span>
+                    }
+<span class="fc bfc" id="L28" title="All 2 branches covered.">                    if (it.isDeprecated()) {</span>
+<span class="fc" id="L29">                        item {</span>
+<span class="fc" id="L30">                            crossOut { code { it.name } } + &quot; &quot; + defaultString</span>
+                        }
+<span class="fc" id="L32">                        description { &quot;${bold { &quot;Deprecated&quot; }}: ${it.deprecated}&quot; }</span>
+                    } else {
+<span class="fc" id="L34">                        item {</span>
+<span class="fc" id="L35">                            code { it.name } + &quot; &quot; + defaultString</span>
+                        }
+                    }
+<span class="fc" id="L38">                    description { it.description }</span>
+<span class="fc" id="L39">                }</span>
+<span class="fc" id="L40">            }</span>
+<span class="fc" id="L41">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

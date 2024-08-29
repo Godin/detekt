@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DoubleMutabilityForCollection.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">DoubleMutabilityForCollection.kt</span></div><h1>DoubleMutabilityForCollection.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.resolve.BindingContext
+
+/**
+ * Using `var` when declaring a mutable collection or value holder leads to double mutability.
+ * Consider instead declaring your variable with `val` or switching your declaration to use an
+ * immutable type.
+ *
+ * By default, the rule triggers on standard mutable collections, however it can be configured
+ * to trigger on other types of mutable value types, such as `MutableState` from Jetpack
+ * Compose.
+ *
+ * &lt;noncompliant&gt;
+ * var myList = mutableListOf(1,2,3)
+ * var mySet = mutableSetOf(1,2,3)
+ * var myMap = mutableMapOf(&quot;answer&quot; to 42)
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * // Use val
+ * val myList = mutableListOf(1,2,3)
+ * val mySet = mutableSetOf(1,2,3)
+ * val myMap = mutableMapOf(&quot;answer&quot; to 42)
+ *
+ * // Use immutable types
+ * var myList = listOf(1,2,3)
+ * var mySet = setOf(1,2,3)
+ * var myMap = mapOf(&quot;answer&quot; to 42)
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+@Alias(&quot;DoubleMutability&quot;)
+<span class="fc" id="L47">class DoubleMutabilityForCollection(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;Using var with mutable collections or values leads to double mutability. &quot; +</span>
+        &quot;Consider using val or immutable collection or value types.&quot;
+) {
+
+    @Configuration(&quot;Define a list of mutable types to trigger on when defined with `var`.&quot;)
+<span class="fc" id="L54">    private val mutableTypes: Set&lt;FqName&gt; by config(defaultMutableTypes) { types -&gt;</span>
+<span class="fc" id="L55">        types.map { FqName(it) }.toSet()</span>
+    }
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc" id="L59">        super.visitProperty(property)</span>
+
+<span class="pc bpc" id="L61" title="2 of 4 branches missed.">        val type = (bindingContext[BindingContext.VARIABLE, property])?.type ?: return</span>
+<span class="fc" id="L62">        val standardType = type.fqNameOrNull()</span>
+<span class="fc bfc" id="L63" title="All 4 branches covered.">        if (property.isVar &amp;&amp; standardType in mutableTypes) {</span>
+<span class="fc" id="L64">            report(</span>
+<span class="fc" id="L65">                CodeSmell(</span>
+<span class="fc" id="L66">                    Entity.from(property),</span>
+<span class="fc" id="L67">                    &quot;Variable ${property.name} is declared as `var` with a mutable type $standardType. &quot; +</span>
+                        &quot;Consider using `val` or an immutable collection or value type&quot;
+                )
+            )
+        }
+<span class="fc" id="L72">    }</span>
+
+    companion object {
+<span class="pc" id="L75">        val defaultMutableTypes = listOf(</span>
+<span class="fc" id="L76">            &quot;kotlin.collections.MutableList&quot;,</span>
+<span class="fc" id="L77">            &quot;kotlin.collections.MutableMap&quot;,</span>
+<span class="fc" id="L78">            &quot;kotlin.collections.MutableSet&quot;,</span>
+<span class="fc" id="L79">            &quot;java.util.ArrayList&quot;,</span>
+<span class="fc" id="L80">            &quot;java.util.LinkedHashSet&quot;,</span>
+<span class="fc" id="L81">            &quot;java.util.HashSet&quot;,</span>
+<span class="fc" id="L82">            &quot;java.util.LinkedHashMap&quot;,</span>
+<span class="fc" id="L83">            &quot;java.util.HashMap&quot;,</span>
+        )
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

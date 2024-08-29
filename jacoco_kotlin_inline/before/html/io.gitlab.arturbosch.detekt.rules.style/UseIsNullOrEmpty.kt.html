@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UseIsNullOrEmpty.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UseIsNullOrEmpty.kt</span></div><h1>UseIsNullOrEmpty.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtSimpleNameExpression
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getType
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.types.isNullable
+
+/**
+ * This rule detects null or empty checks that can be replaced with `isNullOrEmpty()` call.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo(x: List&lt;Int&gt;?) {
+ *     if (x == null || x.isEmpty()) return
+ * }
+ * fun bar(x: List&lt;Int&gt;?) {
+ *     if (x == null || x.count() == 0) return
+ * }
+ * fun baz(x: List&lt;Int&gt;?) {
+ *     if (x == null || x.size == 0) return
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * if (x.isNullOrEmpty()) return
+ * &lt;/compliant&gt;
+ *
+ */
+@Suppress(&quot;TooManyFunctions&quot;)
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L47">class UseIsNullOrEmpty(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;Use `isNullOrEmpty()` call instead of `x == null || x.isEmpty()`.&quot;</span>
+) {
+
+    override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc" id="L53">        super.visitBinaryExpression(expression)</span>
+
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if (expression.operationToken != KtTokens.OROR) return</span>
+<span class="pc bpc" id="L56" title="2 of 4 branches missed.">        val left = expression.left as? KtBinaryExpression ?: return</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        val right = expression.right ?: return</span>
+
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        val nullCheckedExpression = left.nullCheckedExpression() ?: return</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        val sizeCheckedExpression = right.sizeCheckedExpression() ?: return</span>
+<span class="pc bpc" id="L61" title="2 of 4 branches missed.">        if (!nullCheckedExpression.isSimpleNameExpression() || !sizeCheckedExpression.isSimpleNameExpression()) return</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (nullCheckedExpression.text != sizeCheckedExpression.text) return</span>
+
+<span class="fc" id="L64">        val message = &quot;This '${expression.text}' can be replaced with 'isNullOrEmpty()' call&quot;</span>
+<span class="fc" id="L65">        report(CodeSmell(Entity.from(expression), message))</span>
+<span class="fc" id="L66">    }</span>
+
+    private fun KtExpression.isSimpleNameExpression(): Boolean =
+<span class="pc bpc" id="L69" title="3 of 8 branches missed.">        this is KtSimpleNameExpression || (this as? KtQualifiedExpression)?.selectorExpression is KtSimpleNameExpression</span>
+
+    private fun KtBinaryExpression.nullCheckedExpression(): KtExpression? {
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        if (operationToken != KtTokens.EQEQ) return null</span>
+<span class="fc" id="L73">        return when {</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            right.isNullKeyword() -&gt; left</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">            left.isNullKeyword() -&gt; right</span>
+<span class="nc" id="L76">            else -&gt; null</span>
+<span class="pc bpc" id="L77" title="2 of 8 branches missed.">        }?.takeIf { it.getType(bindingContext)?.isNullable() == true }</span>
+    }
+
+    private fun KtExpression.sizeCheckedExpression(): KtExpression? =
+<span class="fc" id="L81">        when (this) {</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            is KtDotQualifiedExpression -&gt; sizeCheckedExpression()</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            is KtBinaryExpression -&gt; sizeCheckedExpression()</span>
+<span class="nc" id="L84">            else -&gt; null</span>
+<span class="fc" id="L85">        }</span>
+
+    private fun KtDotQualifiedExpression.sizeCheckedExpression(): KtExpression? {
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">        if (!selectorExpression.isCalling(emptyCheckFunctions)) return null</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        return receiverExpression.takeIf { it.isCollectionOrArrayOrString() }</span>
+    }
+
+    private fun KtBinaryExpression.sizeCheckedExpression(): KtExpression? {
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        if (operationToken != KtTokens.EQEQ) return null</span>
+<span class="fc" id="L94">        return when {</span>
+<span class="pc bpc" id="L95" title="1 of 4 branches missed.">            right.isEmptyString() -&gt; left?.sizeCheckedEmptyString()</span>
+<span class="pc bpc" id="L96" title="3 of 4 branches missed.">            left.isEmptyString() -&gt; right?.sizeCheckedEmptyString()</span>
+<span class="pc bpc" id="L97" title="1 of 4 branches missed.">            right.isZero() -&gt; left?.sizeCheckedEqualToZero()</span>
+<span class="pc bpc" id="L98" title="1 of 4 branches missed.">            left.isZero() -&gt; right?.sizeCheckedEqualToZero()</span>
+<span class="fc" id="L99">            else -&gt; null</span>
+        }
+    }
+
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">    private fun KtExpression.sizeCheckedEmptyString(): KtExpression? = takeIf { it.isString() }</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun KtExpression.sizeCheckedEqualToZero(): KtExpression? {
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (this !is KtDotQualifiedExpression) return null</span>
+<span class="fc" id="L108">        val receiver = receiverExpression</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        val selector = selectorExpression ?: return null</span>
+<span class="fc" id="L110">        when {</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">            selector is KtCallExpression -&gt;</span>
+<span class="pc bpc" id="L112" title="1 of 4 branches missed.">                if (!receiver.isCollectionOrArrayOrString() || !selector.isCalling(countFunctions)) return null</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">            selector.text == &quot;size&quot; -&gt;</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">                if (!receiver.isCollectionOrArray()) return null</span>
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">            selector.text == &quot;length&quot; -&gt;</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">                if (!receiver.isString()) return null</span>
+        }
+<span class="fc" id="L118">        return receiver</span>
+    }
+
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">    private fun KtExpression?.isNullKeyword() = this?.text == KtTokens.NULL_KEYWORD.value</span>
+
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">    private fun KtExpression?.isZero() = this?.text == &quot;0&quot;</span>
+
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">    private fun KtExpression?.isEmptyString() = this?.text == &quot;\&quot;\&quot;&quot;</span>
+
+    private fun KtExpression?.isCalling(fqNames: List&lt;FqName&gt;): Boolean {
+<span class="pc bpc" id="L128" title="4 of 6 branches missed.">        val callExpression = this as? KtCallExpression</span>
+<span class="nc bnc" id="L129" title="All 6 branches missed.">            ?: (this as? KtDotQualifiedExpression)?.selectorExpression as? KtCallExpression</span>
+<span class="nc" id="L130">            ?: return false</span>
+<span class="pc bpc" id="L131" title="2 of 4 branches missed.">        return callExpression.calleeExpression?.text in fqNames.map { it.shortName().asString() } &amp;&amp;</span>
+<span class="pc bpc" id="L132" title="3 of 6 branches missed.">            callExpression.getResolvedCall(bindingContext)?.resultingDescriptor?.fqNameOrNull() in fqNames</span>
+    }
+
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">    private fun KtExpression.classFqName() = getType(bindingContext)?.fqNameOrNull()</span>
+
+    private fun KtExpression.isCollectionOrArrayOrString(): Boolean {
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        val classFqName = classFqName() ?: return false</span>
+<span class="fc bfc" id="L139" title="All 6 branches covered.">        return classFqName() in collectionClasses || classFqName == arrayClass || classFqName == stringClass</span>
+    }
+
+    private fun KtExpression.isCollectionOrArray(): Boolean {
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        val classFqName = classFqName() ?: return false</span>
+<span class="fc bfc" id="L144" title="All 4 branches covered.">        return classFqName() in collectionClasses || classFqName == arrayClass</span>
+    }
+
+<span class="fc" id="L147">    private fun KtExpression.isString() = classFqName() == stringClass</span>
+
+    companion object {
+<span class="fc" id="L150">        private val collectionClasses = listOf(</span>
+<span class="fc" id="L151">            StandardNames.FqNames.list,</span>
+<span class="fc" id="L152">            StandardNames.FqNames.set,</span>
+<span class="fc" id="L153">            StandardNames.FqNames.collection,</span>
+<span class="fc" id="L154">            StandardNames.FqNames.map,</span>
+<span class="fc" id="L155">            StandardNames.FqNames.mutableList,</span>
+<span class="fc" id="L156">            StandardNames.FqNames.mutableSet,</span>
+<span class="fc" id="L157">            StandardNames.FqNames.mutableCollection,</span>
+<span class="fc" id="L158">            StandardNames.FqNames.mutableMap,</span>
+        )
+
+<span class="fc" id="L161">        private val arrayClass = StandardNames.FqNames.array.toSafe()</span>
+
+<span class="fc" id="L163">        private val stringClass = StandardNames.FqNames.string.toSafe()</span>
+
+<span class="fc" id="L165">        private val emptyCheckFunctions = collectionClasses.map { FqName(&quot;$it.isEmpty&quot;) } +</span>
+<span class="fc" id="L166">            listOf(&quot;kotlin.collections.isEmpty&quot;, &quot;kotlin.text.isEmpty&quot;).map(::FqName)</span>
+
+<span class="fc" id="L168">        private val countFunctions = listOf(&quot;kotlin.collections.count&quot;, &quot;kotlin.text.count&quot;).map(::FqName)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

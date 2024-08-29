@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UseArrayLiteralsInAnnotations.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UseArrayLiteralsInAnnotations.kt</span></div><h1>UseArrayLiteralsInAnnotations.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.psiUtil.containingClass
+
+/**
+ * This rule detects annotations which use the arrayOf(...) syntax instead of the array literal [...] syntax.
+ * The latter should be preferred as it is more readable.
+ *
+ * &lt;noncompliant&gt;
+ * @@PositiveCase(arrayOf(&quot;...&quot;))
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * @@NegativeCase([&quot;...&quot;])
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L27">class UseArrayLiteralsInAnnotations(config: Config) : Rule(</span>
+<span class="fc" id="L28">    config,</span>
+<span class="fc" id="L29">    &quot;Array literals [...] should be preferred as they are more readable than `arrayOf(...)` expressions.&quot;,</span>
+) {
+
+    override fun visitAnnotationEntry(annotationEntry: KtAnnotationEntry) {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        for (argument in annotationEntry.valueArguments) {</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">            if (argument.getArgumentExpression().isArrayOfFunctionCall()) {</span>
+<span class="fc" id="L35">                report(CodeSmell(Entity.from(argument.asElement()), description))</span>
+            }
+        }
+<span class="fc" id="L38">    }</span>
+
+    override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor) {
+<span class="pc bpc" id="L41" title="3 of 6 branches missed.">        if (constructor.containingClass()?.isAnnotation() != true) return</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        for (parameter in constructor.valueParameters) {</span>
+<span class="fc bfc" id="L43" title="All 2 branches covered.">            val defaultValue = parameter.defaultValue ?: continue</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">            if (defaultValue.isArrayOfFunctionCall()) {</span>
+<span class="fc" id="L45">                report(CodeSmell(Entity.from(defaultValue), description))</span>
+            }
+        }
+<span class="fc" id="L48">    }</span>
+
+    private fun KtExpression?.isArrayOfFunctionCall(): Boolean =
+<span class="pc bpc" id="L51" title="1 of 6 branches missed.">        (this as? KtCallExpression)?.calleeExpression?.text in arrayOfFunctions</span>
+
+    companion object {
+<span class="fc" id="L54">        private val arrayOfFunctions = listOf(</span>
+<span class="fc" id="L55">            &quot;boolean&quot;,</span>
+<span class="fc" id="L56">            &quot;char&quot;,</span>
+<span class="fc" id="L57">            &quot;byte&quot;,</span>
+<span class="fc" id="L58">            &quot;short&quot;,</span>
+<span class="fc" id="L59">            &quot;int&quot;,</span>
+<span class="fc" id="L60">            &quot;long&quot;,</span>
+<span class="fc" id="L61">            &quot;float&quot;,</span>
+<span class="fc" id="L62">            &quot;double&quot;,</span>
+<span class="fc" id="L63">            &quot;ubyte&quot;,</span>
+<span class="fc" id="L64">            &quot;ushort&quot;,</span>
+<span class="fc" id="L65">            &quot;uint&quot;,</span>
+<span class="fc" id="L66">            &quot;ulong&quot;,</span>
+<span class="fc" id="L67">        ).map { &quot;${it}ArrayOf&quot; }.toSet() + &quot;arrayOf&quot;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

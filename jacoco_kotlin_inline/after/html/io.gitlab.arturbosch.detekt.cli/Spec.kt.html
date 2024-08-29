@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Spec.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.cli</a> &gt; <span class="el_source">Spec.kt</span></div><h1>Spec.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.cli
+
+import io.github.detekt.tooling.api.spec.ProcessingSpec
+import io.github.detekt.tooling.api.spec.RulesSpec
+import io.github.detekt.tooling.api.spec.RulesSpec.RunPolicy.DisableDefaultRuleSets
+import io.github.detekt.tooling.api.spec.RulesSpec.RunPolicy.NoRestrictions
+import io.github.detekt.utils.PathFilters
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import java.nio.file.Path
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.absolute
+import kotlin.io.path.extension
+import kotlin.io.path.relativeTo
+import kotlin.io.path.walk
+
+@Suppress(&quot;LongMethod&quot;)
+internal fun CliArgs.createSpec(output: Appendable, error: Appendable): ProcessingSpec {
+<span class="fc" id="L18">    val args = this</span>
+<span class="fc" id="L19">    return ProcessingSpec {</span>
+<span class="fc" id="L20">        logging {</span>
+<span class="fc" id="L21">            debug = args.debug</span>
+<span class="fc" id="L22">            outputChannel = output</span>
+<span class="fc" id="L23">            errorChannel = error</span>
+<span class="fc" id="L24">        }</span>
+
+<span class="fc" id="L26">        project {</span>
+<span class="fc" id="L27">            basePath = args.basePath.absolute()</span>
+<span class="fc" id="L28">            val pathFilters = PathFilters.of(</span>
+<span class="fc bfc" id="L29" title="All 4 branches covered.">                args.excludes?.let(::asPatterns).orEmpty(),</span>
+<span class="fc bfc" id="L30" title="All 4 branches covered.">                args.includes?.let(::asPatterns).orEmpty(),</span>
+            )
+<span class="fc" id="L32">            val absoluteBasePath = basePath.absolute()</span>
+<span class="fc" id="L33">            inputPaths = args.inputPaths.walk()</span>
+<span class="fc" id="L34">                .filter { path -&gt; path.isKotlinFile() }</span>
+<span class="fc" id="L35">                .map { path -&gt; path.absolute().relativeTo(absoluteBasePath) }</span>
+<span class="fc bfc" id="L36" title="All 6 branches covered.">                .filter { path -&gt; pathFilters?.isIgnored(path) != false }</span>
+<span class="fc" id="L37">                .map { path -&gt; absoluteBasePath.resolve(path).normalize() }</span>
+<span class="fc" id="L38">                .toSet()</span>
+<span class="fc" id="L39">            analysisMode = args.analysisMode</span>
+<span class="fc" id="L40">        }</span>
+
+<span class="fc" id="L42">        rules {</span>
+<span class="fc" id="L43">            autoCorrect = args.autoCorrect</span>
+<span class="fc" id="L44">            activateAllRules = args.allRules</span>
+<span class="fc" id="L45">            failurePolicy = args.failurePolicy</span>
+<span class="fc" id="L46">            excludeCorrectable = false // not yet supported; loaded from config</span>
+<span class="fc" id="L47">            runPolicy = args.toRunPolicy()</span>
+<span class="fc" id="L48">        }</span>
+
+<span class="fc" id="L50">        baseline {</span>
+<span class="fc" id="L51">            path = args.baseline</span>
+<span class="fc" id="L52">            shouldCreateDuringAnalysis = args.createBaseline</span>
+<span class="fc" id="L53">        }</span>
+
+<span class="fc" id="L55">        config {</span>
+<span class="fc" id="L56">            useDefaultConfig = args.buildUponDefaultConfig</span>
+<span class="fc" id="L57">            shouldValidateBeforeAnalysis = null</span>
+<span class="fc" id="L58">            configPaths = args.config</span>
+<span class="fc" id="L59">            resources = args.configResource</span>
+<span class="fc" id="L60">        }</span>
+
+<span class="fc" id="L62">        execution {</span>
+<span class="fc" id="L63">            parallelParsing = args.parallel</span>
+<span class="fc" id="L64">            parallelAnalysis = args.parallel</span>
+<span class="fc" id="L65">        }</span>
+
+<span class="fc" id="L67">        extensions {</span>
+<span class="fc" id="L68">            disableDefaultRuleSets = args.disableDefaultRuleSets</span>
+<span class="fc" id="L69">            fromPaths { args.plugins }</span>
+<span class="fc" id="L70">        }</span>
+
+<span class="fc" id="L72">        reports {</span>
+<span class="fc" id="L73">            args.reportPaths.forEach {</span>
+<span class="fc" id="L74">                report { it.kind to it.path }</span>
+<span class="fc" id="L75">            }</span>
+<span class="fc" id="L76">        }</span>
+
+<span class="fc" id="L78">        compiler {</span>
+<span class="fc" id="L79">            jvmTarget = args.jvmTarget.toString()</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">            languageVersion = args.languageVersion?.versionString</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">            apiVersion = args.apiVersion?.versionString</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">            classpath = args.classpath?.trim()</span>
+<span class="fc" id="L83">            jdkHome = args.jdkHome</span>
+<span class="fc" id="L84">            freeCompilerArgs = args.freeCompilerArgs</span>
+<span class="fc" id="L85">        }</span>
+<span class="fc" id="L86">    }</span>
+}
+
+@OptIn(ExperimentalPathApi::class)
+<span class="fc" id="L90">private fun Iterable&lt;Path&gt;.walk(): Sequence&lt;Path&gt; = asSequence().flatMap { it.walk() }</span>
+
+<span class="fc" id="L92">private fun Path.isKotlinFile() = extension in KT_ENDINGS</span>
+
+<span class="fc" id="L94">private val KT_ENDINGS = setOf(&quot;kt&quot;, &quot;kts&quot;)</span>
+
+<span class="fc" id="L96">private fun asPatterns(rawValue: String): List&lt;String&gt; = rawValue.trim()</span>
+<span class="fc" id="L97">    .splitToSequence(&quot;,&quot;, &quot;;&quot;)</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">    .filter { it.isNotBlank() }</span>
+<span class="fc" id="L99">    .map { it.trim() }</span>
+<span class="fc" id="L100">    .toList()</span>
+
+private fun CliArgs.toRunPolicy(): RulesSpec.RunPolicy {
+<span class="pc bpc" id="L103" title="1 of 4 branches missed.">    val parts = runRule?.split(&quot;:&quot;)</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        ?: return if (disableDefaultRuleSets) DisableDefaultRuleSets else NoRestrictions</span>
+<span class="fc bfc" id="L105" title="All 4 branches covered.">    require(parts.size == 2) { &quot;Pattern 'RuleSetId:RuleName' expected.&quot; }</span>
+<span class="fc" id="L106">    return RulesSpec.RunPolicy.RestrictToSingleRule(RuleSet.Id(parts[0]), parts[1])</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

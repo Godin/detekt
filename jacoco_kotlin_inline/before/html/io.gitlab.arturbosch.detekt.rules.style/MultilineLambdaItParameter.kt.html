@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MultilineLambdaItParameter.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">MultilineLambdaItParameter.kt</span></div><h1>MultilineLambdaItParameter.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.hasImplicitParameterReference
+import io.gitlab.arturbosch.detekt.rules.implicitParameter
+import org.jetbrains.kotlin.builtins.StandardNames.IMPLICIT_LAMBDA_PARAMETER_NAME
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+
+/**
+ * Lambda expressions are very useful in a lot of cases, and they often include very small chunks of
+ * code using only one parameter. In this cases Kotlin can supply the implicit `it` parameter
+ * to make code more concise. However, when you are dealing with lambdas that contain multiple statements,
+ * you might end up with code that is hard to read if you don't specify a readable, descriptive parameter name
+ * explicitly.
+ *
+ * &lt;noncompliant&gt;
+ * val digits = 1234.let {
+ *     println(it)
+ *     listOf(it)
+ * }
+ *
+ * val digits = 1234.let { it -&gt;
+ *     println(it)
+ *     listOf(it)
+ * }
+ *
+ * val flat = listOf(listOf(1), listOf(2)).mapIndexed { index, it -&gt;
+ *     println(it)
+ *     it + index
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val digits = 1234.let { explicitParameterName -&gt;
+ *     println(explicitParameterName)
+ *     listOf(explicitParameterName)
+ * }
+ *
+ * val lambda = { item: Int, that: String -&gt;
+ *     println(item)
+ *     item.toString() + that
+ * }
+ *
+ * val digits = 1234.let { listOf(it) }
+ * val digits = 1234.let {
+ *     listOf(it)
+ * }
+ * val digits = 1234.let { it -&gt; listOf(it) }
+ * val digits = 1234.let { it -&gt;
+ *     listOf(it)
+ * }
+ * val digits = 1234.let { explicit -&gt; listOf(explicit) }
+ * val digits = 1234.let { explicit -&gt;
+ *     listOf(explicit)
+ * }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L64">class MultilineLambdaItParameter(config: Config) : Rule(</span>
+<span class="fc" id="L65">    config,</span>
+<span class="fc" id="L66">    &quot;Multiline lambdas should not use `it` as a parameter name.&quot;</span>
+) {
+
+    override fun visitLambdaExpression(lambdaExpression: KtLambdaExpression) {
+<span class="fc" id="L70">        super.visitLambdaExpression(lambdaExpression)</span>
+
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (!lambdaExpression.isMultiline()) return</span>
+
+<span class="fc" id="L74">        val parameterNames = lambdaExpression.valueParameters.map { it.nameAsName }</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (IMPLICIT_LAMBDA_PARAMETER_NAME in parameterNames) {</span>
+            // Explicit `it`
+<span class="fc" id="L77">            report(</span>
+<span class="fc" id="L78">                CodeSmell(</span>
+<span class="fc" id="L79">                    Entity.from(lambdaExpression),</span>
+<span class="fc" id="L80">                    &quot;The parameter name in a multiline lambda should not be an explicit `it`. &quot; +</span>
+                        &quot;Consider giving your parameter a readable and descriptive name.&quot;
+                )
+            )
+<span class="fc bfc" id="L84" title="All 4 branches covered.">        } else if (parameterNames.isEmpty() &amp;&amp; lambdaExpression.isUsingImplicitParameter()) {</span>
+            // Implicit `it`
+<span class="fc" id="L86">            report(</span>
+<span class="fc" id="L87">                CodeSmell(</span>
+<span class="fc" id="L88">                    Entity.from(lambdaExpression),</span>
+<span class="fc" id="L89">                    &quot;The implicit `it` should not be used in a multiline lambda. &quot; +</span>
+                        &quot;Consider giving your parameter a readable and descriptive name.&quot;
+                )
+            )
+        }
+<span class="fc" id="L94">    }</span>
+
+    private fun KtLambdaExpression.isMultiline(): Boolean {
+<span class="pc bpc" id="L97" title="2 of 4 branches missed.">        val statements = bodyExpression?.statements ?: return false</span>
+<span class="pc bpc" id="L98" title="1 of 3 branches missed.">        return when (statements.size) {</span>
+<span class="nc" id="L99">            0 -&gt; false</span>
+<span class="fc" id="L100">            1 -&gt; statements.single().textContains('\n')</span>
+<span class="fc" id="L101">            else -&gt; true</span>
+        }
+    }
+
+    private fun KtLambdaExpression.isUsingImplicitParameter(): Boolean {
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        val implicitParameter = implicitParameter(bindingContext) ?: return false</span>
+<span class="fc" id="L107">        return hasImplicitParameterReference(implicitParameter, bindingContext)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

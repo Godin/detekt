@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Deprecations.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config.validation</a> &gt; <span class="el_source">Deprecations.kt</span></div><h1>Deprecations.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config.validation
+
+import io.github.detekt.utils.openSafeStream
+import java.util.Properties
+
+internal sealed class Deprecation
+<span class="fc" id="L7">internal data class DeprecatedRule(</span>
+<span class="fc" id="L8">    val ruleSetId: String,</span>
+<span class="fc" id="L9">    val ruleName: String,</span>
+<span class="pc" id="L10">    val description: String</span>
+<span class="fc" id="L11">) : Deprecation()</span>
+
+<span class="fc" id="L13">internal data class DeprecatedProperty(</span>
+<span class="fc" id="L14">    val ruleSetId: String,</span>
+<span class="fc" id="L15">    val ruleName: String,</span>
+<span class="fc" id="L16">    val propertyName: String,</span>
+<span class="fc" id="L17">    val description: String</span>
+<span class="fc" id="L18">) : Deprecation()</span>
+
+internal fun loadDeprecations(): Set&lt;Deprecation&gt; =
+<span class="fc" id="L21">    ValidationSettings::class.java.classLoader</span>
+<span class="fc" id="L22">        .getResource(&quot;deprecation.properties&quot;)!!</span>
+<span class="fc" id="L23">        .openSafeStream()</span>
+<span class="pc" id="L24">        .use { inputStream -&gt;</span>
+<span class="fc" id="L25">            Properties()</span>
+<span class="fc" id="L26">                .apply { load(inputStream) }</span>
+<span class="fc" id="L27">                .toDeprecations()</span>
+<span class="fc" id="L28">        }</span>
+
+private fun Properties.toDeprecations(): Set&lt;Deprecation&gt; =
+<span class="fc" id="L31">    entries</span>
+<span class="fc" id="L32">        .map { deprecationFromPath(it.key as String, it.value as String) }</span>
+<span class="fc" id="L33">        .toSet()</span>
+
+private fun deprecationFromPath(path: String, description: String): Deprecation {
+<span class="fc" id="L36">    val pathElements = path.split(&quot;&gt;&quot;)</span>
+<span class="pc bpc" id="L37" title="1 of 3 branches missed.">    return when (pathElements.size) {</span>
+<span class="fc" id="L38">        RULE_PATH_SEGMENTS -&gt; DeprecatedRule(</span>
+<span class="fc" id="L39">            ruleSetId = pathElements[0],</span>
+<span class="fc" id="L40">            ruleName = pathElements[1],</span>
+<span class="fc" id="L41">            description = description</span>
+        )
+
+<span class="pc" id="L44">        PROPERTY_PATH_SEGMENTS -&gt; DeprecatedProperty(</span>
+<span class="fc" id="L45">            ruleSetId = pathElements[0],</span>
+<span class="fc" id="L46">            ruleName = pathElements[1],</span>
+<span class="fc" id="L47">            propertyName = pathElements[2],</span>
+<span class="fc" id="L48">            description = description</span>
+        )
+
+        else -&gt;
+<span class="nc" id="L52">            error(&quot;Invalid deprecation file. Element '$path' is neither a rule or a rule property.&quot;)</span>
+    }
+}
+
+private const val RULE_PATH_SEGMENTS = 2
+private const val PROPERTY_PATH_SEGMENTS = 3
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ValuesWithReason.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.api</a> &gt; <span class="el_source">ValuesWithReason.kt</span></div><h1>ValuesWithReason.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.api
+
+import dev.drewhamilton.poko.Poko
+
+/**
+ * This factory method can be used by rule authors to specify one or many configuration values along with an
+ * explanation for each value. For example:
+ *
+ * ```kotlin
+ *  @Configuration(&quot;imports which should not be used&quot;)
+ *  private val imports: ValuesWithReason by config(
+ *      valuesWithReason(&quot;org.junit.Test&quot; to &quot;Do not use Junit4. Use org.junit.jupiter.api.Test instead.&quot;)
+ *  )
+ * ```
+ *
+ * Note that the [config] property delegate only supports the factory methods when defining [ValuesWithReason].
+ */
+fun valuesWithReason(vararg values: Pair&lt;String, String?&gt;): ValuesWithReason =
+<span class="fc" id="L19">    valuesWithReason(values.map { ValueWithReason(it.first, it.second) })</span>
+
+/**
+ * This factory method can be used by rule authors to specify one or many configuration values along with an
+ * explanation for each value.
+ *
+ * Note that the [config] property delegate only supports the factory methods when defining [ValuesWithReason].
+ */
+<span class="fc" id="L27">fun valuesWithReason(values: List&lt;ValueWithReason&gt;): ValuesWithReason = ValuesWithReason(values)</span>
+
+/**
+ * [ValuesWithReason] is essentially the same as [List] of [ValueWithReason]. Due to type erasure we cannot use the
+ * list directly. Instances of this type should always created using the [valuesWithReason] factory method.
+ */
+@Poko
+<span class="fc" id="L34">class ValuesWithReason internal constructor(private val values: List&lt;ValueWithReason&gt;) :</span>
+    Iterable&lt;ValueWithReason&gt; by values
+
+/**
+ * A ValueWithReason represents a single configuration value that may have an explanation as to why it is used.
+ * @property value the actual value that is configured
+ * @property reason an optional explanation for the configured value
+ */
+@Poko
+<span class="fc" id="L43">class ValueWithReason(val value: String, val reason: String? = null)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

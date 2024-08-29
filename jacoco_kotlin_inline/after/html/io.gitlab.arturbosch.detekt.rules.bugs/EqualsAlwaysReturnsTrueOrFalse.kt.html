@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EqualsAlwaysReturnsTrueOrFalse.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">EqualsAlwaysReturnsTrueOrFalse.kt</span></div><h1>EqualsAlwaysReturnsTrueOrFalse.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isEqualsFunction
+import org.jetbrains.kotlin.KtNodeTypes
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.psi.KtAnnotatedExpression
+import org.jetbrains.kotlin.psi.KtConstantExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+
+/**
+ * Reports `equals()` methods which will always return true or false.
+ *
+ * Equals methods should always report if some other object is equal to the current object.
+ * See the Kotlin documentation for Any.equals(other: Any?):
+ * https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/equals.html
+ *
+ * &lt;noncompliant&gt;
+ * override fun equals(other: Any?): Boolean {
+ *     return true
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * override fun equals(other: Any?): Boolean {
+ *     return this === other
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+<span class="fc" id="L38">class EqualsAlwaysReturnsTrueOrFalse(config: Config) : Rule(</span>
+<span class="fc" id="L39">    config,</span>
+<span class="fc" id="L40">    &quot;Having an `equals()` method that always returns true or false is not a good idea. &quot; +</span>
+        &quot;It does not follow the contract of this method. &quot; +
+        &quot;Consider a good default implementation (e.g. `this == other`).&quot;
+) {
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L46" title="All 4 branches covered.">        if (function.isEqualsFunction() &amp;&amp; function.returnsBooleanConstant()) {</span>
+<span class="fc" id="L47">            report(</span>
+<span class="fc" id="L48">                CodeSmell(</span>
+<span class="fc" id="L49">                    Entity.atName(function),</span>
+<span class="fc" id="L50">                    &quot;This equals function always returns the same &quot; +</span>
+                        &quot;result regardless of the input parameters.&quot;
+                )
+            )
+        }
+<span class="fc" id="L55">    }</span>
+
+    private fun KtNamedFunction.returnsBooleanConstant(): Boolean {
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">        val bodyExpression = bodyExpression ?: return false</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        return if (bodyExpression is KtConstantExpression) {</span>
+<span class="fc" id="L60">            bodyExpression.isBooleanConstant()</span>
+        } else {
+<span class="fc" id="L62">            isSingleReturnWithBooleanConstant(bodyExpression)</span>
+        }
+    }
+
+    private fun isSingleReturnWithBooleanConstant(bodyExpression: KtExpression): Boolean {
+<span class="fc" id="L67">        val returnExpressionsInBlock = bodyExpression.collectDescendantsOfType&lt;KtReturnExpression&gt; {</span>
+<span class="pc bpc" id="L68" title="1 of 6 branches missed.">            it.parent == bodyExpression || it.parent is KtAnnotatedExpression &amp;&amp; it.parent.parent == bodyExpression</span>
+        }
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        val lastValidReturnExpression = returnExpressionsInBlock.firstOrNull()?.returnedExpression</span>
+<span class="fc" id="L71">        val allReturnExpressions = bodyExpression.collectDescendantsOfType&lt;KtReturnExpression&gt;()</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        val hasNoNestedReturnExpression = allReturnExpressions.size == returnExpressionsInBlock.size</span>
+<span class="fc bfc" id="L73" title="All 6 branches covered.">        return lastValidReturnExpression?.isBooleanConstant() == true &amp;&amp;</span>
+            (
+<span class="fc bfc" id="L75" title="All 2 branches covered.">                hasNoNestedReturnExpression ||</span>
+<span class="pc bpc" id="L76" title="1 of 4 branches missed.">                    allReturnExpressions.all { it.returnedExpression?.text == lastValidReturnExpression.text }</span>
+                )
+    }
+
+<span class="fc" id="L80">    private fun PsiElement.isBooleanConstant() = node.elementType == KtNodeTypes.BOOLEAN_CONSTANT</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

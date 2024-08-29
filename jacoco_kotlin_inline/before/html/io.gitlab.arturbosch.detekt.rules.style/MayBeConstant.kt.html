@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MayBeConstant.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">MayBeConstant.kt</span></div><h1>MayBeConstant.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isConstant
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.KtNodeTypes
+import org.jetbrains.kotlin.lexer.KtSingleValueToken
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtParenthesizedExpression
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+
+/**
+ * This rule identifies and reports properties (`val`) that may be `const val` instead.
+ * Using `const val` can lead to better performance of the resulting bytecode as well as better interoperability with
+ * Java.
+ *
+ * &lt;noncompliant&gt;
+ * val myConstant = &quot;abc&quot;
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * const val MY_CONSTANT = &quot;abc&quot;
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+<span class="fc" id="L36">class MayBeConstant(config: Config) : Rule(</span>
+<span class="fc" id="L37">    config,</span>
+<span class="fc" id="L38">    &quot;Usage of `vals` that can be `const val` detected.&quot;</span>
+) {
+
+<span class="fc" id="L41">    private val binaryTokens = hashSetOf&lt;KtSingleValueToken&gt;(</span>
+<span class="fc" id="L42">        KtTokens.PLUS,</span>
+<span class="fc" id="L43">        KtTokens.MINUS,</span>
+<span class="fc" id="L44">        KtTokens.MUL,</span>
+<span class="fc" id="L45">        KtTokens.DIV,</span>
+<span class="fc" id="L46">        KtTokens.PERC</span>
+    )
+
+<span class="fc" id="L49">    private val topLevelConstants = HashSet&lt;String?&gt;()</span>
+<span class="fc" id="L50">    private val companionObjectConstants = HashSet&lt;String?&gt;()</span>
+    private val KtProperty.isActual
+<span class="fc" id="L52">        get() = hasModifier(KtTokens.ACTUAL_KEYWORD)</span>
+
+    override fun visitKtFile(file: KtFile) {
+<span class="fc" id="L55">        topLevelConstants.clear()</span>
+<span class="fc" id="L56">        val topLevelProperties = file.declarations</span>
+<span class="fc" id="L57">            .filterIsInstance&lt;KtProperty&gt;()</span>
+<span class="pc bpc" id="L58" title="2 of 4 branches missed.">            .filter { it.isTopLevel &amp;&amp; it.isConstant() }</span>
+<span class="pc" id="L59">            .mapNotNull { it.name }</span>
+<span class="fc" id="L60">        topLevelConstants.addAll(topLevelProperties)</span>
+<span class="fc" id="L61">        super.visitKtFile(file)</span>
+<span class="fc" id="L62">    }</span>
+
+    override fun visitObjectDeclaration(declaration: KtObjectDeclaration) {
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (declaration.isObjectLiteral()) { // local vals can't be const</span>
+<span class="fc" id="L66">            return</span>
+        }
+<span class="fc" id="L68">        val constProperties = declaration.declarations</span>
+<span class="fc" id="L69">            .filterIsInstance&lt;KtProperty&gt;()</span>
+<span class="fc" id="L70">            .filter { it.isConstant() }</span>
+<span class="fc" id="L71">            .mapNotNull { it.name }</span>
+<span class="fc" id="L72">        companionObjectConstants.addAll(constProperties)</span>
+<span class="fc" id="L73">        super.visitObjectDeclaration(declaration)</span>
+<span class="fc" id="L74">        companionObjectConstants.removeAll(constProperties.toSet())</span>
+<span class="fc" id="L75">    }</span>
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc" id="L78">        super.visitProperty(property)</span>
+
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (property.canBeConst()) {</span>
+<span class="fc" id="L81">            report(</span>
+<span class="fc" id="L82">                CodeSmell(</span>
+<span class="fc" id="L83">                    Entity.atName(property),</span>
+<span class="fc" id="L84">                    &quot;${property.nameAsSafeName} can be a `const val`.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L88">    }</span>
+
+    private fun KtProperty.canBeConst(): Boolean {
+<span class="fc bfc" id="L91" title="All 6 branches covered.">        if (cannotBeConstant() || isInObject() || isJvmField()) {</span>
+<span class="fc" id="L92">            return false</span>
+        }
+<span class="pc bpc" id="L94" title="1 of 4 branches missed.">        return this.initializer?.isConstantExpression() == true</span>
+    }
+
+    private fun KtProperty.isJvmField(): Boolean {
+<span class="fc" id="L98">        val isJvmField = annotationEntries.any { it.text == &quot;@JvmField&quot; }</span>
+<span class="fc bfc" id="L99" title="All 6 branches covered.">        return annotationEntries.isNotEmpty() &amp;&amp; !isJvmField</span>
+    }
+
+    private fun KtProperty.cannotBeConstant(): Boolean =
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        isLocal ||</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">            isVar ||</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">            isActual ||</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">            getter != null ||</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">            isConstant() ||</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">            isOverride()</span>
+
+    private fun KtProperty.isInObject() =
+<span class="fc bfc" id="L111" title="All 4 branches covered.">        !isTopLevel &amp;&amp; containingClassOrObject !is KtObjectDeclaration</span>
+
+    private fun KtExpression.isConstantExpression(): Boolean =
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        this is KtStringTemplateExpression &amp;&amp;</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">            !hasInterpolation() ||</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">            node.elementType == KtNodeTypes.BOOLEAN_CONSTANT ||</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">            node.elementType == KtNodeTypes.INTEGER_CONSTANT ||</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">            node.elementType == KtNodeTypes.CHARACTER_CONSTANT ||</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">            node.elementType == KtNodeTypes.FLOAT_CONSTANT ||</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">            topLevelConstants.contains(text) ||</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">            companionObjectConstants.contains(text) ||</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            isBinaryExpression(this) ||</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            isParenthesizedExpression(this)</span>
+
+    private fun isParenthesizedExpression(expression: KtExpression) =
+<span class="pc bpc" id="L126" title="2 of 8 branches missed.">        (expression as? KtParenthesizedExpression)?.expression?.isConstantExpression() == true</span>
+
+    private fun isBinaryExpression(expression: KtExpression): Boolean =
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        expression is KtBinaryExpression &amp;&amp;</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">            expression.node.elementType == KtNodeTypes.BINARY_EXPRESSION &amp;&amp;</span>
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">            binaryTokens.contains(expression.operationToken) &amp;&amp;</span>
+<span class="pc bpc" id="L132" title="3 of 6 branches missed.">            expression.left?.isConstantExpression() == true &amp;&amp;</span>
+<span class="pc bpc" id="L133" title="3 of 6 branches missed.">            expression.right?.isConstantExpression() == true</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

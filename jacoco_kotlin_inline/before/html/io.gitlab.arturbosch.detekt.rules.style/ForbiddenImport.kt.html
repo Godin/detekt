@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ForbiddenImport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">ForbiddenImport.kt</span></div><h1>ForbiddenImport.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.simplePatternToRegex
+import io.gitlab.arturbosch.detekt.api.valuesWithReason
+import org.jetbrains.kotlin.psi.KtImportDirective
+
+/**
+ * Reports all imports that are forbidden.
+ *
+ * This rule allows to set a list of forbidden [imports].
+ * This can be used to discourage the use of unstable, experimental or deprecated APIs.
+ *
+ * &lt;noncompliant&gt;
+ * import kotlin.jvm.JvmField
+ * import kotlin.SinceKotlin
+ * &lt;/noncompliant&gt;
+ */
+<span class="fc" id="L24">class ForbiddenImport(config: Config) : Rule(</span>
+<span class="fc" id="L25">    config,</span>
+<span class="fc" id="L26">    &quot;Mark forbidden imports. A forbidden import could be an import for an unstable / experimental api &quot; +</span>
+        &quot;and hence you might want to mark it as forbidden in order to get warned about the usage.&quot;
+) {
+
+    @Configuration(&quot;imports which should not be used&quot;)
+<span class="fc" id="L31">    private val imports: List&lt;Forbidden&gt; by config(valuesWithReason()) { list -&gt;</span>
+<span class="fc" id="L32">        list.map { Forbidden(it.value.simplePatternToRegex(), it.reason) }</span>
+    }
+
+    @Configuration(&quot;reports imports which match the specified regular expression. For example `net.*R`.&quot;)
+<span class="fc" id="L36">    private val forbiddenPatterns: Regex by config(&quot;&quot;, String::toRegex)</span>
+
+    override fun visitImportDirective(importDirective: KtImportDirective) {
+<span class="fc" id="L39">        super.visitImportDirective(importDirective)</span>
+
+<span class="pc bpc" id="L41" title="2 of 4 branches missed.">        val import = importDirective.importedFqName?.asString().orEmpty()</span>
+
+<span class="fc bfc" id="L43" title="All 4 branches covered.">        val forbidden = imports.find { it.import.matches(import) }</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        val reason = if (forbidden != null) {</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">            if (forbidden.reason != null) {</span>
+<span class="fc" id="L46">                &quot;The import `$import` has been forbidden: ${forbidden.reason}&quot;</span>
+            } else {
+<span class="fc" id="L48">                defaultReason(import)</span>
+            }
+        } else {
+<span class="fc bfc" id="L51" title="All 2 branches covered.">            if (containsForbiddenPattern(import)) defaultReason(import) else null</span>
+        }
+
+<span class="fc bfc" id="L54" title="All 2 branches covered.">        if (reason != null) {</span>
+<span class="fc" id="L55">            report(CodeSmell(Entity.from(importDirective), reason))</span>
+        }
+<span class="fc" id="L57">    }</span>
+
+    private fun defaultReason(forbiddenImport: String): String =
+<span class="fc" id="L60">        &quot;The import `$forbiddenImport` has been forbidden in the detekt config.&quot;</span>
+
+    private fun containsForbiddenPattern(import: String): Boolean =
+<span class="fc bfc" id="L63" title="All 6 branches covered.">        forbiddenPatterns.pattern.isNotEmpty() &amp;&amp; forbiddenPatterns.containsMatchIn(import)</span>
+}
+
+<span class="fc" id="L66">private data class Forbidden(val import: Regex, val reason: String?)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

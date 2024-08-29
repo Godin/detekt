@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UseOrEmpty.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UseOrEmpty.kt</span></div><h1>UseOrEmpty.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtArrayAccessExpression
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi2ir.deparenthesize
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getType
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.types.isNullable
+import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
+import org.jetbrains.kotlin.types.typeUtil.makeNotNullable
+
+/**
+ * This rule detects `?: emptyList()` that can be replaced with `orEmpty()` call.
+ *
+ * &lt;noncompliant&gt;
+ * fun test(x: List&lt;Int&gt;?, s: String?) {
+ *     val a = x ?: emptyList()
+ *     val b = s ?: &quot;&quot;
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun test(x: List&lt;Int&gt;?, s: String?) {
+ *     val a = x.orEmpty()
+ *     val b = s.orEmpty()
+ * }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L45">class UseOrEmpty(config: Config) : Rule(</span>
+<span class="fc" id="L46">    config,</span>
+<span class="fc" id="L47">    &quot;Use `orEmpty()` call instead of `?:` with empty collection factory methods&quot;,</span>
+) {
+
+    @Suppress(&quot;ReturnCount&quot;)
+    override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc" id="L52">        super.visitBinaryExpression(expression)</span>
+
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        if (expression.operationToken != KtTokens.ELVIS) return</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        val left = expression.left ?: return</span>
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        val right = expression.right ?: return</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        if (!right.isEmptyElement()) return</span>
+
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        val leftType = left.getType(bindingContext) ?: return</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        if (!leftType.isNullable()) return</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (left.deparenthesize() is KtArrayAccessExpression) {</span>
+<span class="pc bpc" id="L62" title="2 of 4 branches missed.">            val functionDescriptor = left.getResolvedCall(bindingContext)?.resultingDescriptor as? FunctionDescriptor</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">            if (functionDescriptor != null &amp;&amp;</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">                functionDescriptor.isOperator &amp;&amp;</span>
+<span class="fc bfc" id="L65" title="All 4 branches covered.">                functionDescriptor.typeParameters.isNotEmpty()</span>
+            ) {
+<span class="fc" id="L67">                return</span>
+            }
+        }
+
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">        val rightType = right.getType(bindingContext) ?: return</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (!leftType.makeNotNullable().isSubtypeOf(rightType)) return</span>
+
+<span class="fc" id="L74">        val message = &quot;This '${KtTokens.ELVIS.value} ${right.text}' can be replaced with 'orEmpty()' call&quot;</span>
+<span class="fc" id="L75">        report(CodeSmell(Entity.from(expression), message))</span>
+<span class="fc" id="L76">    }</span>
+
+    private fun KtExpression.isEmptyElement(): Boolean {
+<span class="fc" id="L79">        when (this) {</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">            is KtCallExpression -&gt; {</span>
+<span class="pc bpc" id="L81" title="2 of 4 branches missed.">                val calleeText = calleeExpression?.text ?: return false</span>
+<span class="fc" id="L82">                val emptyFunction = emptyFunctions[calleeText]</span>
+<span class="fc" id="L83">                val factoryFunction = factoryFunctions[calleeText]</span>
+<span class="fc bfc" id="L84" title="All 4 branches covered.">                if (emptyFunction == null &amp;&amp; factoryFunction == null) return false</span>
+<span class="pc bpc" id="L85" title="3 of 6 branches missed.">                val fqName = getResolvedCall(bindingContext)?.resultingDescriptor?.fqNameOrNull() ?: return false</span>
+<span class="pc bpc" id="L86" title="1 of 6 branches missed.">                return fqName == emptyFunction || fqName == factoryFunction &amp;&amp; valueArguments.isEmpty()</span>
+            }
+<span class="pc bpc" id="L88" title="2 of 4 branches missed.">            is KtStringTemplateExpression -&gt; return entries.isEmpty()</span>
+<span class="nc" id="L89">            else -&gt; return false</span>
+        }
+    }
+
+    companion object {
+<span class="fc" id="L94">        private val emptyFunctions = listOf(</span>
+<span class="fc" id="L95">            &quot;kotlin.collections.emptyList&quot;,</span>
+<span class="fc" id="L96">            &quot;kotlin.collections.emptySet&quot;,</span>
+<span class="fc" id="L97">            &quot;kotlin.collections.emptyMap&quot;,</span>
+<span class="fc" id="L98">            &quot;kotlin.sequences.emptySequence&quot;,</span>
+<span class="fc" id="L99">            &quot;kotlin.emptyArray&quot;,</span>
+<span class="fc" id="L100">        ).associate {</span>
+<span class="fc" id="L101">            val fqName = FqName(it)</span>
+<span class="fc" id="L102">            fqName.shortName().asString() to fqName</span>
+        }
+
+<span class="fc" id="L105">        private val factoryFunctions = listOf(</span>
+<span class="fc" id="L106">            &quot;kotlin.collections.listOf&quot;,</span>
+<span class="fc" id="L107">            &quot;kotlin.collections.setOf&quot;,</span>
+<span class="fc" id="L108">            &quot;kotlin.collections.mapOf&quot;,</span>
+<span class="fc" id="L109">            &quot;kotlin.sequences.sequenceOf&quot;,</span>
+<span class="fc" id="L110">            &quot;kotlin.arrayOf&quot;,</span>
+<span class="fc" id="L111">        ).associate {</span>
+<span class="fc" id="L112">            val fqName = FqName(it)</span>
+<span class="fc" id="L113">            fqName.shortName().asString() to fqName</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

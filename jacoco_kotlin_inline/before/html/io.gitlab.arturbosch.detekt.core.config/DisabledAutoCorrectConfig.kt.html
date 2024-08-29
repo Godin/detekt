@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DisabledAutoCorrectConfig.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config</a> &gt; <span class="el_source">DisabledAutoCorrectConfig.kt</span></div><h1>DisabledAutoCorrectConfig.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Notification
+import io.gitlab.arturbosch.detekt.core.config.validation.ValidatableConfiguration
+import io.gitlab.arturbosch.detekt.core.config.validation.validateConfig
+import io.gitlab.arturbosch.detekt.core.util.indentCompat
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L10">class DisabledAutoCorrectConfig(</span>
+<span class="fc" id="L11">    private val wrapped: Config,</span>
+<span class="fc" id="L12">    override val parent: Config? = null,</span>
+<span class="fc" id="L13">) : Config, ValidatableConfiguration {</span>
+
+    override val parentPath: String?
+<span class="fc" id="L16">        get() = wrapped.parentPath</span>
+
+<span class="fc" id="L18">    override fun subConfig(key: String): Config = DisabledAutoCorrectConfig(wrapped.subConfig(key), this)</span>
+
+<span class="fc" id="L20">    override fun subConfigKeys(): Set&lt;String&gt; = wrapped.subConfigKeys()</span>
+
+<span class="fc" id="L22">    override fun &lt;T : Any&gt; valueOrDefault(key: String, default: T): T = when (key) {</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">        Config.AUTO_CORRECT_KEY -&gt; false as T</span>
+<span class="fc" id="L24">        else -&gt; wrapped.valueOrDefault(key, default)</span>
+<span class="fc" id="L25">    }</span>
+
+<span class="fc" id="L27">    override fun &lt;T : Any&gt; valueOrNull(key: String): T? = when (key) {</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        Config.AUTO_CORRECT_KEY -&gt; false as T</span>
+<span class="fc" id="L29">        else -&gt; wrapped.valueOrNull(key)</span>
+<span class="fc" id="L30">    }</span>
+
+    override fun validate(baseline: Config, excludePatterns: Set&lt;Regex&gt;): List&lt;Notification&gt; =
+<span class="fc" id="L33">        validateConfig(wrapped, baseline, excludePatterns)</span>
+
+    @Suppress(&quot;MagicNumber&quot;)
+<span class="nc" id="L36">    override fun toString() = &quot;&quot;&quot;</span>
+        DisabledAutoCorrectConfig(
+<span class="nc" id="L38">            ${wrapped.toString().indentCompat(12).trim()},</span>
+        )
+<span class="nc" id="L40">    &quot;&quot;&quot;.trimIndent()</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ForbiddenNamedParam.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">ForbiddenNamedParam.kt</span></div><h1>ForbiddenNamedParam.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.github.detekt.psi.FunctionMatcher.Companion.fromFunctionSignature
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.valuesWithReason
+import io.gitlab.arturbosch.detekt.rules.style.ForbiddenMethodCall.ForbiddenMethod
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.overriddenTreeUniqueAsSequence
+
+/**
+ * Reports all usages of method, or constructor calls for which using named parameters are forbidden.
+ * This rule can be useful for some method/constructor where using the parameter
+ * name doesn't give add any value to it and only makes the code more verbose
+ *
+ * This rule allows to set a list of forbidden [methods] or constructors. These can be used to
+ * discourage the use named parameters.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo() {
+ *     // `id =` here adds no value
+ *     painterResource(id = R.drawable.ic_close)
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun foo() {
+ *     painterResource(R.drawable.ic_close)
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L40">class ForbiddenNamedParam(config: Config) : Rule(</span>
+<span class="fc" id="L41">    config,</span>
+<span class="fc" id="L42">    &quot;Mark the methods/constructors where using named param is forbidden.&quot;</span>
+) {
+
+    @Configuration(
+        &quot;List of fully qualified method signatures for which are named param is forbidden. &quot; +
+            &quot;Methods can be defined without full signature (i.e. `java.time.LocalDate.now`) which will report &quot; +
+            &quot;calls of all methods with this name or with full signature &quot; +
+            &quot;(i.e. `java.time.LocalDate(java.time.Clock)`) which would report only call &quot; +
+            &quot;with this concrete signature. If you want to add an extension function like &quot; +
+            &quot;`fun String.hello(a: Int)` you should add the receiver parameter as the first parameter like this: &quot; +
+            &quot;`hello(kotlin.String, kotlin.Int)`. To add constructor calls you need to define them with `&lt;init&gt;`, &quot; +
+            &quot;for example `java.util.Date.&lt;init&gt;`. To add calls involving type parameters, omit them, for example &quot; +
+            &quot;`fun hello(args: Array&lt;Any&gt;)` is referred to as simply `hello(kotlin.Array)` (also the signature for &quot; +
+            &quot;vararg parameters). To add methods from the companion object reference the Companion class, for &quot; +
+            &quot;example as `TestClass.Companion.hello()` (even if it is marked `@JvmStatic`).&quot;
+    )
+<span class="fc" id="L58">    private val methods: List&lt;ForbiddenMethod&gt; by config(</span>
+<span class="fc" id="L59">        valuesWithReason()</span>
+    ) { list -&gt;
+<span class="fc" id="L61">        list.map { ForbiddenMethod(fromFunctionSignature(it.value), it.reason) }</span>
+    }
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L65">        super.visitCallExpression(expression)</span>
+<span class="fc" id="L66">        check(expression)</span>
+<span class="fc" id="L67">    }</span>
+
+    private fun check(expression: KtCallExpression) {
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (expression.valueArguments.none { it.isNamed() }) return</span>
+<span class="fc" id="L71">        val descriptors: Set&lt;CallableDescriptor&gt; =</span>
+<span class="pc bpc" id="L72" title="3 of 6 branches missed.">            expression.getResolvedCall(bindingContext)?.resultingDescriptor?.overriddenTreeUniqueAsSequence(</span>
+<span class="fc" id="L73">                true</span>
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">            )?.toSet() ?: return</span>
+
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        for (descriptor in descriptors) {</span>
+<span class="fc bfc" id="L77" title="All 6 branches covered.">            methods.find { it.value.match(descriptor) }?.let { matchingMethod -&gt;</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">                val message = if (matchingMethod.reason != null) {</span>
+<span class="fc" id="L79">                    &quot;The method `${matchingMethod.value}` has been forbidden from using named &quot; +</span>
+<span class="fc" id="L80">                        &quot;param: ${matchingMethod.reason}&quot;</span>
+                } else {
+<span class="fc" id="L82">                    &quot;The method `${matchingMethod.value}` has been forbidden from using named &quot; +</span>
+                        &quot;param in the detekt config.&quot;
+                }
+<span class="fc" id="L85">                report(CodeSmell(Entity.from(expression), message))</span>
+<span class="fc" id="L86">            }</span>
+        }
+<span class="fc" id="L88">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

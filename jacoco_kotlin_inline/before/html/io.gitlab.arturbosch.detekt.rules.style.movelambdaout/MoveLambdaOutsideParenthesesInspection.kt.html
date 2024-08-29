@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MoveLambdaOutsideParenthesesInspection.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style.movelambdaout</a> &gt; <span class="el_source">MoveLambdaOutsideParenthesesInspection.kt</span></div><h1>MoveLambdaOutsideParenthesesInspection.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style.movelambdaout
+
+import org.jetbrains.kotlin.builtins.isFunctionOrSuspendFunctionType
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtCallableReferenceExpression
+import org.jetbrains.kotlin.psi.KtDelegatedSuperTypeEntry
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtLabeledExpression
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+import org.jetbrains.kotlin.psi.unpackFunctionLiteral
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.types.typeUtil.isTypeParameter
+
+// source from https://github.com/JetBrains/intellij-community/blob/88e23175cefa446adb4aa64dda8096112a37e2f8/plugins/kotlin/core/src/org/jetbrains/kotlin/idea/core/psiModificationUtils.kt
+@Suppress(&quot;ReturnCount&quot;, &quot;CyclomaticComplexMethod&quot;)
+private fun KtCallExpression.canMoveLambdaOutsideParentheses(bindingContext: BindingContext): Boolean {
+<span class="fc bfc" id="L20" title="All 2 branches covered.">    if (isEligible().not()) return false</span>
+<span class="fc bfc" id="L21" title="All 2 branches covered.">    if (getStrictParentOfType&lt;KtDelegatedSuperTypeEntry&gt;() != null) return false</span>
+<span class="fc bfc" id="L22" title="All 2 branches covered.">    val lastLambdaExpression = getLastLambdaExpression() ?: kotlin.run {</span>
+<span class="fc" id="L23">        return false</span>
+    }
+<span class="pc bpc" id="L25" title="1 of 4 branches missed.">    if (lastLambdaExpression.parentLabeledExpression()?.parentLabeledExpression() != null) return false</span>
+
+<span class="fc" id="L27">    val callee = calleeExpression</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">    if (callee is KtNameReferenceExpression) {</span>
+<span class="fc" id="L29">        val lambdaArgumentCount =</span>
+<span class="pc bpc" id="L30" title="1 of 2 branches missed.">            valueArguments.mapNotNull { it.getArgumentExpression()?.unpackFunctionLiteral() }.count()</span>
+<span class="fc" id="L31">        val referenceArgumentCount =</span>
+<span class="fc" id="L32">            valueArguments.count { it.getArgumentExpression() is KtCallableReferenceExpression }</span>
+<span class="pc bpc" id="L33" title="2 of 6 branches missed.">        val targets = bindingContext[BindingContext.REFERENCE_TARGET, callee]?.let { listOf(it) }</span>
+<span class="fc" id="L34">            ?: bindingContext[BindingContext.AMBIGUOUS_REFERENCE_TARGET, callee]</span>
+<span class="nc" id="L35">            ?: emptyList()</span>
+<span class="fc" id="L36">        val candidates = targets.filterIsInstance&lt;FunctionDescriptor&gt;()</span>
+        // if there are functions among candidates but none of them have last function parameter then not show
+        // the intention
+        @Suppress(&quot;ComplexCondition&quot;)
+        if (
+<span class="fc bfc" id="L41" title="All 4 branches covered.">            candidates.isNotEmpty() &amp;&amp;</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">            candidates.none { candidate -&gt;</span>
+<span class="fc" id="L43">                val params = candidate.valueParameters</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">                val lastParamType = params.lastOrNull()?.type</span>
+
+<span class="pc bpc" id="L46" title="2 of 12 branches missed.">                (lastParamType?.isFunctionOrSuspendFunctionType == true || lastParamType?.isTypeParameter() == true) &amp;&amp;</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">                    params.count {</span>
+<span class="fc bfc" id="L48" title="All 4 branches covered.">                        it.type.let { type -&gt; type.isFunctionOrSuspendFunctionType || type.isTypeParameter() }</span>
+<span class="fc" id="L49">                    } == lambdaArgumentCount + referenceArgumentCount</span>
+            }
+        ) {
+<span class="fc" id="L52">            return false</span>
+        }
+    }
+<span class="fc" id="L55">    return true</span>
+}
+
+private fun KtCallExpression.isEligible(): Boolean =
+<span class="fc" id="L59">    when {</span>
+<span class="fc bfc" id="L60" title="All 6 branches covered.">        valueArguments.lastOrNull()?.isNamed() == true -&gt; false</span>
+<span class="pc bpc" id="L61" title="1 of 6 branches missed.">        valueArguments.count { it.getArgumentExpression()?.unpackFunctionLiteral() != null } &gt; 1 -&gt; false</span>
+<span class="fc" id="L62">        else -&gt; true</span>
+<span class="fc" id="L63">    }</span>
+
+internal fun shouldReportUnnecessaryBracesAroundTrailingLambda(
+    bindingContext: BindingContext,
+    element: KtCallExpression,
+) =
+<span class="fc" id="L69">    element.canMoveLambdaOutsideParentheses(bindingContext)</span>
+
+private fun KtCallExpression.getLastLambdaExpression(): KtLambdaExpression? {
+<span class="fc bfc" id="L72" title="All 4 branches covered.">    if (lambdaArguments.isNotEmpty()) return null</span>
+<span class="pc bpc" id="L73" title="1 of 4 branches missed.">    return valueArguments.lastOrNull()?.getArgumentExpression()?.unpackFunctionLiteral()</span>
+}
+
+private fun KtExpression.parentLabeledExpression(): KtLabeledExpression? =
+<span class="pc bpc" id="L77" title="1 of 4 branches missed.">    getStrictParentOfType&lt;KtLabeledExpression&gt;()?.takeIf { it.baseExpression == this }</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

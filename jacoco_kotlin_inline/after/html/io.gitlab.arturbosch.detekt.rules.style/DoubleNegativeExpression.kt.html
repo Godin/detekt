@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DoubleNegativeExpression.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">DoubleNegativeExpression.kt</span></div><h1>DoubleNegativeExpression.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtPrefixExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
+
+/**
+ * Detects expressions with two or more calls of operator `not` could be simplified.
+ *
+ * &lt;noncompliant&gt;
+ * isValid.not().not()
+ * !isValid.not()
+ * !!isValid
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * isValid
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L31">class DoubleNegativeExpression(config: Config) : Rule(</span>
+<span class="fc" id="L32">    config,</span>
+<span class="fc" id="L33">    &quot;Expression with two or more calls of operator `not` could be simplified.&quot;,</span>
+) {
+
+    override fun visitPrefixExpression(expression: KtPrefixExpression) {
+<span class="fc" id="L37">        super.visitPrefixExpression(expression)</span>
+<span class="fc" id="L38">        check(expression)</span>
+<span class="fc" id="L39">    }</span>
+
+    override fun visitQualifiedExpression(expression: KtQualifiedExpression) {
+<span class="fc" id="L42">        super.visitQualifiedExpression(expression)</span>
+<span class="fc" id="L43">        check(expression)</span>
+<span class="fc" id="L44">    }</span>
+
+    private fun check(expression: KtExpression) {
+<span class="fc" id="L47">        val parent = expression.parent</span>
+<span class="fc bfc" id="L48" title="All 4 branches covered.">        if (parent is KtPrefixExpression || parent is KtQualifiedExpression) return</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        if (expression.isDoubleNegativeExpression()) {</span>
+<span class="fc" id="L50">            val codeSmell = CodeSmell(</span>
+<span class="fc" id="L51">                Entity.from(expression),</span>
+<span class="fc" id="L52">                &quot;Expression with two or more calls of operator `not` could be simplified.&quot;,</span>
+            )
+<span class="fc" id="L54">            report(codeSmell)</span>
+        }
+<span class="fc" id="L56">    }</span>
+
+    private fun KtExpression.isDoubleNegativeExpression(): Boolean {
+<span class="fc" id="L59">        var expr: KtExpression? = this</span>
+<span class="fc" id="L60">        var count = 0</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        while (count &lt; 2) {</span>
+<span class="fc" id="L62">            when {</span>
+<span class="pc bpc" id="L63" title="1 of 4 branches missed.">                expr is KtPrefixExpression &amp;&amp; expr.operationToken == KtTokens.EXCL -&gt; {</span>
+<span class="fc" id="L64">                    count++</span>
+<span class="fc" id="L65">                    expr = expr.baseExpression</span>
+                }
+
+<span class="pc bpc" id="L68" title="1 of 4 branches missed.">                expr is KtQualifiedExpression &amp;&amp; expr.selectorExpression.isBooleanNotCall() -&gt; {</span>
+<span class="fc" id="L69">                    count++</span>
+<span class="fc" id="L70">                    expr = expr.receiverExpression</span>
+                }
+
+<span class="pc bpc" id="L73" title="1 of 4 branches missed.">                expr is KtCallExpression &amp;&amp; expr.isBooleanNotCall() -&gt; {</span>
+<span class="fc" id="L74">                    count++</span>
+<span class="fc" id="L75">                    expr = null</span>
+                }
+
+<span class="fc" id="L78">                else -&gt; break</span>
+            }
+        }
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        return count == 2</span>
+    }
+
+    private fun KtExpression?.isBooleanNotCall(): Boolean =
+<span class="pc bpc" id="L85" title="4 of 8 branches missed.">        this is KtCallExpression &amp;&amp; getResolvedCall(bindingContext)?.resultingDescriptor?.fqNameSafe == booleanNotFqName</span>
+
+    companion object {
+<span class="fc" id="L88">        private val booleanNotFqName = FqName(&quot;kotlin.Boolean.not&quot;)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

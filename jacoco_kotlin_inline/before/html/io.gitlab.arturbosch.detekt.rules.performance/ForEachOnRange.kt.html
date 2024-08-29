@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ForEachOnRange.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.performance</a> &gt; <span class="el_source">ForEachOnRange.kt</span></div><h1>ForEachOnRange.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.performance
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.psiUtil.getCallNameExpression
+import org.jetbrains.kotlin.psi.psiUtil.getReceiverExpression
+import org.jetbrains.kotlin.psi2ir.deparenthesize
+
+/**
+ * Using the forEach method on ranges has a heavy performance cost. Prefer using simple for loops.
+ *
+ * Benchmarks have shown that using forEach on a range can have a huge performance cost in comparison to
+ * simple for loops. Hence, in most contexts, a simple for loop should be used instead.
+ * See more details here:
+ * https://web.archive.org/web/20230514162525/https://sites.google.com/a/athaydes.com/renato-athaydes/posts/kotlinshiddencosts-benchmarks
+ * To solve this CodeSmell, the forEach usage should be replaced by a for loop.
+ *
+ * &lt;noncompliant&gt;
+ * (1..10).forEach {
+ *     println(it)
+ * }
+ * (1 until 10).forEach {
+ *     println(it)
+ * }
+ * (10 downTo 1).forEach {
+ *     println(it)
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * for (i in 1..10) {
+ *     println(i)
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L44">class ForEachOnRange(config: Config) : Rule(</span>
+<span class="fc" id="L45">    config,</span>
+<span class="fc" id="L46">    &quot;Using the forEach method on ranges has a heavy performance cost. Prefer using simple for loops.&quot;</span>
+) {
+
+<span class="fc" id="L49">    private val rangeOperators = setOf(&quot;..&quot;, &quot;rangeTo&quot;, &quot;downTo&quot;, &quot;until&quot;, &quot;..&lt;&quot;)</span>
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L52">        super.visitCallExpression(expression)</span>
+
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        expression.getCallNameExpression()?.let {</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">            if (!it.textMatches(&quot;forEach&quot;)) {</span>
+<span class="fc" id="L56">                return</span>
+            }
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">            val forExpression = it.getReceiverExpression()?.deparenthesize()</span>
+<span class="pc bpc" id="L59" title="1 of 4 branches missed.">            if (forExpression != null &amp;&amp; isRangeOperatorsChainCall(forExpression)) {</span>
+<span class="fc" id="L60">                report(CodeSmell(Entity.from(forExpression), description))</span>
+            }
+<span class="fc" id="L62">        }</span>
+<span class="fc" id="L63">    }</span>
+
+    private fun isRangeOperatorsChainCall(expression: KtElement): Boolean {
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        return if (isRangeOperator(expression)) {</span>
+<span class="fc" id="L67">            true</span>
+        } else {
+<span class="fc" id="L69">            when (expression) {</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">                is KtBinaryExpression -&gt; {</span>
+<span class="pc bpc" id="L71" title="2 of 4 branches missed.">                    val receiverExpression = expression.left?.deparenthesize() ?: return false</span>
+<span class="fc" id="L72">                    isRangeOperatorsChainCall(receiverExpression)</span>
+                }
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">                is KtDotQualifiedExpression -&gt; {</span>
+<span class="fc" id="L76">                    val receiverExpression = expression.receiverExpression.deparenthesize()</span>
+<span class="fc" id="L77">                    isRangeOperatorsChainCall(receiverExpression)</span>
+                }
+
+                else -&gt; {
+<span class="fc" id="L81">                    false</span>
+                }
+            }
+        }
+    }
+
+    private fun isRangeOperator(expression: KtElement): Boolean {
+<span class="fc" id="L88">        val operator = when (expression) {</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            is KtBinaryExpression -&gt; {</span>
+<span class="fc" id="L90">                expression.operationReference.text</span>
+            }
+
+<span class="fc bfc" id="L93" title="All 2 branches covered.">            is KtDotQualifiedExpression -&gt; {</span>
+<span class="pc bpc" id="L94" title="3 of 6 branches missed.">                (expression.selectorExpression as? KtCallExpression)?.calleeExpression?.text</span>
+            }
+
+            else -&gt; {
+<span class="fc" id="L98">                null</span>
+            }
+        }
+
+<span class="fc" id="L102">        return operator in rangeOperators</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

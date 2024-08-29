@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HtmlUtils.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.report.html</a> &gt; <span class="el_source">HtmlUtils.kt</span></div><h1>HtmlUtils.kt</h1><pre class="source lang-java linenums">package io.github.detekt.report.html
+
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.SourceLocation
+import io.gitlab.arturbosch.detekt.api.internal.whichDetekt
+import kotlinx.html.FlowContent
+import kotlinx.html.a
+import kotlinx.html.code
+import kotlinx.html.div
+import kotlinx.html.h4
+import kotlinx.html.p
+import kotlinx.html.pre
+import kotlinx.html.span
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.net.URLEncoder
+import java.util.Locale
+import kotlin.math.max
+import kotlin.math.min
+
+internal fun FlowContent.snippetCode(
+    ruleName: Rule.Name,
+    lines: Sequence&lt;String&gt;,
+    location: SourceLocation,
+    length: Int,
+) {
+<span class="fc" id="L27">    try {</span>
+<span class="fc" id="L28">        pre {</span>
+<span class="fc" id="L29">            code {</span>
+<span class="fc" id="L30">                val dropLineCount = max(location.line - 1 - EXTRA_LINES_IN_SNIPPET, 0)</span>
+<span class="fc" id="L31">                val takeLineCount = EXTRA_LINES_IN_SNIPPET + 1 + min(location.line - 1, EXTRA_LINES_IN_SNIPPET)</span>
+<span class="fc" id="L32">                var currentLineNumber = dropLineCount + 1</span>
+<span class="fc" id="L33">                var errorLength = length</span>
+<span class="fc" id="L34">                lines</span>
+<span class="fc" id="L35">                    .drop(dropLineCount)</span>
+<span class="fc" id="L36">                    .take(takeLineCount)</span>
+<span class="fc" id="L37">                    .forEach { line -&gt;</span>
+<span class="fc" id="L38">                        span(&quot;lineno&quot;) { text(&quot;%1$4s &quot;.format(Locale.ROOT, currentLineNumber)) }</span>
+<span class="fc bfc" id="L39" title="All 4 branches covered.">                        if (currentLineNumber &gt;= location.line &amp;&amp; errorLength &gt; 0) {</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">                            val column = if (currentLineNumber == location.line) location.column - 1 else 0</span>
+<span class="fc" id="L41">                            errorLength -= writeErrorLine(line, column, errorLength) + 1 // we need to consume the \n</span>
+                        } else {
+<span class="fc" id="L43">                            text(line)</span>
+                        }
+<span class="fc" id="L45">                        text(&quot;\n&quot;)</span>
+<span class="fc" id="L46">                        currentLineNumber++</span>
+<span class="fc" id="L47">                    }</span>
+<span class="fc" id="L48">            }</span>
+<span class="fc" id="L49">        }</span>
+<span class="fc" id="L50">    } catch (@Suppress(&quot;TooGenericExceptionCaught&quot;) ex: Throwable) {</span>
+<span class="fc" id="L51">        showError(ruleName, ex)</span>
+    }
+<span class="fc" id="L53">}</span>
+
+private fun FlowContent.writeErrorLine(line: String, errorStarts: Int, length: Int): Int {
+<span class="fc" id="L56">    val errorEnds = min(errorStarts + length, line.length)</span>
+<span class="fc" id="L57">    text(line.substring(startIndex = 0, endIndex = errorStarts))</span>
+<span class="fc" id="L58">    span(&quot;error&quot;) {</span>
+<span class="fc" id="L59">        text(</span>
+<span class="fc" id="L60">            line.substring(</span>
+                startIndex = errorStarts,
+                endIndex = errorEnds
+            )
+        )
+<span class="fc" id="L65">    }</span>
+<span class="fc" id="L66">    text(line.substring(startIndex = errorEnds))</span>
+<span class="fc" id="L67">    return errorEnds - errorStarts</span>
+}
+
+private fun FlowContent.showError(ruleName: Rule.Name, throwable: Throwable) {
+<span class="fc" id="L71">    div(&quot;exception&quot;) {</span>
+<span class="fc" id="L72">        h4 {</span>
+<span class="fc" id="L73">            text(&quot;Error showing the code snippet&quot;)</span>
+<span class="fc" id="L74">        }</span>
+
+<span class="fc" id="L76">        p {</span>
+<span class="fc" id="L77">            text(&quot;This seems to be an error in the rule $ruleName, please &quot;)</span>
+<span class="fc" id="L78">            a(createReportUrl(ruleName, throwable)) {</span>
+<span class="fc" id="L79">                text(&quot;report this issue&quot;)</span>
+<span class="fc" id="L80">            }</span>
+<span class="fc" id="L81">            text(&quot;.&quot;)</span>
+<span class="fc" id="L82">        }</span>
+<span class="fc" id="L83">    }</span>
+<span class="fc" id="L84">}</span>
+
+private fun createReportUrl(ruleName: Rule.Name, throwable: Throwable): String {
+<span class="fc" id="L87">    val title = URLEncoder.encode(&quot;HtmlReport error in rule: $ruleName&quot;, &quot;UTF8&quot;)</span>
+<span class="fc" id="L88">    val stackTrace = throwable.printStackTraceString()</span>
+<span class="fc" id="L89">        .lineSequence()</span>
+<span class="fc" id="L90">        .take(STACK_TRACE_LINES_TO_SHOW)</span>
+<span class="fc" id="L91">        .joinToString(&quot;\n&quot;)</span>
+<span class="fc" id="L92">    val bodyMessage = &quot;&quot;&quot;</span>
+        |I found an error in the html report:
+<span class="fc" id="L94">        |- Rule: $ruleName</span>
+<span class="fc" id="L95">        |- detekt version: ${whichDetekt()}&quot;}</span>
+        |- Stacktrace:
+        |```
+<span class="fc" id="L98">        |$stackTrace</span>
+        |```
+        |- How to reproduce it: &lt;WRITE HERE HOW TO REPRODUCE THIS ISSUE. A CODE SNIPPET IS THE BEST WAY.&gt;
+        |
+<span class="fc" id="L102">    &quot;&quot;&quot;.trimMargin()</span>
+<span class="fc" id="L103">    val body = URLEncoder.encode(bodyMessage, &quot;UTF8&quot;)</span>
+
+<span class="fc" id="L105">    return &quot;https://github.com/detekt/detekt/issues/new?body=$body&amp;title=$title&quot;</span>
+}
+
+private fun Throwable.printStackTraceString(): String {
+<span class="fc" id="L109">    val stringWriter = StringWriter()</span>
+<span class="fc" id="L110">    printStackTrace(PrintWriter(stringWriter))</span>
+<span class="fc" id="L111">    return stringWriter.toString()</span>
+}
+
+private const val EXTRA_LINES_IN_SNIPPET = 3
+private const val STACK_TRACE_LINES_TO_SHOW = 6
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

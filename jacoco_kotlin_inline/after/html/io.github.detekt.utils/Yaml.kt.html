@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Yaml.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.utils</a> &gt; <span class="el_source">Yaml.kt</span></div><h1>Yaml.kt</h1><pre class="source lang-java linenums">package io.github.detekt.utils
+
+<span class="pc" id="L3">sealed class YML(open val indent: Int = 0, open var content: String = &quot;&quot;) {</span>
+    fun append(value: String) {
+<span class="fc bfc" id="L5" title="All 4 branches covered.">        content = if (content.isEmpty()) {</span>
+<span class="fc" id="L6">            &quot;${getIndent()}$value&quot;</span>
+        } else {
+<span class="fc" id="L8">            &quot;$content\n${getIndent()}$value&quot;</span>
+        }
+<span class="fc" id="L10">    }</span>
+
+    fun emptyLine() {
+<span class="fc" id="L13">        content = &quot;$content\n&quot;</span>
+<span class="fc" id="L14">    }</span>
+
+<span class="fc" id="L16">    private fun getIndent(): String = SINGLE_INDENT.repeat(indent)</span>
+}
+
+<span class="fc" id="L19">data class YamlNode(override val indent: Int = 0, override var content: String = &quot;&quot;) : YML()</span>
+
+inline fun yaml(content: YamlNode.() -&gt; Unit): String =
+<span class="fc" id="L22">    YamlNode().let { yaml -&gt;</span>
+<span class="fc" id="L23">        content(yaml)</span>
+<span class="fc" id="L24">        yaml.content</span>
+<span class="fc" id="L25">    }</span>
+
+fun YamlNode.node(name: String, node: YamlNode.() -&gt; Unit) {
+<span class="fc" id="L28">    val yamlNode = YamlNode(indent = indent + 1, content = &quot;$name:&quot;)</span>
+<span class="fc" id="L29">    node(yamlNode)</span>
+<span class="fc" id="L30">    append(yamlNode.content)</span>
+<span class="fc" id="L31">}</span>
+
+<span class="fc" id="L33">inline fun YamlNode.keyValue(comment: String = &quot;&quot;, keyValue: () -&gt; Pair&lt;String, String&gt;) {</span>
+<span class="fc" id="L34">    val (key, value) = keyValue()</span>
+<span class="fc" id="L35">    if (comment.isBlank()) {</span>
+<span class="fc" id="L36">        append(&quot;$key: $value&quot;)</span>
+    } else {
+<span class="nc" id="L38">        append(&quot;$key: $value # $comment&quot;)</span>
+    }
+<span class="fc" id="L40">}</span>
+
+fun YamlNode.list(name: String, list: List&lt;String&gt;) {
+<span class="fc bfc" id="L43" title="All 2 branches covered.">    if (list.isEmpty()) {</span>
+<span class="fc" id="L44">        keyValue { name to EMPTY_LIST }</span>
+    } else {
+<span class="fc" id="L46">        append(&quot;$name:&quot;)</span>
+<span class="fc" id="L47">        list.forEach {</span>
+<span class="fc" id="L48">            append(&quot;${SINGLE_INDENT}${LIST_PREFIX}${it.ensureQuoted()}&quot;)</span>
+<span class="fc" id="L49">        }</span>
+    }
+<span class="fc" id="L51">}</span>
+
+fun YamlNode.listOfMaps(name: String, maps: List&lt;Map&lt;String, String?&gt;&gt;) {
+<span class="fc bfc" id="L54" title="All 2 branches covered.">    val noneEmptyMaps = maps.filter { it.isNotEmpty() }</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">    if (noneEmptyMaps.isEmpty()) {</span>
+<span class="fc" id="L56">        list(name, emptyList())</span>
+    } else {
+<span class="fc" id="L58">        node(name) {</span>
+<span class="fc" id="L59">            maps.forEach { map(it) }</span>
+<span class="fc" id="L60">        }</span>
+    }
+<span class="fc" id="L62">}</span>
+
+private fun YamlNode.map(map: Map&lt;String, String?&gt;) {
+<span class="fc" id="L65">    map.entries</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        .filter { it.value != null }</span>
+<span class="fc" id="L67">        .sortedBy { it.key }</span>
+<span class="fc" id="L68">        .forEachIndexed { index, (key, value) -&gt;</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            val prefix = if (index == 0) {</span>
+<span class="fc" id="L70">                LIST_PREFIX</span>
+            } else {
+<span class="fc" id="L72">                SINGLE_INDENT</span>
+            }
+<span class="pc bpc" id="L74" title="2 of 4 branches missed.">            keyValue { &quot;$prefix$key&quot; to (value?.ensureQuoted() ?: error(&quot;value cannot be null&quot;)) }</span>
+<span class="fc" id="L75">        }</span>
+<span class="fc" id="L76">}</span>
+
+<span class="fc" id="L78">inline fun YamlNode.yaml(yaml: () -&gt; String): Unit = append(yaml())</span>
+
+private fun String.ensureQuoted(): String =
+<span class="fc" id="L81">    when {</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        isBlank() -&gt; quoted()</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        startsWith(SINGLE_QUOTE) &amp;&amp;</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">            endsWith(SINGLE_QUOTE) ||</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">            startsWith(DOUBLE_QUOTE) &amp;&amp;</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">            endsWith(DOUBLE_QUOTE) -&gt; this</span>
+<span class="fc" id="L87">        else -&gt; quoted()</span>
+<span class="fc" id="L88">    }</span>
+
+<span class="fc" id="L90">private fun String.quoted() = &quot;'$this'&quot;</span>
+
+private const val SINGLE_INDENT = &quot;  &quot;
+private const val SINGLE_QUOTE = &quot;'&quot;
+private const val DOUBLE_QUOTE = &quot;\&quot;&quot;
+private const val EMPTY_LIST = &quot;[]&quot;
+private const val LIST_PREFIX = &quot;- &quot;
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

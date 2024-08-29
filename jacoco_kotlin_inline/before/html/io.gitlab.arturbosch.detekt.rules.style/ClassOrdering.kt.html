@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClassOrdering.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">ClassOrdering.kt</span></div><h1>ClassOrdering.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtClassBody
+import org.jetbrains.kotlin.psi.KtClassInitializer
+import org.jetbrains.kotlin.psi.KtDeclaration
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtSecondaryConstructor
+
+/**
+ * This rule ensures class contents are ordered as follows as recommended by the Kotlin
+ * [Coding Conventions](https://kotlinlang.org/docs/coding-conventions.html#class-layout):
+ * - Property declarations and initializer blocks
+ * - Secondary constructors
+ * - Method declarations
+ * - Companion object
+ *
+ * &lt;noncompliant&gt;
+ * class OutOfOrder {
+ *     companion object {
+ *         const val IMPORTANT_VALUE = 3
+ *     }
+ *
+ *     fun returnX(): Int {
+ *         return x
+ *     }
+ *
+ *     private val x = 2
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class InOrder {
+ *     private val x = 2
+ *
+ *     fun returnX(): Int {
+ *         return x
+ *     }
+ *
+ *     companion object {
+ *         const val IMPORTANT_VALUE = 3
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L51">class ClassOrdering(config: Config) : Rule(</span>
+<span class="fc" id="L52">    config,</span>
+<span class="fc" id="L53">    &quot;Class contents should be in this order: Property declarations/initializer blocks; secondary constructors; &quot; +</span>
+        &quot;method declarations then companion objects.&quot;
+) {
+
+    override fun visitClassBody(classBody: KtClassBody) {
+<span class="fc" id="L58">        super.visitClassBody(classBody)</span>
+
+<span class="fc" id="L60">        val declarations = classBody.declarations.filterNotNull()</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (declarations.isEmpty()) return</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        val (violatingDeclarationWithSections, increasingDeclarationWithSections) = getMinimalNumberOfViolations(</span>
+<span class="fc" id="L63">            declarations</span>
+<span class="nc" id="L64">        ) ?: return</span>
+<span class="fc" id="L65">        violatingDeclarationWithSections.forEach { (violatingDeclaration, violatingSection) -&gt;</span>
+<span class="fc" id="L66">            val increasingDeclarationsBeforeViolatingElement =</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                declarations.takeWhile { it != violatingDeclaration }</span>
+<span class="fc" id="L68">            val increasingDeclarationSectionBeforeViolatingElement =</span>
+<span class="fc" id="L69">                increasingDeclarationWithSections.takeWhile {</span>
+<span class="fc" id="L70">                    it.declaration in increasingDeclarationsBeforeViolatingElement</span>
+                }
+            // for finding section from which violatingSection should be before we are only
+            // taking declarations which is already before the violatingSection
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">            val (directionMsg, anchorSection) = increasingDeclarationSectionBeforeViolatingElement</span>
+<span class="fc bfc" id="L75" title="All 4 branches covered.">                .find {</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">                    it.section.priority &gt; violatingSection.priority</span>
+                }
+<span class="fc bfc" id="L78" title="All 2 branches covered.">                ?.let {</span>
+<span class="fc" id="L79">                    &quot;before&quot; to it</span>
+                }
+<span class="fc" id="L81">                ?: run {</span>
+<span class="fc" id="L82">                    &quot;after&quot; to</span>
+<span class="fc" id="L83">                        increasingDeclarationWithSections</span>
+<span class="pc bpc" id="L84" title="1 of 6 branches missed.">                            .findLast { it.section.priority &lt; violatingSection.priority }</span>
+                }
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">            anchorSection ?: return@forEach</span>
+<span class="fc" id="L87">            val message =</span>
+<span class="fc" id="L88">                &quot;${violatingDeclaration.toDescription()} should be declared $directionMsg &quot; +</span>
+<span class="fc" id="L89">                    &quot;${anchorSection.section.toDescription()}.&quot;</span>
+<span class="fc" id="L90">            report(</span>
+<span class="fc" id="L91">                CodeSmell(</span>
+<span class="fc" id="L92">                    entity = Entity.from(violatingDeclaration),</span>
+<span class="fc" id="L93">                    message = message,</span>
+<span class="fc" id="L94">                    references = listOf(Entity.from(classBody))</span>
+                )
+            )
+<span class="fc" id="L97">        }</span>
+<span class="fc" id="L98">    }</span>
+
+    private fun getMinimalNumberOfViolations(
+        declarations: List&lt;KtDeclaration&gt;,
+    ): Pair&lt;List&lt;DeclarationWithSection&gt;, List&lt;DeclarationWithSection&gt;&gt;? {
+<span class="fc" id="L103">        val declarationWithSectionList = declarations.mapNotNull { declaration -&gt;</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">            declaration.toSection()?.let {</span>
+<span class="fc" id="L105">                DeclarationWithSection(</span>
+<span class="fc" id="L106">                    declaration,</span>
+<span class="fc" id="L107">                    it</span>
+<span class="fc" id="L108">                )</span>
+<span class="fc" id="L109">            }</span>
+        }
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        val dp = IntArray(declarationWithSectionList.size) {</span>
+<span class="fc" id="L112">            return@IntArray 1</span>
+        }
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        val backTrack = IntArray(declarationWithSectionList.size) {</span>
+<span class="fc" id="L115">            return@IntArray it</span>
+        }
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        for (i in dp.indices) {</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">            for (j in 0..&lt;i) {</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">                if (declarationWithSectionList[i].section.priority &gt;=</span>
+<span class="fc" id="L120">                    declarationWithSectionList[j].section.priority &amp;&amp;</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">                    dp[i] &lt; dp[j] + 1</span>
+                ) {
+<span class="fc" id="L123">                    dp[i] = dp[j] + 1</span>
+<span class="fc" id="L124">                    backTrack[i] = j</span>
+                }
+            }
+        }
+
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        var index = dp.indices.maxByOrNull { dp[it] } ?: return null</span>
+
+<span class="fc" id="L131">        val listOfIncreasingSection = buildList {</span>
+<span class="fc" id="L132">            var oldIndex: Int</span>
+            do {
+<span class="fc" id="L134">                add(declarationWithSectionList[index])</span>
+<span class="fc" id="L135">                oldIndex = index</span>
+<span class="fc" id="L136">                index = backTrack[index]</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            } while (index != oldIndex)</span>
+<span class="fc" id="L138">        }.reversed()</span>
+<span class="fc" id="L139">        return declarationWithSectionList.minus(listOfIncreasingSection.toSet()) to</span>
+<span class="fc" id="L140">            listOfIncreasingSection</span>
+    }
+
+<span class="fc" id="L143">    private data class DeclarationWithSection(</span>
+<span class="fc" id="L144">        val declaration: KtDeclaration,</span>
+<span class="fc" id="L145">        val section: Section,</span>
+    )
+}
+
+<span class="fc" id="L149">private fun KtDeclaration.toDescription(): String = when {</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">    this is KtProperty -&gt; &quot;property `$name`&quot;</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">    this is KtClassInitializer -&gt; &quot;initializer blocks&quot;</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">    this is KtSecondaryConstructor -&gt; &quot;secondary constructor&quot;</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">    this is KtNamedFunction -&gt; &quot;method `$name()`&quot;</span>
+<span class="pc bpc" id="L154" title="2 of 4 branches missed.">    this is KtObjectDeclaration &amp;&amp; isCompanion() -&gt; &quot;companion object&quot;</span>
+<span class="nc" id="L155">    else -&gt; &quot;&quot;</span>
+<span class="fc" id="L156">}</span>
+
+@Suppress(&quot;MagicNumber&quot;)
+<span class="fc" id="L159">private fun KtDeclaration.toSection(): Section? = when {</span>
+<span class="fc bfc" id="L160" title="All 2 branches covered.">    this is KtProperty -&gt; Section(0)</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">    this is KtClassInitializer -&gt; Section(0)</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">    this is KtSecondaryConstructor -&gt; Section(1)</span>
+<span class="fc bfc" id="L163" title="All 2 branches covered.">    this is KtNamedFunction -&gt; Section(2)</span>
+<span class="fc bfc" id="L164" title="All 4 branches covered.">    this is KtObjectDeclaration &amp;&amp; isCompanion() -&gt; Section(3)</span>
+<span class="fc" id="L165">    else -&gt; null // For declarations not relevant for ordering, such as nested classes.</span>
+<span class="fc" id="L166">}</span>
+
+@Suppress(&quot;MagicNumber&quot;)
+<span class="fc" id="L169">private class Section(val priority: Int) : Comparable&lt;Section&gt; {</span>
+
+<span class="fc" id="L171">    init {</span>
+<span class="pc bpc" id="L172" title="3 of 6 branches missed.">        require(priority in 0..3)</span>
+<span class="fc" id="L173">    }</span>
+
+<span class="pc bpc" id="L175" title="1 of 5 branches missed.">    fun toDescription(): String = when (priority) {</span>
+<span class="fc" id="L176">        0 -&gt; &quot;property declarations and initializer blocks&quot;</span>
+<span class="fc" id="L177">        1 -&gt; &quot;secondary constructors&quot;</span>
+<span class="fc" id="L178">        2 -&gt; &quot;method declarations&quot;</span>
+<span class="fc" id="L179">        3 -&gt; &quot;companion object&quot;</span>
+<span class="nc" id="L180">        else -&gt; &quot;&quot;</span>
+<span class="fc" id="L181">    }</span>
+
+<span class="nc" id="L183">    override fun compareTo(other: Section): Int = priority.compareTo(other.priority)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

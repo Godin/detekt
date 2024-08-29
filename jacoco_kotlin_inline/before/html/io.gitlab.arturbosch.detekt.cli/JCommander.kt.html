@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JCommander.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.cli</a> &gt; <span class="el_source">JCommander.kt</span></div><h1>JCommander.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.cli
+
+import com.beust.jcommander.JCommander
+import com.beust.jcommander.ParameterException
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.notExists
+
+fun parseArguments(args: Array&lt;out String&gt;): CliArgs {
+<span class="fc" id="L9">    val cli = CliArgs()</span>
+
+<span class="fc" id="L11">    val jCommander = JCommander(cli)</span>
+<span class="fc" id="L12">    jCommander.programName = &quot;detekt&quot;</span>
+
+<span class="fc" id="L14">    try {</span>
+        @Suppress(&quot;SpreadOperator&quot;)
+<span class="fc" id="L16">        jCommander.parse(*args)</span>
+<span class="fc" id="L17">    } catch (@Suppress(&quot;SwallowedException&quot;) ex: ParameterException) {</span>
+        // Stacktrace in jCommander is likely irrelevant
+<span class="fc" id="L19">        throw HandledArgumentViolation(ex.message, jCommander.usageAsString())</span>
+    }
+
+<span class="fc bfc" id="L22" title="All 2 branches covered.">    if (cli.help) {</span>
+<span class="fc" id="L23">        throw HelpRequest(jCommander.usageAsString())</span>
+    }
+
+<span class="fc" id="L26">    return cli.apply { validate(jCommander) }</span>
+}
+
+private fun JCommander.usageAsString(): String {
+<span class="fc" id="L30">    val usage = StringBuilder()</span>
+<span class="fc" id="L31">    this.usageFormatter.usage(usage)</span>
+<span class="fc" id="L32">    return usage.toString()</span>
+}
+
+private fun CliArgs.validate(jCommander: JCommander) {
+<span class="fc" id="L36">    var violation: String? = null</span>
+<span class="fc" id="L37">    val baseline = baseline</span>
+
+<span class="fc bfc" id="L39" title="All 4 branches covered.">    if (createBaseline &amp;&amp; baseline == null) {</span>
+<span class="fc" id="L40">        violation = &quot;Creating a baseline.xml requires the --baseline parameter to specify a path.&quot;</span>
+    }
+
+<span class="fc bfc" id="L43" title="All 4 branches covered.">    if (!createBaseline &amp;&amp; baseline != null) {</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (baseline.notExists()) {</span>
+<span class="fc" id="L45">            violation = &quot;The file specified by --baseline should exist '$baseline'.&quot;</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        } else if (!baseline.isRegularFile()) {</span>
+<span class="fc" id="L47">            violation = &quot;The path specified by --baseline should be a file '$baseline'.&quot;</span>
+        }
+    }
+
+<span class="fc bfc" id="L51" title="All 2 branches covered.">    if (violation != null) {</span>
+<span class="fc" id="L52">        throw HandledArgumentViolation(violation, jCommander.usageAsString())</span>
+    }
+<span class="fc" id="L54">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

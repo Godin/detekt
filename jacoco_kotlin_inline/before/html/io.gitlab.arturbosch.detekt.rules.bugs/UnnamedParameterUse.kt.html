@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnnamedParameterUse.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">UnnamedParameterUse.kt</span></div><h1>UnnamedParameterUse.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
+import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
+import org.jetbrains.kotlin.load.java.isFromJava
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.components.isVararg
+import org.jetbrains.kotlin.resolve.calls.util.getParameterForArgument
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
+
+/**
+ * Reports usage of unnamed parameter. Passing parameters without name can cause issue when parameters order of same
+ * type changes. And code gets error prone as it gets easy to mix up parameters of the same type
+ *
+ * &lt;noncompliant&gt;
+ * fun log(enabled: Boolean, shouldLog: Boolean) {
+ *     if (shouldLog) println(enabled)
+ * }
+ * fun test() {
+ *     log(false, true)
+ * }
+ *
+ * // allowAdjacentDifferentTypeParams = false
+ * fun log(msg: String, shouldLog: Boolean) {
+ *     println(msg)
+ * }
+ * fun test() {
+ *     log(&quot;test&quot;, true)
+ * }
+ *
+ * // allowSingleParamUse = false and allowAdjacentDifferentTypeParams = false
+ * fun log(msg: String) {
+ *     println(msg)
+ * }
+ * fun test() {
+ *     log(&quot;test&quot;)
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun log(enabled: Boolean, shouldLog: Boolean) {
+ *     if (shouldLog) println(enabled)
+ * }
+ * fun test() {
+ *     log(enabled = false, shouldLog = true)
+ * }
+ *
+ * // allowAdjacentDifferentTypeParams = true
+ * fun log(msg: String, shouldLog: Boolean) {
+ *     println(msg)
+ * }
+ * fun test() {
+ *     log(&quot;test&quot;, true)
+ * }
+ *
+ * // allowSingleParamUse = true
+ * fun log(msg: String) {
+ *     println(msg)
+ * }
+ * fun test() {
+ *     log(&quot;test&quot;)
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L76">class UnnamedParameterUse(config: Config) : Rule(</span>
+<span class="fc" id="L77">    config,</span>
+<span class="fc" id="L78">    &quot;Passing no named parameters can cause issue when parameters order change&quot;</span>
+) {
+
+    @Configuration(&quot;Allow adjacent unnamed params when type of parameters can not be assigned to each other&quot;)
+<span class="fc" id="L82">    val allowAdjacentDifferentTypeParams: Boolean by config(true)</span>
+
+    @Configuration(&quot;Allow single unnamed parameter use&quot;)
+<span class="fc" id="L85">    val allowSingleParamUse: Boolean by config(true)</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L89">        super.visitCallExpression(expression)</span>
+
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        val valueArgumentList = expression.valueArgumentList ?: return</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (valueArgumentList.arguments.isEmpty()) {</span>
+<span class="fc" id="L93">            return</span>
+        }
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        val callDescriptor = expression.getResolvedCall(bindingContext) ?: return</span>
+<span class="pc bpc" id="L96" title="2 of 8 branches missed.">        if ((callDescriptor.resultingDescriptor as? CallableMemberDescriptor)?.isFromJava == true) {</span>
+<span class="fc" id="L97">            return</span>
+        }
+<span class="fc" id="L99">        val paramDescriptorToArgumentMap: Map&lt;KtValueArgument, ValueParameterDescriptor?&gt; =</span>
+<span class="fc" id="L100">            valueArgumentList.arguments.associateWith {</span>
+<span class="fc" id="L101">                callDescriptor.getParameterForArgument(it)</span>
+            }
+<span class="fc bfc" id="L103" title="All 4 branches covered.">        if (allowSingleParamUse &amp;&amp; paramDescriptorToArgumentMap.values.distinct().size &lt;= 1) {</span>
+<span class="fc" id="L104">            return</span>
+        }
+
+<span class="fc" id="L107">        val namedArgumentList = valueArgumentList.arguments.map {</span>
+<span class="pc bpc" id="L108" title="1 of 8 branches missed.">            val isNamedOrVararg = it.isNamed() || paramDescriptorToArgumentMap[it]?.isVararg == true</span>
+            // No name parameter if it is vararg
+<span class="fc" id="L110">            isNamedOrVararg to it</span>
+        }
+
+<span class="fc bfc" id="L113" title="All 4 branches covered.">        if (allowAdjacentDifferentTypeParams &amp;&amp; namedArgumentList.windowed(2).all(::isAdjacentUnnamedParamsAllowed)) {</span>
+<span class="fc" id="L114">            return</span>
+        }
+
+<span class="pc bpc" id="L117" title="1 of 4 branches missed.">        if (namedArgumentList.any { it.first.not() }) {</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">            val target = expression.calleeExpression ?: expression</span>
+<span class="fc" id="L119">            report(</span>
+<span class="fc" id="L120">                CodeSmell(</span>
+<span class="fc" id="L121">                    Entity.from(target),</span>
+<span class="fc" id="L122">                    &quot;Consider using named parameters in ${target.text} as they make usage of the function more safe.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L126">    }</span>
+
+    private fun isAdjacentUnnamedParamsAllowed(it: List&lt;Pair&lt;Boolean, KtValueArgument&gt;&gt;) =
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        (it[0].second.text == it[1].second.text) ||</span>
+<span class="fc bfc" id="L130" title="All 4 branches covered.">            (it[0].first || it[1].first) ||</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">            (typeCanBeAssigned(it[0].second, it[1].second).not())</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun typeCanBeAssigned(firstParam: KtValueArgument, secondParam: KtValueArgument): Boolean {
+<span class="fc" id="L135">        val param1Type =</span>
+<span class="pc bpc" id="L136" title="2 of 4 branches missed.">            bindingContext[BindingContext.EXPRESSION_TYPE_INFO, firstParam.getArgumentExpression()]?.type ?: return true</span>
+<span class="fc" id="L137">        val param2Type =</span>
+<span class="pc bpc" id="L138" title="2 of 4 branches missed.">            bindingContext[BindingContext.EXPRESSION_TYPE_INFO, secondParam.getArgumentExpression()]?.type</span>
+<span class="nc" id="L139">                ?: return true</span>
+
+<span class="pc bpc" id="L141" title="1 of 4 branches missed.">        return param1Type.isSubtypeOf(param2Type) || param2Type.isSubtypeOf(param1Type)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

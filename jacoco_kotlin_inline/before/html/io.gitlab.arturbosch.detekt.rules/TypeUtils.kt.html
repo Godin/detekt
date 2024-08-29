@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeUtils.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules</a> &gt; <span class="el_source">TypeUtils.kt</span></div><h1>TypeUtils.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules
+
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.diagnostics.Errors
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowValueFactory
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.TypeUtils
+import org.jetbrains.kotlin.types.isFlexible
+import org.jetbrains.kotlin.types.isNullable
+import org.jetbrains.kotlin.util.containingNonLocalDeclaration
+
+<span class="fc bfc" id="L20" title="All 2 branches covered.">fun KotlinType.fqNameOrNull(): FqName? = TypeUtils.getClassDescriptor(this)?.fqNameOrNull()</span>
+
+/**
+ * Returns types considering data flow.
+ *
+ * For Example, for `s` in `print(s)` below, [BindingContext.getType] returns String?, but this function returns String.
+ *
+ * ```kotlin
+ * fun foo(s: String?) {
+ *     if (s != null) {
+ *         println(s) // s is String (smart cast from String?)
+ *     }
+ * }
+ * ```
+ */
+<span class="fc" id="L35">@Suppress(&quot;ReturnCount&quot;)</span>
+fun KtExpression.getDataFlowAwareTypes(
+    bindingContext: BindingContext,
+    languageVersionSettings: LanguageVersionSettings,
+    dataFlowValueFactory: DataFlowValueFactory,
+<span class="fc" id="L40">    originalType: KotlinType? = bindingContext.getType(this),</span>
+): Set&lt;KotlinType&gt; {
+<span class="pc bpc" id="L42" title="2 of 4 branches missed.">    require(bindingContext != BindingContext.EMPTY) { &quot;The bindingContext must not be empty&quot; }</span>
+
+<span class="fc bfc" id="L44" title="All 2 branches covered.">    if (originalType == null) return emptySet()</span>
+
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">    val dataFlowInfo = bindingContext[BindingContext.EXPRESSION_TYPE_INFO, this]</span>
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">        ?.dataFlowInfo</span>
+<span class="nc" id="L48">        ?: return setOf(originalType)</span>
+
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">    val containingDeclaration = containingNonLocalDeclaration()</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">        ?.let { bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, it] }</span>
+<span class="nc" id="L52">        ?: return setOf(originalType)</span>
+
+<span class="fc" id="L54">    val dataFlowValue = dataFlowValueFactory</span>
+<span class="fc" id="L55">        .createDataFlowValue(this, originalType, bindingContext, containingDeclaration)</span>
+
+<span class="fc" id="L57">    return dataFlowInfo.getStableTypes(dataFlowValue, languageVersionSettings)</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        .ifEmpty { setOf(originalType) }</span>
+}
+
+/**
+ * Return if overall expression is nullable or not nullable
+ *
+ * ```kotlin
+ * var a: Int? = null
+ * val b = a // RHS expression will be nullable
+ * val c = a!! // RHS expression will be not nullable
+ * val d = (a ?: error(&quot;null assertion message&quot;)) // RHS expression will be not nullable
+ * val c = 1?.and(2) // RHS expression will be not nullable
+ * ```
+ * [shouldConsiderPlatformTypeAsNullable] determines the behaviour of platform type. Passing true considers
+ * the platform type as nullable otherwise it is not considered nullable in case of false
+ */
+@Suppress(&quot;ReturnCount&quot;)
+fun KtExpression.isNullable(
+    bindingContext: BindingContext,
+    languageVersionSettings: LanguageVersionSettings,
+    dataFlowValueFactory: DataFlowValueFactory,
+    shouldConsiderPlatformTypeAsNullable: Boolean,
+): Boolean {
+<span class="fc bfc" id="L81" title="All 6 branches covered.">    val safeAccessOperation = (this as? KtSafeQualifiedExpression)?.operationTokenNode as? PsiElement</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">    if (safeAccessOperation != null) {</span>
+<span class="fc" id="L83">        return bindingContext.diagnostics.forElement(safeAccessOperation).none {</span>
+<span class="fc" id="L84">            it.factory == Errors.UNNECESSARY_SAFE_CALL</span>
+        }
+    }
+<span class="pc bpc" id="L87" title="2 of 8 branches missed.">    val originalType = descriptor(bindingContext)?.returnType?.takeIf {</span>
+<span class="fc bfc" id="L88" title="All 6 branches covered.">        it.isNullable() &amp;&amp; (shouldConsiderPlatformTypeAsNullable || !it.isFlexible())</span>
+<span class="fc" id="L89">    } ?: return false</span>
+<span class="fc" id="L90">    val dataFlowTypes = getDataFlowAwareTypes(</span>
+<span class="fc" id="L91">        bindingContext,</span>
+<span class="fc" id="L92">        languageVersionSettings,</span>
+<span class="fc" id="L93">        dataFlowValueFactory,</span>
+<span class="fc" id="L94">        originalType</span>
+    )
+<span class="fc" id="L96">    return dataFlowTypes.all { it.isNullable() }</span>
+}
+
+private fun KtExpression.descriptor(bindingContext: BindingContext): CallableDescriptor? =
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">    getResolvedCall(bindingContext)?.resultingDescriptor</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

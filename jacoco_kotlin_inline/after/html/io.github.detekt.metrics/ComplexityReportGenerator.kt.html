@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ComplexityReportGenerator.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.metrics</a> &gt; <span class="el_source">ComplexityReportGenerator.kt</span></div><h1>ComplexityReportGenerator.kt</h1><pre class="source lang-java linenums">package io.github.detekt.metrics
+
+import io.gitlab.arturbosch.detekt.api.Detektion
+import java.util.Locale
+
+<span class="fc" id="L6">class ComplexityReportGenerator(private val complexityMetric: ComplexityMetric) {</span>
+
+    private var numberOfSmells = 0
+    private var smellPerThousandLines = 0
+    private var mccPerThousandLines = 0
+    private var commentSourceRatio = 0
+
+    fun generate(): List&lt;String&gt;? {
+<span class="fc bfc" id="L14" title="All 2 branches covered.">        if (cannotGenerate()) return null</span>
+<span class="fc" id="L15">        return listOf(</span>
+<span class="fc" id="L16">            &quot;%,d lines of code (loc)&quot;.format(Locale.US, complexityMetric.loc),</span>
+<span class="fc" id="L17">            &quot;%,d source lines of code (sloc)&quot;.format(Locale.US, complexityMetric.sloc),</span>
+<span class="fc" id="L18">            &quot;%,d logical lines of code (lloc)&quot;.format(Locale.US, complexityMetric.lloc),</span>
+<span class="fc" id="L19">            &quot;%,d comment lines of code (cloc)&quot;.format(Locale.US, complexityMetric.cloc),</span>
+<span class="fc" id="L20">            &quot;%,d cyclomatic complexity (mcc)&quot;.format(Locale.US, complexityMetric.mcc),</span>
+<span class="fc" id="L21">            &quot;%,d cognitive complexity&quot;.format(Locale.US, complexityMetric.cognitiveComplexity),</span>
+<span class="fc" id="L22">            &quot;%,d number of total code smells&quot;.format(Locale.US, numberOfSmells),</span>
+<span class="fc" id="L23">            &quot;%,d%% comment source ratio&quot;.format(Locale.US, commentSourceRatio),</span>
+<span class="fc" id="L24">            &quot;%,d mcc per 1,000 lloc&quot;.format(Locale.US, mccPerThousandLines),</span>
+<span class="fc" id="L25">            &quot;%,d code smells per 1,000 lloc&quot;.format(Locale.US, smellPerThousandLines)</span>
+        )
+    }
+
+    private fun cannotGenerate(): Boolean =
+<span class="fc" id="L30">        when {</span>
+<span class="fc bfc" id="L31" title="All 2 branches covered.">            null in setOf(</span>
+<span class="fc" id="L32">                complexityMetric.mcc,</span>
+<span class="fc" id="L33">                complexityMetric.cloc,</span>
+<span class="fc" id="L34">                complexityMetric.cognitiveComplexity</span>
+<span class="fc" id="L35">            ) -&gt; true</span>
+<span class="pc bpc" id="L36" title="1 of 6 branches missed.">            complexityMetric.lloc == null || complexityMetric.lloc == 0 -&gt; true</span>
+<span class="pc bpc" id="L37" title="1 of 6 branches missed.">            complexityMetric.sloc == null || complexityMetric.sloc == 0 -&gt; true</span>
+            else -&gt; {
+<span class="fc" id="L39">                numberOfSmells = complexityMetric.issuesCount</span>
+<span class="fc" id="L40">                smellPerThousandLines = numberOfSmells * 1000 / complexityMetric.lloc</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">                mccPerThousandLines = requireNotNull(complexityMetric.mcc) * 1000 / complexityMetric.lloc</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">                commentSourceRatio = requireNotNull(complexityMetric.cloc) * 100 / complexityMetric.sloc</span>
+<span class="fc" id="L43">                false</span>
+            }
+<span class="fc" id="L45">        }</span>
+
+    companion object Factory {
+        fun create(detektion: Detektion): ComplexityReportGenerator =
+<span class="fc" id="L49">            ComplexityReportGenerator(ComplexityMetric(detektion))</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

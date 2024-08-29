@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FunctionMatcher.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.psi</a> &gt; <span class="el_source">FunctionMatcher.kt</span></div><h1>FunctionMatcher.kt</h1><pre class="source lang-java linenums">package io.github.detekt.psi
+
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.typeUtil.isTypeParameter
+
+sealed class FunctionMatcher {
+
+    abstract fun match(callableDescriptor: CallableDescriptor): Boolean
+
+    abstract fun match(function: KtNamedFunction, bindingContext: BindingContext): Boolean
+
+<span class="fc" id="L17">    internal data class NameOnly(</span>
+<span class="fc" id="L18">        private val fullyQualifiedName: String</span>
+<span class="fc" id="L19">    ) : FunctionMatcher() {</span>
+        override fun match(callableDescriptor: CallableDescriptor): Boolean =
+<span class="fc" id="L21">            callableDescriptor.fqNameSafe.asString() == fullyQualifiedName</span>
+
+        override fun match(function: KtNamedFunction, bindingContext: BindingContext): Boolean =
+<span class="fc bfc" id="L24" title="All 2 branches covered.">            function.name == fullyQualifiedName ||</span>
+<span class="fc bfc" id="L25" title="All 4 branches covered.">                function.fqName?.asString() == fullyQualifiedName</span>
+
+<span class="fc" id="L27">        override fun toString(): String = fullyQualifiedName</span>
+    }
+
+<span class="fc" id="L30">    internal data class WithParameters(</span>
+<span class="fc" id="L31">        private val fullyQualifiedName: String,</span>
+<span class="fc" id="L32">        private val parameters: List&lt;String&gt;</span>
+<span class="fc" id="L33">    ) : FunctionMatcher() {</span>
+        override fun match(callableDescriptor: CallableDescriptor): Boolean {
+<span class="fc" id="L35">            val descriptor = callableDescriptor.original</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">            if (descriptor.fqNameSafe.asString() != fullyQualifiedName) return false</span>
+
+<span class="fc" id="L38">            val encounteredParamTypes =</span>
+<span class="fc" id="L39">                (listOfNotNull(descriptor.extensionReceiverParameter) + descriptor.valueParameters)</span>
+<span class="fc" id="L40">                    .map { it.type.getSignatureParameter() }</span>
+
+<span class="fc" id="L42">            return encounteredParamTypes == parameters</span>
+        }
+
+        override fun match(function: KtNamedFunction, bindingContext: BindingContext): Boolean {
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">            if (bindingContext == BindingContext.EMPTY) return false</span>
+<span class="pc bpc" id="L47" title="1 of 6 branches missed.">            if (function.name != fullyQualifiedName &amp;&amp; function.fqName?.asString() != fullyQualifiedName) return false</span>
+
+<span class="fc" id="L49">            val encounteredParameters =</span>
+<span class="fc" id="L50">                (listOfNotNull(function.receiverTypeReference) + function.valueParameters.map { it.typeReference })</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">                    .map { bindingContext[BindingContext.TYPE, it]?.getSignatureParameter() }</span>
+
+<span class="fc" id="L53">            return encounteredParameters == parameters</span>
+        }
+
+<span class="fc" id="L56">        override fun toString(): String = &quot;$fullyQualifiedName(${parameters.joinToString()})&quot;</span>
+    }
+
+    companion object {
+        fun fromFunctionSignature(methodSignature: String): FunctionMatcher {
+            @Suppress(&quot;TooGenericExceptionCaught&quot;, &quot;UnsafeCallOnNullableType&quot;)
+<span class="fc" id="L62">            try {</span>
+<span class="fc" id="L63">                val result = functionSignatureRegex.matchEntire(methodSignature)!!</span>
+
+<span class="fc" id="L65">                val methodName = result.groups[1]!!.value.replace(&quot;`&quot;, &quot;&quot;)</span>
+<span class="pc bpc" id="L66" title="1 of 4 branches missed.">                val params = result.groups[2]?.value?.splitParams()</span>
+<span class="pc bpc" id="L67" title="1 of 4 branches missed.">                    ?.map { changeIfLambda(it) ?: it }</span>
+
+<span class="fc bfc" id="L69" title="All 2 branches covered.">                return if (params == null) {</span>
+<span class="fc" id="L70">                    NameOnly(methodName)</span>
+                } else {
+<span class="fc" id="L72">                    WithParameters(methodName, params)</span>
+                }
+<span class="nc" id="L74">            } catch (ex: Exception) {</span>
+<span class="nc" id="L75">                throw IllegalStateException(&quot;$methodSignature doesn't match a method signature&quot;, ex)</span>
+            }
+        }
+    }
+}
+
+private fun KotlinType.getSignatureParameter(): String? =
+<span class="fc bfc" id="L82" title="All 2 branches covered.">    if (isTypeParameter()) {</span>
+<span class="fc" id="L83">        toString()</span>
+    } else {
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        fqNameOrNull()?.toString()</span>
+<span class="fc" id="L86">    }</span>
+
+// Extracted from: https://stackoverflow.com/a/16108347/842697
+private fun String.splitParams(): List&lt;String&gt; {
+<span class="fc" id="L90">    val split: MutableList&lt;String&gt; = mutableListOf()</span>
+<span class="fc" id="L91">    var nestingLevel = 0</span>
+<span class="fc" id="L92">    val result = StringBuilder()</span>
+<span class="fc" id="L93">    this.forEach { c -&gt;</span>
+<span class="fc bfc" id="L94" title="All 4 branches covered.">        if (c == ',' &amp;&amp; nestingLevel == 0) {</span>
+<span class="fc" id="L95">            split.add(result.toString().trim())</span>
+<span class="fc" id="L96">            result.setLength(0)</span>
+        } else {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">            if (c == '(') nestingLevel++</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">            if (c == ')') nestingLevel--</span>
+<span class="pc bpc" id="L100" title="2 of 4 branches missed.">            check(nestingLevel &gt;= 0)</span>
+<span class="fc" id="L101">            result.append(c)</span>
+        }
+<span class="fc" id="L103">    }</span>
+<span class="fc" id="L104">    val lastParam = result.toString().trim()</span>
+<span class="fc bfc" id="L105" title="All 4 branches covered.">    if (lastParam.isNotEmpty()) {</span>
+<span class="fc" id="L106">        split.add(lastParam)</span>
+    }
+<span class="fc" id="L108">    return split</span>
+}
+
+private fun changeIfLambda(param: String): String? {
+<span class="fc bfc" id="L112" title="All 2 branches covered.">    val (paramsRaw, _) = splitLambda(param) ?: return null</span>
+<span class="fc" id="L113">    val params = paramsRaw.splitParams()</span>
+
+<span class="fc" id="L115">    return &quot;kotlin.Function${params.count()}&quot;</span>
+}
+
+private fun splitLambda(param: String): Pair&lt;String, String&gt;? {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">    if (!param.startsWith(&quot;(&quot;)) return null</span>
+
+<span class="fc" id="L121">    var nestingLevel = 0</span>
+<span class="fc" id="L122">    val paramsRaw = StringBuilder()</span>
+<span class="fc" id="L123">    val returnValue = StringBuilder()</span>
+
+    /*
+     * We don't count the first `(` so as soon as the nestingLevel reaches the last `)` we know that we read all the
+     * params. Then we handle the rest of the String as the result.
+     */
+<span class="fc" id="L129">    param.toCharArray()</span>
+<span class="fc" id="L130">        .drop(1)</span>
+<span class="fc" id="L131">        .forEach { c -&gt;</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">            if (nestingLevel &gt;= 0) {</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">                if (c == '(') nestingLevel++</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">                if (c == ')') nestingLevel--</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">                if (nestingLevel &gt;= 0) {</span>
+<span class="fc" id="L136">                    paramsRaw.append(c)</span>
+                }
+            } else {
+<span class="fc" id="L139">                returnValue.append(c)</span>
+            }
+<span class="fc" id="L141">        }</span>
+
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">    check(returnValue.trim().startsWith(&quot;-&gt;&quot;))</span>
+
+<span class="fc" id="L145">    return paramsRaw.toString().trim() to returnValue.toString().substringAfter(&quot;-&gt;&quot;).trim()</span>
+}
+
+<span class="fc" id="L148">private val functionSignatureRegex = &quot;&quot;&quot;((?:[^()`]|`.*`)*)(?:\((.*)\))?&quot;&quot;&quot;.toRegex()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

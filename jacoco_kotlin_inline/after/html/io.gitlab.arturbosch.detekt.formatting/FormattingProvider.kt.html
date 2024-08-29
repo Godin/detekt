@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FormattingProvider.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.formatting</a> &gt; <span class="el_source">FormattingProvider.kt</span></div><h1>FormattingProvider.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.formatting
+
+import com.pinterest.ktlint.rule.engine.core.api.Rule
+import com.pinterest.ktlint.rule.engine.core.api.RuleId
+import com.pinterest.ktlint.rule.engine.core.api.RuleSetId
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import io.gitlab.arturbosch.detekt.api.RuleSetProvider
+import io.gitlab.arturbosch.detekt.formatting.wrappers.AnnotationOnSeparateLine
+import io.gitlab.arturbosch.detekt.formatting.wrappers.AnnotationSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ArgumentListWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.BackingPropertyNaming
+import io.gitlab.arturbosch.detekt.formatting.wrappers.BinaryExpressionWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.BlankLineBeforeDeclaration
+import io.gitlab.arturbosch.detekt.formatting.wrappers.BlankLineBetweenWhenConditions
+import io.gitlab.arturbosch.detekt.formatting.wrappers.BlockCommentInitialStarAlignment
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ChainMethodContinuation
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ChainWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ClassName
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ClassSignature
+import io.gitlab.arturbosch.detekt.formatting.wrappers.CommentSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.CommentWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ConditionWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ContextReceiverMapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.EnumEntryNameCase
+import io.gitlab.arturbosch.detekt.formatting.wrappers.EnumWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.Filename
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FinalNewline
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunKeywordSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionExpressionBody
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionLiteral
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionName
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionReturnTypeSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionSignature
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionStartOfBodySpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionTypeModifierSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.FunctionTypeReferenceSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.IfElseBracing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.IfElseWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ImportOrdering
+import io.gitlab.arturbosch.detekt.formatting.wrappers.Indentation
+import io.gitlab.arturbosch.detekt.formatting.wrappers.Kdoc
+import io.gitlab.arturbosch.detekt.formatting.wrappers.KdocWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.MaximumLineLength
+import io.gitlab.arturbosch.detekt.formatting.wrappers.MixedConditionOperators
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ModifierListSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ModifierOrdering
+import io.gitlab.arturbosch.detekt.formatting.wrappers.MultiLineIfElse
+import io.gitlab.arturbosch.detekt.formatting.wrappers.MultilineExpressionWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.MultilineLoop
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoBlankLineBeforeRbrace
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoBlankLineInList
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoBlankLinesInChainedMethodCalls
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoConsecutiveBlankLines
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoConsecutiveComments
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoEmptyClassBody
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoEmptyFile
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoEmptyFirstLineInClassBody
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoEmptyFirstLineInMethodBlock
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoLineBreakAfterElse
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoLineBreakBeforeAssignment
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoMultipleSpaces
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoSemicolons
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoSingleLineBlockComment
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoTrailingSpaces
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoUnitReturn
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoUnusedImports
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NoWildcardImports
+import io.gitlab.arturbosch.detekt.formatting.wrappers.NullableTypeSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.PackageName
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ParameterListSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ParameterListWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ParameterWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.PropertyName
+import io.gitlab.arturbosch.detekt.formatting.wrappers.PropertyWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundAngleBrackets
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundColon
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundComma
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundCurly
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundDot
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundDoubleColon
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundKeyword
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundOperators
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundParens
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundRangeOperator
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundSquareBrackets
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingAroundUnaryOperator
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingBetweenDeclarationsWithAnnotations
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingBetweenDeclarationsWithComments
+import io.gitlab.arturbosch.detekt.formatting.wrappers.SpacingBetweenFunctionNameAndOpeningParenthesis
+import io.gitlab.arturbosch.detekt.formatting.wrappers.StatementWrapping
+import io.gitlab.arturbosch.detekt.formatting.wrappers.StringTemplate
+import io.gitlab.arturbosch.detekt.formatting.wrappers.StringTemplateIndent
+import io.gitlab.arturbosch.detekt.formatting.wrappers.TrailingCommaOnCallSite
+import io.gitlab.arturbosch.detekt.formatting.wrappers.TrailingCommaOnDeclarationSite
+import io.gitlab.arturbosch.detekt.formatting.wrappers.TryCatchFinallySpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.TypeArgumentComment
+import io.gitlab.arturbosch.detekt.formatting.wrappers.TypeArgumentListSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.TypeParameterComment
+import io.gitlab.arturbosch.detekt.formatting.wrappers.TypeParameterListSpacing
+import io.gitlab.arturbosch.detekt.formatting.wrappers.UnnecessaryParenthesesBeforeTrailingLambda
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ValueArgumentComment
+import io.gitlab.arturbosch.detekt.formatting.wrappers.ValueParameterComment
+import io.gitlab.arturbosch.detekt.formatting.wrappers.Wrapping
+
+/**
+ * This rule set provides wrappers for rules implemented by ktlint - https://ktlint.github.io/.
+ *
+ * **Note: The `formatting` rule set is not included in the detekt-cli or Gradle plugin.**
+ *
+ * To enable this rule set, add `detektPlugins &quot;io.gitlab.arturbosch.detekt:detekt-formatting:$version&quot;`
+ * to your gradle `dependencies` or reference the `detekt-formatting`-jar with the `--plugins` option
+ * in the command line interface.
+ *
+ * Note: Issues reported by this rule set can only be suppressed on file level (`@file:Suppress(&quot;detekt.rule&quot;)`).
+ */
+<span class="fc" id="L119">@ActiveByDefault(since = &quot;1.0.0&quot;)</span>
+class FormattingProvider : RuleSetProvider {
+
+<span class="fc" id="L122">    override val ruleSetId = RuleSet.Id(&quot;formatting&quot;)</span>
+
+    @Suppress(&quot;LongMethod&quot;)
+<span class="fc" id="L125">    override fun instance() = RuleSet(</span>
+<span class="fc" id="L126">        ruleSetId,</span>
+<span class="fc" id="L127">        listOf(</span>
+            // Wrappers for standard rules. Enabled by default.
+<span class="fc" id="L129">            ::AnnotationOnSeparateLine,</span>
+<span class="fc" id="L130">            ::AnnotationSpacing,</span>
+<span class="fc" id="L131">            ::ArgumentListWrapping,</span>
+<span class="fc" id="L132">            ::BlankLineBeforeDeclaration,</span>
+<span class="fc" id="L133">            ::BlockCommentInitialStarAlignment,</span>
+<span class="fc" id="L134">            ::ChainWrapping,</span>
+<span class="fc" id="L135">            ::ClassName,</span>
+<span class="fc" id="L136">            ::CommentSpacing,</span>
+<span class="fc" id="L137">            ::CommentWrapping,</span>
+<span class="fc" id="L138">            ::ContextReceiverMapping,</span>
+<span class="fc" id="L139">            ::EnumEntryNameCase,</span>
+<span class="fc" id="L140">            ::EnumWrapping,</span>
+<span class="fc" id="L141">            ::Filename,</span>
+<span class="fc" id="L142">            ::FinalNewline,</span>
+<span class="fc" id="L143">            ::FunctionName,</span>
+<span class="fc" id="L144">            ::FunKeywordSpacing,</span>
+<span class="fc" id="L145">            ::FunctionReturnTypeSpacing,</span>
+<span class="fc" id="L146">            ::FunctionSignature,</span>
+<span class="fc" id="L147">            ::FunctionStartOfBodySpacing,</span>
+<span class="fc" id="L148">            ::FunctionTypeReferenceSpacing,</span>
+<span class="fc" id="L149">            ::IfElseBracing,</span>
+<span class="fc" id="L150">            ::IfElseWrapping,</span>
+<span class="fc" id="L151">            ::ImportOrdering,</span>
+<span class="fc" id="L152">            ::Indentation,</span>
+<span class="fc" id="L153">            ::KdocWrapping,</span>
+<span class="fc" id="L154">            ::MaximumLineLength,</span>
+<span class="fc" id="L155">            ::ModifierListSpacing,</span>
+<span class="fc" id="L156">            ::ModifierOrdering,</span>
+<span class="fc" id="L157">            ::MultiLineIfElse,</span>
+<span class="fc" id="L158">            ::MultilineExpressionWrapping,</span>
+<span class="fc" id="L159">            ::NoBlankLineBeforeRbrace,</span>
+<span class="fc" id="L160">            ::NoBlankLineInList,</span>
+<span class="fc" id="L161">            ::NoBlankLinesInChainedMethodCalls,</span>
+<span class="fc" id="L162">            ::NoConsecutiveBlankLines,</span>
+<span class="fc" id="L163">            ::NoConsecutiveComments,</span>
+<span class="fc" id="L164">            ::NoEmptyClassBody,</span>
+<span class="fc" id="L165">            ::NoEmptyFile,</span>
+<span class="fc" id="L166">            ::NoEmptyFirstLineInClassBody,</span>
+<span class="fc" id="L167">            ::NoEmptyFirstLineInMethodBlock,</span>
+<span class="fc" id="L168">            ::NoLineBreakAfterElse,</span>
+<span class="fc" id="L169">            ::NoLineBreakBeforeAssignment,</span>
+<span class="fc" id="L170">            ::NoMultipleSpaces,</span>
+<span class="fc" id="L171">            ::NoSemicolons,</span>
+<span class="fc" id="L172">            ::NoSingleLineBlockComment,</span>
+<span class="fc" id="L173">            ::NoTrailingSpaces,</span>
+<span class="fc" id="L174">            ::NoUnitReturn,</span>
+<span class="fc" id="L175">            ::NoUnusedImports,</span>
+<span class="fc" id="L176">            ::NoWildcardImports,</span>
+<span class="fc" id="L177">            ::NullableTypeSpacing,</span>
+<span class="fc" id="L178">            ::PackageName,</span>
+<span class="fc" id="L179">            ::ParameterListSpacing,</span>
+<span class="fc" id="L180">            ::ParameterListWrapping,</span>
+<span class="fc" id="L181">            ::ParameterWrapping,</span>
+<span class="fc" id="L182">            ::PropertyName,</span>
+<span class="fc" id="L183">            ::PropertyWrapping,</span>
+<span class="fc" id="L184">            ::SpacingAroundAngleBrackets,</span>
+<span class="fc" id="L185">            ::SpacingAroundColon,</span>
+<span class="fc" id="L186">            ::SpacingAroundComma,</span>
+<span class="fc" id="L187">            ::SpacingAroundCurly,</span>
+<span class="fc" id="L188">            ::SpacingAroundDot,</span>
+<span class="fc" id="L189">            ::SpacingAroundDoubleColon,</span>
+<span class="fc" id="L190">            ::SpacingAroundKeyword,</span>
+<span class="fc" id="L191">            ::SpacingAroundOperators,</span>
+<span class="fc" id="L192">            ::SpacingAroundParens,</span>
+<span class="fc" id="L193">            ::SpacingAroundRangeOperator,</span>
+<span class="fc" id="L194">            ::SpacingAroundUnaryOperator,</span>
+<span class="fc" id="L195">            ::SpacingBetweenDeclarationsWithAnnotations,</span>
+<span class="fc" id="L196">            ::SpacingBetweenDeclarationsWithComments,</span>
+<span class="fc" id="L197">            ::SpacingBetweenFunctionNameAndOpeningParenthesis,</span>
+<span class="fc" id="L198">            ::StatementWrapping,</span>
+<span class="fc" id="L199">            ::StringTemplate,</span>
+<span class="fc" id="L200">            ::StringTemplateIndent,</span>
+<span class="fc" id="L201">            ::TrailingCommaOnCallSite, // standard rule but not enabled by default</span>
+<span class="fc" id="L202">            ::TrailingCommaOnDeclarationSite, // standard rule but not enabled by default</span>
+<span class="fc" id="L203">            ::TryCatchFinallySpacing,</span>
+<span class="fc" id="L204">            ::TypeArgumentComment,</span>
+<span class="fc" id="L205">            ::TypeArgumentListSpacing,</span>
+<span class="fc" id="L206">            ::TypeParameterComment,</span>
+<span class="fc" id="L207">            ::TypeParameterListSpacing,</span>
+<span class="fc" id="L208">            ::UnnecessaryParenthesesBeforeTrailingLambda,</span>
+<span class="fc" id="L209">            ::ValueArgumentComment,</span>
+<span class="fc" id="L210">            ::ValueParameterComment,</span>
+<span class="fc" id="L211">            ::Wrapping,</span>
+            // Wrappers for experimental rules. Disabled by default.
+<span class="fc" id="L213">            ::BackingPropertyNaming,</span>
+<span class="fc" id="L214">            ::BinaryExpressionWrapping,</span>
+<span class="fc" id="L215">            ::BlankLineBetweenWhenConditions,</span>
+<span class="fc" id="L216">            ::ChainMethodContinuation,</span>
+<span class="fc" id="L217">            ::ClassSignature,</span>
+<span class="fc" id="L218">            ::ConditionWrapping,</span>
+<span class="fc" id="L219">            ::FunctionExpressionBody,</span>
+<span class="fc" id="L220">            ::FunctionLiteral,</span>
+<span class="fc" id="L221">            ::FunctionTypeModifierSpacing,</span>
+<span class="fc" id="L222">            ::Kdoc,</span>
+<span class="fc" id="L223">            ::MixedConditionOperators,</span>
+<span class="fc" id="L224">            ::MultilineLoop,</span>
+<span class="fc" id="L225">            ::SpacingAroundSquareBrackets,</span>
+<span class="fc" id="L226">        ).sorted()</span>
+<span class="fc" id="L227">    )</span>
+
+    companion object {
+        @Configuration(&quot;if android style guides should be preferred&quot;)
+<span class="fc" id="L231">        val android by ruleSetConfig(false)</span>
+
+        @Configuration(&quot;if rules should auto correct style violation&quot;)
+<span class="pc" id="L234">        val autoCorrect by ruleSetConfig(true)</span>
+    }
+}
+
+/**
+ * Return a list of [FormattingRule] that respects
+ * [Rule.VisitorModifier.RunAsLateAsPossible] and [Rule.VisitorModifier.RunAfterRule].
+ * Algorithm is based on [com.pinterest.ktlint.rule.engine.internal.RuleProviderSorter].
+ */
+internal fun List&lt;(Config) -&gt; FormattingRule&gt;.sorted(): List&lt;(Config) -&gt; FormattingRule&gt; {
+<span class="fc" id="L244">    val sortedRules = mutableListOf&lt;(Config) -&gt; FormattingRule&gt;()</span>
+<span class="fc" id="L245">    val sortedRuleIds = mutableSetOf&lt;RuleId&gt;()</span>
+<span class="fc" id="L246">    val unprocessedRules = this</span>
+<span class="fc" id="L247">        .map { it to it(Config.empty) }</span>
+<span class="fc" id="L248">        .sortedWith(defaultRuleOrderComparator())</span>
+<span class="fc" id="L249">        .toMutableList()</span>
+
+    // Initially the list only contains the rules without any VisitorModifiers
+<span class="fc" id="L252">    unprocessedRules</span>
+<span class="fc bfc" id="L253" title="All 4 branches covered.">        .filter { (_, rule) -&gt; !rule.runAsLateAsPossible &amp;&amp; rule.hasNoRunAfterRules() }</span>
+<span class="fc" id="L254">        .forEach { (provider, rule) -&gt;</span>
+<span class="fc" id="L255">            sortedRules.add(provider)</span>
+<span class="fc" id="L256">            sortedRuleIds.add(rule.wrappingRuleId)</span>
+<span class="fc" id="L257">        }</span>
+<span class="fc" id="L258">    unprocessedRules.removeAll { (provider, _) -&gt; provider in sortedRules }</span>
+
+    // Then we add the rules that have a RunAsLateAsPossible modifier
+    // and we obey the RunAfterRule modifiers as well.
+<span class="fc bfc" id="L262" title="All 4 branches covered.">    while (unprocessedRules.isNotEmpty()) {</span>
+<span class="fc" id="L263">        val (provider, rule) =</span>
+<span class="pc bpc" id="L264" title="1 of 2 branches missed.">            checkNotNull(</span>
+<span class="fc" id="L265">                unprocessedRules</span>
+<span class="fc" id="L266">                    .firstOrNull { (_, rule) -&gt;</span>
+<span class="fc" id="L267">                        rule</span>
+<span class="fc" id="L268">                            .runAfterRules()</span>
+<span class="fc" id="L269">                            .all { it.ruleId in sortedRuleIds }</span>
+                    }
+            ) {
+<span class="nc" id="L272">                &quot;Can not complete sorting of rule providers as next item can not be determined.&quot;</span>
+            }
+<span class="fc" id="L274">        sortedRuleIds.add(rule.wrappingRuleId)</span>
+<span class="fc" id="L275">        sortedRules.add(provider)</span>
+<span class="fc" id="L276">        unprocessedRules.removeAll { (provider, _) -&gt; provider in sortedRules }</span>
+    }
+
+<span class="fc" id="L279">    return sortedRules</span>
+}
+
+private fun defaultRuleOrderComparator() =
+// The sort order below should guarantee a stable order of the rule between multiple invocations of KtLint given
+    // the same set of input parameters. There should be no dependency on data ordering outside this class.
+<span class="fc" id="L285">    compareBy&lt;Pair&lt;(Config) -&gt; FormattingRule, FormattingRule&gt;&gt; { (_, rule) -&gt;</span>
+<span class="fc" id="L286">        if (rule.runAsLateAsPossible) 1 else 0</span>
+<span class="fc" id="L287">    }.thenBy { (_, rule) -&gt;</span>
+<span class="fc" id="L288">        if (rule.wrappingRuleId.ruleSetId == RuleSetId.STANDARD) 0 else 1</span>
+<span class="fc" id="L289">    }.thenBy { (_, rule) -&gt; rule.wrappingRuleId.value }</span>
+
+internal val FormattingRule.wrappingRuleId
+<span class="fc" id="L292">    get() = wrapping.ruleId</span>
+
+internal val FormattingRule.visitorModifiers
+<span class="fc" id="L295">    get() = wrapping.visitorModifiers</span>
+
+internal val FormattingRule.runAsLateAsPossible
+<span class="fc" id="L298">    get() = Rule.VisitorModifier.RunAsLateAsPossible in visitorModifiers</span>
+
+private fun FormattingRule.runAfterRules() =
+<span class="fc" id="L301">    visitorModifiers.filterIsInstance&lt;Rule.VisitorModifier.RunAfterRule&gt;()</span>
+
+private fun FormattingRule.hasNoRunAfterRules() =
+<span class="fc" id="L304">    visitorModifiers.filterIsInstance&lt;Rule.VisitorModifier.RunAfterRule&gt;().isEmpty()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

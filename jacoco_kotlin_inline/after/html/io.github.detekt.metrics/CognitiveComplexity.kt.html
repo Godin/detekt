@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CognitiveComplexity.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.metrics</a> &gt; <span class="el_source">CognitiveComplexity.kt</span></div><h1>CognitiveComplexity.kt</h1><pre class="source lang-java linenums">package io.github.detekt.metrics
+
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import org.jetbrains.kotlin.KtNodeTypes
+import org.jetbrains.kotlin.com.intellij.openapi.util.Key
+import org.jetbrains.kotlin.com.intellij.psi.tree.IElementType
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtBreakExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtCatchClause
+import org.jetbrains.kotlin.psi.KtContainerNodeForControlStructureBody
+import org.jetbrains.kotlin.psi.KtContinueExpression
+import org.jetbrains.kotlin.psi.KtDoWhileExpression
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtExpressionWithLabel
+import org.jetbrains.kotlin.psi.KtForExpression
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtParenthesizedExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.KtThisExpression
+import org.jetbrains.kotlin.psi.KtWhenExpression
+import org.jetbrains.kotlin.psi.KtWhileExpression
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import org.jetbrains.kotlin.psi.psiUtil.getCallNameExpression
+
+/**
+ * Kotlin implementation of the cognitive complexity metric.
+ *
+ * Please see the &quot;Cognitive Complexity: A new way of measuring understandability&quot; white paper
+ * by G. Ann Campbell of SonarSource for further detail.
+ *
+ * https://www.sonarsource.com/docs/CognitiveComplexity.pdf
+ */
+class CognitiveComplexity private constructor() : DetektVisitor() {
+
+    private var complexity: Int = 0
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc" id="L43">        val visitor = FunctionComplexity(function)</span>
+<span class="fc" id="L44">        visitor.visitNamedFunction(function)</span>
+<span class="fc" id="L45">        complexity += visitor.complexity</span>
+<span class="fc" id="L46">    }</span>
+
+<span class="fc" id="L48">    data class BinExprHolder(val expr: KtBinaryExpression, val op: IElementType, val isEnclosed: Boolean)</span>
+
+    @Suppress(&quot;detekt.TooManyFunctions&quot;) // visitor pattern
+<span class="fc" id="L51">    class FunctionComplexity(private val givenFunction: KtNamedFunction) : DetektVisitor() {</span>
+<span class="pc" id="L52">        internal var complexity: Int = 0</span>
+
+        private var nesting: Int = 0
+
+        private var topMostBinExpr: KtBinaryExpression? = null
+
+        private fun addComplexity() {
+<span class="fc" id="L59">            complexity += 1 + nesting</span>
+<span class="fc" id="L60">        }</span>
+
+        private inline fun nestAround(block: () -&gt; Unit) {
+<span class="fc" id="L63">            nesting++</span>
+<span class="fc" id="L64">            block()</span>
+<span class="fc" id="L65">            nesting--</span>
+<span class="fc" id="L66">        }</span>
+
+        private fun testJumpWithLabel(expression: KtExpressionWithLabel) {
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            if (expression.labelQualifier != null) {</span>
+<span class="fc" id="L70">                complexity++</span>
+            }
+<span class="fc" id="L72">        }</span>
+
+        private fun KtCallExpression.isRecursion(): Boolean {
+<span class="fc" id="L75">            val args = lambdaArguments.size + valueArguments.size</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">            val isInsideSameScope = parent !is KtQualifiedExpression ||</span>
+<span class="pc bpc" id="L77" title="2 of 6 branches missed.">                (parent as? KtQualifiedExpression)?.receiverExpression is KtThisExpression</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            return isInsideSameScope &amp;&amp;</span>
+<span class="pc bpc" id="L79" title="1 of 4 branches missed.">                getCallNameExpression()?.getReferencedName() == givenFunction.name &amp;&amp;</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">                args == givenFunction.valueParameters.size</span>
+        }
+
+        override fun visitWhenExpression(expression: KtWhenExpression) {
+<span class="fc" id="L84">            addComplexity()</span>
+<span class="fc" id="L85">            nestAround { super.visitWhenExpression(expression) }</span>
+<span class="fc" id="L86">        }</span>
+
+        override fun visitForExpression(expression: KtForExpression) {
+<span class="fc" id="L89">            addComplexity()</span>
+<span class="fc" id="L90">            nestAround { super.visitForExpression(expression) }</span>
+<span class="fc" id="L91">        }</span>
+
+        override fun visitKtElement(element: KtElement) {
+<span class="fc" id="L94">            val parent = element.parent</span>
+<span class="fc bfc" id="L95" title="All 4 branches covered.">            if (element is KtContainerNodeForControlStructureBody &amp;&amp; parent is KtIfExpression) {</span>
+<span class="fc" id="L96">                when (element.node.elementType) {</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">                    KtNodeTypes.THEN -&gt; {</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">                        if (parent.parent.node.elementType == KtNodeTypes.ELSE) {</span>
+<span class="fc" id="L99">                            complexity++</span>
+                        } else {
+<span class="fc" id="L101">                            addComplexity()</span>
+                        }
+<span class="fc" id="L103">                        nestAround { super.visitKtElement(element) }</span>
+                    }
+
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">                    KtNodeTypes.ELSE -&gt; {</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">                        if (element.expression is KtIfExpression) {</span>
+<span class="fc" id="L108">                            super.visitKtElement(element)</span>
+                        } else {
+<span class="fc" id="L110">                            complexity++</span>
+<span class="fc" id="L111">                            nestAround { super.visitKtElement(element) }</span>
+                        }
+                    }
+
+                    else -&gt;
+<span class="pc" id="L116">                        super.visitKtElement(element)</span>
+                }
+            } else {
+<span class="fc" id="L119">                super.visitKtElement(element)</span>
+            }
+<span class="fc" id="L121">        }</span>
+
+        override fun visitBreakExpression(expression: KtBreakExpression) {
+<span class="nc" id="L124">            testJumpWithLabel(expression)</span>
+<span class="nc" id="L125">            super.visitBreakExpression(expression)</span>
+<span class="nc" id="L126">        }</span>
+
+        override fun visitContinueExpression(expression: KtContinueExpression) {
+<span class="fc" id="L129">            testJumpWithLabel(expression)</span>
+<span class="fc" id="L130">            super.visitContinueExpression(expression)</span>
+<span class="fc" id="L131">        }</span>
+
+        override fun visitReturnExpression(expression: KtReturnExpression) {
+<span class="fc" id="L134">            testJumpWithLabel(expression)</span>
+<span class="fc" id="L135">            super.visitReturnExpression(expression)</span>
+<span class="fc" id="L136">        }</span>
+
+        override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            if (function != givenFunction) {</span>
+<span class="fc" id="L140">                nestAround { super.visitNamedFunction(function) }</span>
+            } else {
+<span class="fc" id="L142">                super.visitNamedFunction(function)</span>
+            }
+<span class="fc" id="L144">        }</span>
+
+        override fun visitCatchSection(catchClause: KtCatchClause) {
+<span class="fc" id="L147">            addComplexity()</span>
+<span class="fc" id="L148">            nestAround { super.visitCatchSection(catchClause) }</span>
+<span class="fc" id="L149">        }</span>
+
+        override fun visitWhileExpression(expression: KtWhileExpression) {
+<span class="fc" id="L152">            addComplexity()</span>
+<span class="fc" id="L153">            nestAround { super.visitWhileExpression(expression) }</span>
+<span class="fc" id="L154">        }</span>
+
+        override fun visitDoWhileExpression(expression: KtDoWhileExpression) {
+<span class="fc" id="L157">            addComplexity()</span>
+<span class="fc" id="L158">            nestAround { super.visitDoWhileExpression(expression) }</span>
+<span class="fc" id="L159">        }</span>
+
+        override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc bfc" id="L162" title="All 2 branches covered.">            if (expression.isRecursion()) {</span>
+<span class="fc" id="L163">                complexity++</span>
+            }
+<span class="fc" id="L165">            super.visitCallExpression(expression)</span>
+<span class="fc" id="L166">        }</span>
+
+        override fun visitLambdaExpression(lambdaExpression: KtLambdaExpression) {
+<span class="fc" id="L169">            nestAround { super.visitLambdaExpression(lambdaExpression) }</span>
+<span class="fc" id="L170">        }</span>
+
+        override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc bfc" id="L173" title="All 2 branches covered.">            if (topMostBinExpr == null) {</span>
+<span class="fc" id="L174">                topMostBinExpr = expression</span>
+            }
+<span class="fc" id="L176">            super.visitBinaryExpression(expression)</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">            if (topMostBinExpr == expression) {</span>
+<span class="fc" id="L178">                val nestedBinExprs = expression.collectDescendantsOfType&lt;KtBinaryExpression&gt;()</span>
+<span class="fc" id="L179">                    .asSequence()</span>
+<span class="fc" id="L180">                    .map { BinExprHolder(it, it.operationToken, it.parent is KtParenthesizedExpression) }</span>
+<span class="fc" id="L181">                    .filter { it.op in logicalOps }</span>
+<span class="fc" id="L182">                    .sortedBy { it.expr.operationReference.textRange.startOffset }</span>
+<span class="fc" id="L183">                    .toList()</span>
+<span class="fc" id="L184">                calculateBinaryExprComplexity(nestedBinExprs)</span>
+<span class="fc" id="L185">                topMostBinExpr = null</span>
+            }
+<span class="fc" id="L187">        }</span>
+
+        private fun calculateBinaryExprComplexity(usedExpr: List&lt;BinExprHolder&gt;) {
+<span class="fc" id="L190">            var lastOp: IElementType? = null</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">            for (binExpr in usedExpr) {</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">                if (lastOp == null) {</span>
+<span class="fc" id="L193">                    complexity++</span>
+<span class="fc bfc" id="L194" title="All 4 branches covered.">                } else if (lastOp != binExpr.op || binExpr.isEnclosed) {</span>
+<span class="fc" id="L195">                    complexity++</span>
+                }
+<span class="fc" id="L197">                lastOp = binExpr.op</span>
+            }
+<span class="fc" id="L199">        }</span>
+    }
+
+    companion object {
+
+<span class="fc" id="L204">        val KEY = Key&lt;Int&gt;(&quot;detekt.metrics.cognitive_complexity&quot;)</span>
+
+<span class="fc" id="L206">        private val logicalOps = setOf(KtTokens.ANDAND, KtTokens.OROR)</span>
+
+        fun calculate(element: KtElement): Int {
+<span class="fc" id="L209">            val visitor = CognitiveComplexity()</span>
+<span class="fc" id="L210">            element.accept(visitor)</span>
+<span class="fc" id="L211">            return visitor.complexity</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

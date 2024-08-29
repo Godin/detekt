@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Keys.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.compiler.plugin</a> &gt; <span class="el_source">Keys.kt</span></div><h1>Keys.kt</h1><pre class="source lang-java linenums">package io.github.detekt.compiler.plugin
+
+import org.jetbrains.kotlin.config.CompilerConfigurationKey
+import java.nio.file.Path
+
+object Options {
+
+    @Suppress(&quot;NonBooleanPropertyPrefixedWithIs&quot;)
+    const val IS_ENABLED: String = &quot;isEnabled&quot;
+    const val DEBUG: String = &quot;debug&quot;
+    const val CONFIG = &quot;config&quot;
+    const val CONFIG_DIGEST: String = &quot;configDigest&quot;
+    const val BASELINE: String = &quot;baseline&quot;
+    const val USE_DEFAULT_CONFIG: String = &quot;useDefaultConfig&quot;
+    const val ALL_RULES: String = &quot;allRules&quot;
+    const val DISABLE_DEFAULT_RULE_SETS: String = &quot;disableDefaultRuleSets&quot;
+    const val PARALLEL: String = &quot;parallel&quot;
+    const val ROOT_PATH = &quot;rootDir&quot;
+    const val EXCLUDES = &quot;excludes&quot;
+    const val REPORT = &quot;report&quot;
+}
+
+object Keys {
+
+<span class="fc" id="L25">    val DEBUG = CompilerConfigurationKey.create&lt;Boolean&gt;(Options.DEBUG)</span>
+<span class="fc" id="L26">    val IS_ENABLED = CompilerConfigurationKey.create&lt;Boolean&gt;(Options.IS_ENABLED)</span>
+<span class="fc" id="L27">    val CONFIG = CompilerConfigurationKey.create&lt;List&lt;Path&gt;&gt;(Options.CONFIG)</span>
+<span class="pc" id="L28">    val CONFIG_DIGEST = CompilerConfigurationKey.create&lt;String&gt;(Options.CONFIG_DIGEST)</span>
+<span class="fc" id="L29">    val BASELINE = CompilerConfigurationKey.create&lt;Path&gt;(Options.BASELINE)</span>
+<span class="fc" id="L30">    val USE_DEFAULT_CONFIG = CompilerConfigurationKey.create&lt;Boolean&gt;(Options.USE_DEFAULT_CONFIG)</span>
+<span class="fc" id="L31">    val ALL_RULES = CompilerConfigurationKey.create&lt;Boolean&gt;(Options.ALL_RULES)</span>
+<span class="fc" id="L32">    val DISABLE_DEFAULT_RULE_SETS = CompilerConfigurationKey.create&lt;Boolean&gt;(Options.DISABLE_DEFAULT_RULE_SETS)</span>
+<span class="fc" id="L33">    val PARALLEL = CompilerConfigurationKey.create&lt;Boolean&gt;(Options.PARALLEL)</span>
+<span class="fc" id="L34">    val ROOT_PATH = CompilerConfigurationKey.create&lt;Path&gt;(Options.ROOT_PATH)</span>
+<span class="fc" id="L35">    val EXCLUDES = CompilerConfigurationKey.create&lt;List&lt;String&gt;&gt;(Options.EXCLUDES)</span>
+<span class="fc" id="L36">    val REPORTS = CompilerConfigurationKey.create&lt;Map&lt;String, Path&gt;&gt;(Options.REPORT)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

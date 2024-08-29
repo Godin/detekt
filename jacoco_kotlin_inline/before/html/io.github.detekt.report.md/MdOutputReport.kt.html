@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MdOutputReport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.report.md</a> &gt; <span class="el_source">MdOutputReport.kt</span></div><h1>MdOutputReport.kt</h1><pre class="source lang-java linenums">package io.github.detekt.report.md
+
+import io.github.detekt.metrics.ComplexityReportGenerator
+import io.github.detekt.utils.MarkdownContent
+import io.github.detekt.utils.codeBlock
+import io.github.detekt.utils.emptyLine
+import io.github.detekt.utils.h1
+import io.github.detekt.utils.h2
+import io.github.detekt.utils.h3
+import io.github.detekt.utils.item
+import io.github.detekt.utils.list
+import io.github.detekt.utils.markdown
+import io.github.detekt.utils.paragraph
+import io.gitlab.arturbosch.detekt.api.Detektion
+import io.gitlab.arturbosch.detekt.api.Issue
+import io.gitlab.arturbosch.detekt.api.OutputReport
+import io.gitlab.arturbosch.detekt.api.ProjectMetric
+import io.gitlab.arturbosch.detekt.api.RuleInstance
+import io.gitlab.arturbosch.detekt.api.SetupContext
+import io.gitlab.arturbosch.detekt.api.SourceLocation
+import io.gitlab.arturbosch.detekt.api.getOrNull
+import io.gitlab.arturbosch.detekt.api.internal.BuiltInOutputReport
+import io.gitlab.arturbosch.detekt.api.internal.whichDetekt
+import java.nio.file.Path
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.io.path.absolute
+import kotlin.io.path.invariantSeparatorsPathString
+import kotlin.io.path.relativeTo
+import kotlin.math.max
+import kotlin.math.min
+
+private const val DETEKT_WEBSITE_BASE_URL = &quot;https://detekt.dev&quot;
+
+private const val EXTRA_LINES_IN_SNIPPET = 3
+
+/**
+ * Contains rule violations in Markdown format report.
+ * [See](https://detekt.dev/docs/introduction/configurations/#output-reports)
+ */
+<span class="fc" id="L43">class MdOutputReport : BuiltInOutputReport, OutputReport() {</span>
+
+<span class="fc" id="L45">    override val id: String = &quot;MdOutputReport&quot;</span>
+<span class="fc" id="L46">    override val ending: String = &quot;md&quot;</span>
+
+<span class="nc" id="L48">    var basePath: Path? = null</span>
+
+    override fun init(context: SetupContext) {
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        basePath = context.getOrNull&lt;Path&gt;(DETEKT_OUTPUT_REPORT_BASE_PATH_KEY)?.absolute()</span>
+<span class="fc" id="L52">    }</span>
+
+<span class="fc" id="L54">    override fun render(detektion: Detektion) = markdown {</span>
+<span class="fc" id="L55">        h1 { &quot;detekt&quot; }</span>
+
+<span class="fc" id="L57">        h2 { &quot;Metrics&quot; }</span>
+<span class="fc" id="L58">        renderMetrics(detektion.metrics)</span>
+
+<span class="fc" id="L60">        h2 { &quot;Complexity Report&quot; }</span>
+<span class="fc" id="L61">        renderComplexity(getComplexityMetrics(detektion))</span>
+
+<span class="fc" id="L63">        renderIssues(detektion.issues, basePath)</span>
+<span class="fc" id="L64">        emptyLine()</span>
+
+<span class="fc" id="L66">        paragraph {</span>
+<span class="fc" id="L67">            val detektLink = link(&quot;detekt version ${renderVersion()}&quot;, &quot;$DETEKT_WEBSITE_BASE_URL/&quot;)</span>
+<span class="fc" id="L68">            &quot;generated with $detektLink on ${renderDate()}&quot;</span>
+        }
+<span class="fc" id="L70">    }</span>
+
+<span class="fc" id="L72">    private fun renderVersion(): String = whichDetekt()</span>
+
+    private fun renderDate(): String {
+<span class="fc" id="L75">        val formatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss&quot;)</span>
+<span class="fc" id="L76">        return &quot;${OffsetDateTime.now(ZoneOffset.UTC).format(formatter)} UTC&quot;</span>
+    }
+
+    private fun getComplexityMetrics(detektion: Detektion): List&lt;String&gt; =
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        ComplexityReportGenerator.create(detektion).generate().orEmpty()</span>
+}
+
+private fun MarkdownContent.renderMetrics(metrics: Collection&lt;ProjectMetric&gt;) {
+<span class="fc" id="L84">    list {</span>
+<span class="fc" id="L85">        metrics.forEach { item { &quot;%,d ${it.type}&quot;.format(Locale.ROOT, it.value) } }</span>
+<span class="fc" id="L86">    }</span>
+<span class="fc" id="L87">}</span>
+
+private fun MarkdownContent.renderComplexity(complexityReport: List&lt;String&gt;) {
+<span class="fc" id="L90">    list {</span>
+<span class="fc" id="L91">        complexityReport.forEach { item { it.trim() } }</span>
+<span class="fc" id="L92">    }</span>
+<span class="fc" id="L93">}</span>
+
+private fun MarkdownContent.renderGroup(issues: List&lt;Issue&gt;, basePath: Path?) {
+<span class="fc" id="L96">    issues</span>
+<span class="fc" id="L97">        .groupBy { it.ruleInstance }</span>
+<span class="fc" id="L98">        .toList()</span>
+<span class="fc" id="L99">        .sortedBy { (ruleInstance, _) -&gt; ruleInstance.id }</span>
+<span class="fc" id="L100">        .forEach { (ruleInstance, ruleIssues) -&gt;</span>
+<span class="fc" id="L101">            renderRule(ruleInstance, ruleIssues, basePath)</span>
+<span class="fc" id="L102">        }</span>
+<span class="fc" id="L103">}</span>
+
+private fun MarkdownContent.renderRule(ruleInstance: RuleInstance, issues: List&lt;Issue&gt;, basePath: Path?) {
+<span class="fc" id="L106">    val ruleId = ruleInstance.id</span>
+<span class="fc" id="L107">    val ruleName = ruleInstance.name.value</span>
+<span class="fc" id="L108">    val ruleSetId = ruleInstance.ruleSetId.value</span>
+<span class="fc" id="L109">    h3 { &quot;$ruleSetId, $ruleId (%,d)&quot;.format(Locale.ROOT, issues.size) }</span>
+<span class="fc" id="L110">    paragraph { ruleInstance.description }</span>
+
+<span class="fc" id="L112">    paragraph {</span>
+<span class="fc" id="L113">        link(</span>
+<span class="fc" id="L114">            &quot;Documentation&quot;,</span>
+<span class="fc" id="L115">            &quot;$DETEKT_WEBSITE_BASE_URL/docs/rules/${ruleSetId.lowercase()}#${ruleName.lowercase()}&quot;</span>
+<span class="fc" id="L116">        )</span>
+    }
+
+<span class="fc" id="L119">    list {</span>
+<span class="fc" id="L120">        issues</span>
+<span class="fc" id="L121">            .sortedWith(</span>
+<span class="fc" id="L122">                compareBy(</span>
+<span class="fc" id="L123">                    { it.location.path },</span>
+<span class="fc" id="L124">                    { it.location.source.line },</span>
+<span class="fc" id="L125">                    { it.location.source.column },</span>
+                )
+            )
+<span class="fc" id="L128">            .forEach {</span>
+<span class="fc" id="L129">                item { renderIssue(it, basePath) }</span>
+<span class="fc" id="L130">            }</span>
+<span class="fc" id="L131">    }</span>
+<span class="fc" id="L132">}</span>
+
+private fun MarkdownContent.renderIssues(issues: List&lt;Issue&gt;, basePath: Path?) {
+<span class="fc" id="L135">    val total = issues.count()</span>
+
+<span class="fc" id="L137">    h2 { &quot;Issues (%,d)&quot;.format(Locale.ROOT, total) }</span>
+
+<span class="fc" id="L139">    issues</span>
+<span class="fc" id="L140">        .groupBy { it.ruleInstance.ruleSetId }</span>
+<span class="fc" id="L141">        .toList()</span>
+<span class="fc" id="L142">        .sortedBy { (group, _) -&gt; group.value }</span>
+<span class="fc" id="L143">        .forEach { (_, groupIssues) -&gt;</span>
+<span class="fc" id="L144">            renderGroup(groupIssues, basePath)</span>
+<span class="fc" id="L145">        }</span>
+<span class="fc" id="L146">}</span>
+
+private fun MarkdownContent.renderIssue(issue: Issue, basePath: Path?): String {
+<span class="pc bpc" id="L149" title="1 of 4 branches missed.">    val filePath = basePath?.let { issue.location.path.relativeTo(it) } ?: issue.location.path</span>
+<span class="fc" id="L150">    val location =</span>
+<span class="fc" id="L151">        &quot;${filePath.invariantSeparatorsPathString}:${issue.location.source.line}:${issue.location.source.column}&quot;</span>
+
+<span class="pc bpc" id="L153" title="2 of 4 branches missed.">    val message = if (issue.message.isNotEmpty()) {</span>
+<span class="fc" id="L154">        codeBlock(&quot;&quot;) { issue.message }</span>
+    } else {
+<span class="nc" id="L156">        &quot;&quot;</span>
+    }
+
+<span class="fc" id="L159">    val psiFile = issue.entity.ktElement.containingFile</span>
+<span class="fc" id="L160">    val lineSequence = psiFile.text.splitToSequence('\n')</span>
+<span class="fc" id="L161">    val snippet = snippetCode(lineSequence, issue.location.source)</span>
+
+<span class="fc" id="L163">    return &quot;$location\n$message\n$snippet&quot;</span>
+}
+
+private fun MarkdownContent.snippetCode(lines: Sequence&lt;String&gt;, location: SourceLocation): String {
+<span class="fc" id="L167">    val dropLineCount = max(location.line - 1 - EXTRA_LINES_IN_SNIPPET, 0)</span>
+<span class="fc" id="L168">    val takeLineCount = EXTRA_LINES_IN_SNIPPET + 1 + min(location.line - 1, EXTRA_LINES_IN_SNIPPET)</span>
+<span class="fc" id="L169">    var currentLineNumber = dropLineCount + 1</span>
+<span class="fc" id="L170">    var text = &quot;&quot;</span>
+
+<span class="fc" id="L172">    val lineNoSpace = (currentLineNumber + takeLineCount).toString().length</span>
+
+<span class="fc" id="L174">    lines</span>
+<span class="fc" id="L175">        .drop(dropLineCount)</span>
+<span class="fc" id="L176">        .take(takeLineCount)</span>
+<span class="fc" id="L177">        .forEach { line -&gt;</span>
+<span class="fc" id="L178">            val lineNo = (&quot;$currentLineNumber &quot;).take(lineNoSpace)</span>
+<span class="fc" id="L179">            text += &quot;$lineNo $line\n&quot;</span>
+
+<span class="fc bfc" id="L181" title="All 2 branches covered.">            if (currentLineNumber == location.line) {</span>
+<span class="fc" id="L182">                val positions = currentLineNumber.toString().length</span>
+<span class="fc" id="L183">                val lineErr = &quot;!&quot;.repeat(positions) + &quot; &quot;.repeat(location.column + lineNoSpace - positions)</span>
+<span class="fc" id="L184">                text += &quot;$lineErr^ error\n&quot;</span>
+            }
+<span class="fc" id="L186">            currentLineNumber++</span>
+<span class="fc" id="L187">        }</span>
+
+<span class="fc" id="L189">    return codeBlock(&quot;kotlin&quot;) { text }</span>
+}
+
+@Suppress(&quot;UnusedReceiverParameter&quot;)
+<span class="fc" id="L193">internal fun MarkdownContent.link(text: String, url: String) = &quot;[$text]($url)&quot;</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

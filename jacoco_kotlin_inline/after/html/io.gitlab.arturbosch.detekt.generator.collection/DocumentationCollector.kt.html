@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DocumentationCollector.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.collection</a> &gt; <span class="el_source">DocumentationCollector.kt</span></div><h1>DocumentationCollector.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.collection
+
+import io.gitlab.arturbosch.detekt.generator.collection.exception.InvalidCodeExampleDocumentationException
+import org.jetbrains.kotlin.psi.KtClassOrObject
+
+<span class="fc" id="L6">class DocumentationCollector(private val textReplacements: Map&lt;String, String&gt;) {</span>
+
+<span class="fc" id="L8">    private var name: String = &quot;&quot;</span>
+<span class="fc" id="L9">    var description: String = &quot;&quot;</span>
+        private set(newValue) {
+<span class="fc" id="L11">            field = textReplacements.toList()</span>
+<span class="fc" id="L12">                .fold(newValue) { acc, replacement -&gt;</span>
+<span class="fc" id="L13">                    acc.replace(replacement.first, replacement.second)</span>
+                }
+<span class="fc" id="L15">        }</span>
+<span class="fc" id="L16">    var compliant: String = &quot;&quot;</span>
+        private set
+<span class="fc" id="L18">    var nonCompliant: String = &quot;&quot;</span>
+        private set
+
+    fun setClass(classOrObject: KtClassOrObject) {
+<span class="pc bpc" id="L22" title="2 of 4 branches missed.">        name = classOrObject.name?.trim().orEmpty()</span>
+<span class="fc" id="L23">        classOrObject.kDocSection()</span>
+<span class="fc bfc" id="L24" title="All 2 branches covered.">            ?.getContent()</span>
+<span class="pc bpc" id="L25" title="1 of 2 branches missed.">            ?.trim()</span>
+<span class="pc bpc" id="L26" title="1 of 2 branches missed.">            ?.replace(&quot;@@&quot;, &quot;@&quot;)</span>
+<span class="pc bpc" id="L27" title="1 of 2 branches missed.">            ?.let(::extractRuleDocumentation)</span>
+<span class="fc" id="L28">    }</span>
+
+    private fun extractRuleDocumentation(comment: String) {
+<span class="fc" id="L31">        val nonCompliantIndex = comment.indexOf(TAG_NONCOMPLIANT)</span>
+<span class="fc" id="L32">        val compliantIndex = comment.indexOf(TAG_COMPLIANT)</span>
+<span class="fc" id="L33">        when {</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">            nonCompliantIndex != -1 -&gt; {</span>
+<span class="fc" id="L35">                extractNonCompliantDocumentation(comment, nonCompliantIndex)</span>
+<span class="fc" id="L36">                extractCompliantDocumentation(comment, compliantIndex)</span>
+            }
+
+<span class="fc bfc" id="L39" title="All 2 branches covered.">            compliantIndex != -1 -&gt; throw InvalidCodeExampleDocumentationException(</span>
+<span class="fc" id="L40">                &quot;Rule $name contains a compliant without a noncompliant code definition&quot;</span>
+            )
+
+<span class="fc" id="L43">            else -&gt; description = comment</span>
+        }
+<span class="fc" id="L45">    }</span>
+
+    private fun extractNonCompliantDocumentation(comment: String, nonCompliantIndex: Int) {
+<span class="fc" id="L48">        val nonCompliantEndIndex = comment.indexOf(ENDTAG_NONCOMPLIANT)</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        if (nonCompliantEndIndex == -1) {</span>
+<span class="fc" id="L50">            throw InvalidCodeExampleDocumentationException(</span>
+<span class="fc" id="L51">                &quot;Rule $name contains an incorrect noncompliant code definition&quot;</span>
+            )
+        }
+<span class="fc" id="L54">        description = comment.substring(0, nonCompliantIndex).trim()</span>
+<span class="fc" id="L55">        nonCompliant = comment.substring(nonCompliantIndex + TAG_NONCOMPLIANT.length, nonCompliantEndIndex)</span>
+<span class="fc" id="L56">            .trimStartingLineBreaks()</span>
+<span class="fc" id="L57">            .trimEnd()</span>
+<span class="fc" id="L58">    }</span>
+
+    private fun extractCompliantDocumentation(comment: String, compliantIndex: Int) {
+<span class="fc" id="L61">        val compliantEndIndex = comment.indexOf(ENDTAG_COMPLIANT)</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        if (compliantIndex != -1) {</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">            if (compliantEndIndex == -1) {</span>
+<span class="fc" id="L64">                throw InvalidCodeExampleDocumentationException(</span>
+<span class="fc" id="L65">                    &quot;Rule $name contains an incorrect compliant code definition&quot;</span>
+                )
+            }
+<span class="fc" id="L68">            compliant = comment.substring(compliantIndex + TAG_COMPLIANT.length, compliantEndIndex)</span>
+<span class="fc" id="L69">                .trimStartingLineBreaks()</span>
+<span class="fc" id="L70">                .trimEnd()</span>
+        }
+<span class="fc" id="L72">    }</span>
+
+    private fun String.trimStartingLineBreaks(): String {
+<span class="fc" id="L75">        var i = 0</span>
+<span class="pc bpc" id="L76" title="2 of 6 branches missed.">        while (i &lt; this.length &amp;&amp; (this[i] == '\n' || this[i] == '\r')) {</span>
+<span class="fc" id="L77">            i++</span>
+        }
+<span class="fc" id="L79">        return this.substring(i)</span>
+    }
+
+    companion object {
+        private const val TAG_NONCOMPLIANT = &quot;&lt;noncompliant&gt;&quot;
+        private const val ENDTAG_NONCOMPLIANT = &quot;&lt;/noncompliant&gt;&quot;
+        private const val TAG_COMPLIANT = &quot;&lt;compliant&gt;&quot;
+        private const val ENDTAG_COMPLIANT = &quot;&lt;/compliant&gt;&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

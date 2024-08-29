@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnusedPrivateFunction.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnusedPrivateFunction.kt</span></div><h1>UnusedPrivateFunction.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isOperator
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.descriptors.PropertyDescriptor
+import org.jetbrains.kotlin.lexer.KtSingleValueToken
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi.KtArrayAccessExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtFunction
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtOperationReferenceExpression
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtPropertyDelegate
+import org.jetbrains.kotlin.psi.KtReferenceExpression
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.source.getPsi
+import org.jetbrains.kotlin.types.expressions.OperatorConventions
+import org.jetbrains.kotlin.util.OperatorNameConventions
+
+private const val ARRAY_GET_METHOD_NAME = &quot;get&quot;
+
+/**
+ * Reports unused private functions.
+ *
+ * If these private functions are unused they should be removed. Otherwise, this dead code
+ * can lead to confusion and potential bugs.
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.16.0&quot;)
+@Alias(&quot;unused&quot;)
+<span class="fc" id="L50">class UnusedPrivateFunction(config: Config) : Rule(</span>
+<span class="fc" id="L51">    config,</span>
+<span class="fc" id="L52">    &quot;Private function is unused and should be removed.&quot;</span>
+) {
+    @Configuration(&quot;unused private function names matching this regex are ignored&quot;)
+<span class="fc" id="L55">    private val allowedNames: Regex by config(&quot;&quot;, String::toRegex)</span>
+
+    override fun visit(root: KtFile) {
+<span class="fc" id="L58">        super.visit(root)</span>
+<span class="fc" id="L59">        val visitor = UnusedFunctionVisitor(allowedNames, bindingContext)</span>
+<span class="fc" id="L60">        root.accept(visitor)</span>
+<span class="fc" id="L61">        visitor.getUnusedReports().forEach { report(it) }</span>
+<span class="fc" id="L62">    }</span>
+}
+
+<span class="fc" id="L65">private class UnusedFunctionVisitor(</span>
+<span class="fc" id="L66">    private val allowedNames: Regex,</span>
+<span class="fc" id="L67">    private val bindingContext: BindingContext,</span>
+<span class="fc" id="L68">) : DetektVisitor() {</span>
+
+<span class="fc" id="L70">    private val functionDeclarations = mutableMapOf&lt;String, MutableList&lt;KtFunction&gt;&gt;()</span>
+<span class="fc" id="L71">    private val functionReferences = mutableMapOf&lt;String, MutableList&lt;KtReferenceExpression&gt;&gt;()</span>
+<span class="fc" id="L72">    private val invokeOperatorReferences = mutableMapOf&lt;CallableDescriptor, MutableList&lt;KtReferenceExpression&gt;&gt;()</span>
+<span class="fc" id="L73">    private val propertyDelegates = mutableListOf&lt;KtPropertyDelegate&gt;()</span>
+
+    @Suppress(&quot;CyclomaticComplexMethod&quot;, &quot;LongMethod&quot;)
+    fun getUnusedReports(): List&lt;CodeSmell&gt; {
+<span class="fc" id="L77">        val propertyDelegateResultingDescriptors by lazy(LazyThreadSafetyMode.NONE) {</span>
+<span class="fc" id="L78">            propertyDelegates.flatMap { it.resultingDescriptors() }</span>
+        }
+<span class="fc" id="L80">        return functionDeclarations</span>
+<span class="fc" id="L81">            .flatMap { (functionName, functions) -&gt;</span>
+<span class="fc" id="L82">                val isOperator = functions.any { it.isOperator() }</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">                val references = functionReferences[functionName].orEmpty()</span>
+<span class="fc" id="L84">                val unusedFunctions = when {</span>
+<span class="fc bfc" id="L85" title="All 4 branches covered.">                    functions.size &gt; 1 || isOperator -&gt; {</span>
+<span class="fc" id="L86">                        val functionNameAsName = Name.identifier(functionName)</span>
+<span class="fc" id="L87">                        val operatorToken = OperatorConventions.getOperationSymbolForName(functionNameAsName)</span>
+<span class="fc" id="L88">                        val referencesViaOperator = if (</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">                            isOperator &amp;&amp;</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">                            functionNameAsName != OperatorNameConventions.INVOKE</span>
+                        ) {
+<span class="fc bfc" id="L92" title="All 4 branches covered.">                            val operatorValue = (operatorToken as? KtSingleValueToken)?.value</span>
+<span class="fc bfc" id="L93" title="All 4 branches covered.">                            val directReferences = operatorValue?.let { functionReferences[it] }.orEmpty()</span>
+<span class="fc" id="L94">                            val assignmentReferences = when (operatorToken) {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">                                KtTokens.PLUS,</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">                                KtTokens.MINUS,</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">                                KtTokens.MUL,</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">                                KtTokens.DIV,</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">                                KtTokens.PERC,</span>
+<span class="pc bpc" id="L100" title="1 of 4 branches missed.">                                -&gt; operatorValue?.let { functionReferences[&quot;$it=&quot;] }.orEmpty()</span>
+
+<span class="fc" id="L102">                                else -&gt; emptyList()</span>
+                            }
+<span class="fc bfc" id="L104" title="All 2 branches covered.">                            val containingReferences = if (functionNameAsName == OperatorNameConventions.CONTAINS) {</span>
+<span class="fc" id="L105">                                listOf(KtTokens.IN_KEYWORD, KtTokens.NOT_IN).flatMap {</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">                                    functionReferences[it.value].orEmpty()</span>
+                                }
+                            } else {
+<span class="fc" id="L109">                                emptyList()</span>
+                            }
+<span class="fc" id="L111">                            directReferences + assignmentReferences + containingReferences</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">                        } else if (functionNameAsName == OperatorNameConventions.INVOKE) {</span>
+<span class="fc" id="L113">                            getInvokeReferences(functions)</span>
+                        } else {
+<span class="fc" id="L115">                            emptyList()</span>
+                        }
+<span class="fc" id="L117">                        val referenceDescriptors = (references + referencesViaOperator)</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">                            .mapNotNull { it.getResolvedCall(bindingContext)?.resultingDescriptor }</span>
+<span class="fc" id="L119">                            .map { it.original }</span>
+<span class="fc" id="L120">                            .let {</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">                                if (functionNameAsName in OperatorNameConventions.DELEGATED_PROPERTY_OPERATORS) {</span>
+<span class="fc" id="L122">                                    it + propertyDelegateResultingDescriptors</span>
+                                } else {
+<span class="fc" id="L124">                                    it</span>
+<span class="fc" id="L125">                                }</span>
+                            }
+<span class="fc" id="L127">                        functions.filterNot {</span>
+<span class="fc" id="L128">                            bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, it] in referenceDescriptors</span>
+                        }
+                    }
+
+<span class="fc bfc" id="L132" title="All 2 branches covered.">                    references.isEmpty() -&gt; functions</span>
+<span class="fc" id="L133">                    else -&gt; emptyList()</span>
+                }
+<span class="fc" id="L135">                unusedFunctions.map {</span>
+<span class="fc" id="L136">                    CodeSmell(Entity.atName(it), &quot;Private function `$functionName` is unused.&quot;)</span>
+<span class="fc" id="L137">                }</span>
+            }
+    }
+
+    private fun getInvokeReferences(functions: MutableList&lt;KtFunction&gt;) =
+<span class="fc" id="L142">        functions.flatMap { function -&gt;</span>
+<span class="fc" id="L143">            val callableDescriptor =</span>
+<span class="fc" id="L144">                bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, function]</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">            callableDescriptor?.let {</span>
+<span class="fc" id="L146">                invokeOperatorReferences[it]</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            }.orEmpty()</span>
+<span class="fc" id="L148">        }</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L151" title="All 4 branches covered.">        if (!isDeclaredInsideAnInterface(function) &amp;&amp; function.isPrivate()) {</span>
+<span class="fc" id="L152">            collectFunction(function)</span>
+        }
+<span class="fc" id="L154">        super.visitNamedFunction(function)</span>
+<span class="fc" id="L155">    }</span>
+
+    private fun isDeclaredInsideAnInterface(function: KtNamedFunction) =
+<span class="fc bfc" id="L158" title="All 4 branches covered.">        function.getStrictParentOfType&lt;KtClass&gt;()?.isInterface() == true</span>
+
+    private fun collectFunction(function: KtNamedFunction) {
+<span class="fc" id="L161">        val name = function.nameAsSafeName.identifier</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        if (!allowedNames.matches(name)) {</span>
+<span class="fc" id="L163">            functionDeclarations.getOrPut(name) { mutableListOf() }.add(function)</span>
+        }
+<span class="fc" id="L165">    }</span>
+
+    private fun KtPropertyDelegate.resultingDescriptors(): List&lt;FunctionDescriptor&gt; {
+<span class="pc bpc" id="L168" title="2 of 4 branches missed.">        val property = this.parent as? KtProperty ?: return emptyList()</span>
+<span class="fc" id="L169">        val propertyDescriptor =</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">            bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, property] as? PropertyDescriptor</span>
+<span class="pc bpc" id="L171" title="2 of 4 branches missed.">        return listOfNotNull(propertyDescriptor?.getter, propertyDescriptor?.setter).mapNotNull {</span>
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">            bindingContext[BindingContext.DELEGATED_PROPERTY_RESOLVED_CALL, it]?.resultingDescriptor</span>
+        }
+    }
+
+    override fun visitPropertyDelegate(delegate: KtPropertyDelegate) {
+<span class="fc" id="L177">        super.visitPropertyDelegate(delegate)</span>
+<span class="fc" id="L178">        propertyDelegates.add(delegate)</span>
+<span class="fc" id="L179">    }</span>
+
+    /*
+     * We need to collect all private function declarations and references to these functions
+     * for the whole file as Kotlin allows access to private and internal object declarations
+     * from everywhere in the file.
+     */
+    override fun visitReferenceExpression(expression: KtReferenceExpression) {
+<span class="fc" id="L187">        super.visitReferenceExpression(expression)</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        val name = when (expression) {</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">            is KtOperationReferenceExpression -&gt; expression.getReferencedName()</span>
+<span class="fc bfc" id="L190" title="All 2 branches covered.">            is KtNameReferenceExpression -&gt; expression.getReferencedName()</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">            is KtArrayAccessExpression -&gt; ARRAY_GET_METHOD_NAME</span>
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">            is KtCallExpression -&gt; {</span>
+<span class="fc bfc" id="L193" title="All 2 branches covered.">                val resolvedCall = expression.getResolvedCall(bindingContext) ?: return</span>
+<span class="fc" id="L194">                val callableDescriptor = resolvedCall.resultingDescriptor</span>
+<span class="fc bfc" id="L195" title="All 8 branches covered.">                if ((callableDescriptor.source.getPsi() as? KtNamedFunction)?.isOperator() == true) {</span>
+<span class="fc" id="L196">                    invokeOperatorReferences.getOrPut(callableDescriptor) { mutableListOf() }.add(expression)</span>
+                }
+<span class="fc" id="L198">                null</span>
+            }
+
+<span class="nc" id="L201">            else -&gt; null</span>
+<span class="fc" id="L202">        } ?: return</span>
+<span class="fc" id="L203">        functionReferences.getOrPut(name) { mutableListOf() }.add(expression)</span>
+<span class="fc" id="L204">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

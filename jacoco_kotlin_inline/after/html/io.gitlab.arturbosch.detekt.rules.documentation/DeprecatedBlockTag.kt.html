@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DeprecatedBlockTag.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.documentation</a> &gt; <span class="el_source">DeprecatedBlockTag.kt</span></div><h1>DeprecatedBlockTag.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.documentation
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtDeclaration
+
+/**
+ * This rule reports use of the `@deprecated` block tag in KDoc comments. Deprecation must be specified using a
+ * `@Deprecated` annotation as adding a `@deprecated` block tag in KDoc comments
+ * [has no effect and is not supported](https://kotlinlang.org/docs/kotlin-doc.html#suppress). The `@Deprecated`
+ * annotation constructor has dedicated fields for a message and a type (warning, error, etc.). You can also use the
+ * `@ReplaceWith` annotation to specify how to solve the deprecation automatically via the IDE.
+ *
+ * &lt;noncompliant&gt;
+ * /**
+ *  * This function prints a message followed by a new line.
+ *  *
+ *  * @deprecated Useless, the Kotlin standard library can already do this. Replace with println.
+ *  */
+ * fun printThenNewline(what: String) {
+ *     // ...
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * /**
+ *  * This function prints a message followed by a new line.
+ *  */
+ * @@Deprecated(&quot;Useless, the Kotlin standard library can already do this.&quot;)
+ * @@ReplaceWith(&quot;println(what)&quot;)
+ * fun printThenNewline(what: String) {
+ *     // ...
+ * }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L38">class DeprecatedBlockTag(config: Config) : Rule(</span>
+<span class="fc" id="L39">    config,</span>
+<span class="fc" id="L40">    &quot;Do not use the `@deprecated` block tag, which is not supported by KDoc. &quot; +</span>
+        &quot;Use the `@Deprecated` annotation instead.&quot;
+) {
+
+    override fun visitDeclaration(dcl: KtDeclaration) {
+<span class="fc" id="L45">        super.visitDeclaration(dcl)</span>
+<span class="pc bpc" id="L46" title="1 of 4 branches missed.">        dcl.docComment?.getAllSections()?.forEach { section -&gt;</span>
+<span class="fc" id="L47">            section.findTagsByName(&quot;deprecated&quot;).forEach { tag -&gt;</span>
+<span class="fc" id="L48">                report(</span>
+<span class="fc" id="L49">                    CodeSmell(</span>
+<span class="fc" id="L50">                        Entity.from(dcl),</span>
+<span class="fc" id="L51">                        &quot;@deprecated tag block does not properly report deprecation in Kotlin, use @Deprecated &quot; +</span>
+                            &quot;annotation instead&quot;,
+<span class="fc" id="L53">                        references = listOf(Entity.from(tag))</span>
+                    )
+                )
+<span class="fc" id="L56">            }</span>
+<span class="fc" id="L57">        }</span>
+<span class="fc" id="L58">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

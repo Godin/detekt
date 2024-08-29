@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConsoleReport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.api</a> &gt; <span class="el_source">ConsoleReport.kt</span></div><h1>ConsoleReport.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.api
+
+/**
+ * Extension point which describes how findings should be printed on the console.
+ *
+ * Additional [ConsoleReport]'s can be made available through the [java.util.ServiceLoader] pattern.
+ * If the default reporting mechanism should be turned off, exclude the entry 'FindingsReport'
+ * in the 'console-reports' property of a detekt yaml config.
+ */
+<span class="pc" id="L10">interface ConsoleReport : Extension {</span>
+
+    /**
+     * Converts the given [detektion] into a string representation
+     * to present it to the client.
+     * The implementation specifies which parts of the report are important to the user.
+     */
+    fun render(detektion: Detektion): String?
+<span class="pc" id="L18">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

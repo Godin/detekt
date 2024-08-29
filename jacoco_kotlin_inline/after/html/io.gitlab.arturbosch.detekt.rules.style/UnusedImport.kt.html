@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnusedImport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnusedImport.kt</span></div><h1>UnusedImport.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isPartOf
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocTag
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtDeclaration
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtImportDirective
+import org.jetbrains.kotlin.psi.KtImportList
+import org.jetbrains.kotlin.psi.KtPackageDirective
+import org.jetbrains.kotlin.psi.KtReferenceExpression
+import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
+import org.jetbrains.kotlin.psi.psiUtil.isDotReceiver
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.resolve.descriptorUtil.getImportableDescriptor
+
+/**
+ * This rule reports unused imports. Unused imports are dead code and should be removed.
+ * Exempt from this rule are imports resulting from references to elements within KDoc and
+ * from destructuring declarations (componentN imports).
+ */
+@RequiresTypeResolution
+<span class="fc" id="L30">class UnusedImport(config: Config) : Rule(</span>
+<span class="fc" id="L31">    config,</span>
+<span class="fc" id="L32">    &quot;Unused Imports are dead code and should be removed.&quot;</span>
+) {
+
+    override fun visit(root: KtFile) {
+<span class="fc" id="L36">        with(UnusedImportVisitor(bindingContext)) {</span>
+<span class="fc" id="L37">            root.accept(this)</span>
+<span class="fc" id="L38">            unusedImports().forEach {</span>
+<span class="fc" id="L39">                report(CodeSmell(Entity.from(it), &quot;The import '${it.importedFqName}' is unused.&quot;))</span>
+<span class="fc" id="L40">            }</span>
+<span class="fc" id="L41">        }</span>
+<span class="fc" id="L42">        super.visit(root)</span>
+<span class="fc" id="L43">    }</span>
+
+<span class="fc" id="L45">    private class UnusedImportVisitor(private val bindingContext: BindingContext) : DetektVisitor() {</span>
+        private var currentPackage: FqName? = null
+        private var imports: List&lt;KtImportDirective&gt;? = null
+<span class="fc" id="L48">        private val namedReferences = mutableSetOf&lt;KtReferenceExpression&gt;()</span>
+<span class="fc" id="L49">        private val staticReferences = mutableSetOf&lt;KtReferenceExpression&gt;()</span>
+<span class="fc" id="L50">        private val namedReferencesInKDoc = mutableSetOf&lt;String&gt;()</span>
+
+<span class="fc" id="L52">        private val namedReferencesAsString: Set&lt;String&gt; by lazy {</span>
+<span class="fc" id="L53">            namedReferences.mapTo(mutableSetOf()) { it.text.trim('`') }</span>
+        }
+<span class="fc" id="L55">        private val staticReferencesAsString: Set&lt;String&gt; by lazy {</span>
+<span class="fc" id="L56">            staticReferences.mapTo(mutableSetOf()) { it.text.trim('`') }</span>
+        }
+<span class="fc" id="L58">        private val fqNames: Set&lt;FqName&gt; by lazy {</span>
+<span class="fc" id="L59">            namedReferences.mapNotNullTo(mutableSetOf()) { it.fqNameOrNull() }</span>
+        }
+
+        /**
+         * All [namedReferences] whose [KtReferenceExpression.fqNameOrNull] cannot be resolved
+         * mapped to their text. String matches to such references shouldn't be marked as unused
+         * imports since they could match the unknown value being imported.
+         */
+        @Suppress(&quot;CommentOverPrivateProperty&quot;)
+<span class="fc" id="L68">        private val unresolvedNamedReferencesAsString: Set&lt;String&gt; by lazy {</span>
+<span class="fc" id="L69">            namedReferences.mapNotNullTo(mutableSetOf()) {</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">                if (it.fqNameOrNull() == null) it.text.trim('`') else null</span>
+<span class="fc" id="L71">            }</span>
+        }
+
+        fun unusedImports(): List&lt;KtImportDirective&gt; {
+            fun KtImportDirective.isFromSamePackage() =
+<span class="pc bpc" id="L76" title="1 of 6 branches missed.">                importedFqName?.parent() == currentPackage &amp;&amp; alias == null</span>
+
+            fun KtImportDirective.isNotUsed(): Boolean {
+<span class="fc bfc" id="L79" title="All 2 branches covered.">                if (aliasName in (namedReferencesInKDoc + namedReferencesAsString)) return false</span>
+<span class="fc" id="L80">                val identifier = identifier()</span>
+<span class="fc bfc" id="L81" title="All 4 branches covered.">                if (identifier in namedReferencesInKDoc || identifier in staticReferencesAsString) return false</span>
+<span class="pc bpc" id="L82" title="2 of 6 branches missed.">                val fqNameUsed = importPath?.fqName?.let { it in fqNames } == true</span>
+<span class="fc" id="L83">                val unresolvedNameUsed = identifier in unresolvedNamedReferencesAsString</span>
+
+<span class="fc bfc" id="L85" title="All 4 branches covered.">                return !fqNameUsed &amp;&amp; !unresolvedNameUsed</span>
+            }
+
+<span class="pc bpc" id="L88" title="2 of 8 branches missed.">            return imports?.filter { it.isFromSamePackage() || it.isNotUsed() }.orEmpty()</span>
+        }
+
+        override fun visitPackageDirective(directive: KtPackageDirective) {
+<span class="fc" id="L92">            currentPackage = directive.fqName</span>
+<span class="fc" id="L93">            super.visitPackageDirective(directive)</span>
+<span class="fc" id="L94">        }</span>
+
+        override fun visitImportList(importList: KtImportList) {
+<span class="fc" id="L97">            imports = importList.imports.asSequence()</span>
+<span class="fc" id="L98">                .filter { it.isValidImport }</span>
+<span class="fc" id="L99">                .filter {</span>
+<span class="fc" id="L100">                    val identifier = it.identifier()</span>
+<span class="pc bpc" id="L101" title="4 of 8 branches missed.">                    identifier?.contains(&quot;*&quot;)?.not() == true &amp;&amp;</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">                        !operatorSet.contains(identifier) &amp;&amp;</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">                        !additionalOperatorSet.contains(identifier) &amp;&amp;</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">                        !componentNRegex.matches(identifier)</span>
+                }
+<span class="fc" id="L106">                .toList()</span>
+<span class="fc" id="L107">            super.visitImportList(importList)</span>
+<span class="fc" id="L108">        }</span>
+
+        override fun visitReferenceExpression(expression: KtReferenceExpression) {
+<span class="fc" id="L111">            expression</span>
+<span class="fc bfc" id="L112" title="All 6 branches covered.">                .takeIf { !it.isPartOf&lt;KtImportDirective&gt;() &amp;&amp; !it.isPartOf&lt;KtPackageDirective&gt;() }</span>
+<span class="fc bfc" id="L113" title="All 6 branches covered.">                ?.takeIf { it.children.isEmpty() }</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">                ?.run {</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">                    if (this.isDotReceiver()) {</span>
+<span class="fc" id="L116">                        staticReferences.add(this)</span>
+                    } else {
+<span class="fc" id="L118">                        namedReferences.add(this)</span>
+<span class="fc" id="L119">                    }</span>
+                }
+<span class="fc" id="L121">            super.visitReferenceExpression(expression)</span>
+<span class="fc" id="L122">        }</span>
+
+        override fun visitDeclaration(dcl: KtDeclaration) {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">            val kdoc = dcl.docComment?.getAllSections()</span>
+
+<span class="fc bfc" id="L127" title="All 2 branches covered.">            kdoc?.forEach { kdocSection -&gt;</span>
+<span class="fc" id="L128">                kdocSection.getChildrenOfType&lt;KDocTag&gt;()</span>
+<span class="fc" id="L129">                    .map { it.text }</span>
+<span class="fc" id="L130">                    .forEach { handleKDoc(it) }</span>
+
+<span class="fc" id="L132">                handleKDoc(kdocSection.getContent())</span>
+<span class="fc" id="L133">            }</span>
+
+<span class="fc" id="L135">            super.visitDeclaration(dcl)</span>
+<span class="fc" id="L136">        }</span>
+
+        private fun handleKDoc(content: String) {
+<span class="fc" id="L139">            kotlinDocReferencesRegExp.findAll(content, 0)</span>
+<span class="fc" id="L140">                .map { it.groupValues[1] }</span>
+<span class="fc" id="L141">                .forEach {</span>
+<span class="fc" id="L142">                    val referenceNames = it.split(&quot;.&quot;)</span>
+<span class="fc" id="L143">                    namedReferencesInKDoc.add(referenceNames[0])</span>
+<span class="fc" id="L144">                    namedReferencesInKDoc.add(referenceNames.last())</span>
+<span class="fc" id="L145">                }</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">            kotlinDocBlockTagReferenceRegExp.find(content)?.let {</span>
+<span class="fc" id="L147">                val str = it.groupValues[2].split(whiteSpaceRegex)[0]</span>
+<span class="fc" id="L148">                namedReferencesInKDoc.add(str.split(&quot;.&quot;)[0])</span>
+            }
+<span class="fc" id="L150">        }</span>
+
+        private fun KtReferenceExpression.fqNameOrNull(): FqName? {
+<span class="fc bfc" id="L153" title="All 2 branches covered.">            val descriptor = bindingContext[BindingContext.SHORT_REFERENCE_TO_COMPANION_OBJECT, this]</span>
+<span class="fc" id="L154">                ?: bindingContext[BindingContext.REFERENCE_TARGET, this]</span>
+<span class="pc bpc" id="L155" title="1 of 4 branches missed.">            return descriptor?.getImportableDescriptor()?.fqNameOrNull()</span>
+        }
+    }
+
+    companion object {
+        // Kotlin language default operators
+<span class="fc" id="L161">        private val operatorSet = setOf(</span>
+<span class="fc" id="L162">            &quot;unaryPlus&quot;, &quot;unaryMinus&quot;, &quot;not&quot;, &quot;inc&quot;, &quot;dec&quot;, &quot;plus&quot;, &quot;minus&quot;, &quot;times&quot;, &quot;div&quot;,</span>
+<span class="fc" id="L163">            &quot;mod&quot;, &quot;rangeTo&quot;, &quot;rangeUntil&quot;, &quot;contains&quot;, &quot;get&quot;, &quot;set&quot;, &quot;invoke&quot;,</span>
+<span class="fc" id="L164">            &quot;plusAssign&quot;, &quot;minusAssign&quot;, &quot;timesAssign&quot;, &quot;divAssign&quot;, &quot;modAssign&quot;,</span>
+<span class="fc" id="L165">            &quot;equals&quot;, &quot;compareTo&quot;, &quot;iterator&quot;, &quot;getValue&quot;, &quot;setValue&quot;, &quot;provideDelegate&quot;,</span>
+        )
+
+        // Additional operators from libraries or tools, e.g. compiler plugins for Gradle
+<span class="fc" id="L169">        private val additionalOperatorSet = setOf(</span>
+<span class="fc" id="L170">            &quot;assign&quot;</span>
+        )
+
+<span class="fc" id="L173">        private val kotlinDocReferencesRegExp = Regex(&quot;\\[([^]]+)](?!\\[)&quot;)</span>
+<span class="fc" id="L174">        private val kotlinDocBlockTagReferenceRegExp = Regex(&quot;^@(see|throws|exception) (.+)&quot;)</span>
+<span class="fc" id="L175">        private val whiteSpaceRegex = Regex(&quot;\\s+&quot;)</span>
+<span class="fc" id="L176">        private val componentNRegex = Regex(&quot;component\\d+&quot;)</span>
+    }
+}
+
+<span class="pc bpc" id="L180" title="2 of 4 branches missed.">private fun KtImportDirective.identifier() = this.importPath?.importedName?.identifier</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

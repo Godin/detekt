@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RuleSetConfigProperty.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.formatting</a> &gt; <span class="el_source">RuleSetConfigProperty.kt</span></div><h1>RuleSetConfigProperty.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.formatting
+
+import io.gitlab.arturbosch.detekt.api.Config
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
+
+fun &lt;T : Any&gt; ruleSetConfig(defaultValue: T): ReadOnlyProperty&lt;Any?, RuleSetConfigProperty&lt;T&gt;&gt; =
+<span class="fc" id="L8">    RuleSetConfigPropertyDelegate(defaultValue)</span>
+
+<span class="fc" id="L10">private class RuleSetConfigPropertyDelegate&lt;T : Any&gt;(</span>
+<span class="pc" id="L11">    val defaultValue: T</span>
+) : ReadOnlyProperty&lt;Any?, RuleSetConfigProperty&lt;T&gt;&gt; {
+
+    @Volatile private var value: RuleSetConfigProperty&lt;T&gt;? = null
+
+    override fun getValue(thisRef: Any?, property: KProperty&lt;*&gt;): RuleSetConfigProperty&lt;T&gt; =
+<span class="fc bfc" id="L17" title="All 2 branches covered.">        value ?: RuleSetConfigProperty(property.name, defaultValue).also { value = it }</span>
+}
+
+<span class="pc" id="L20">class RuleSetConfigProperty&lt;T : Any&gt;(val key: String, val defaultValue: T) {</span>
+<span class="fc" id="L21">    fun value(config: Config): T = config.valueOrDefault(key, defaultValue)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

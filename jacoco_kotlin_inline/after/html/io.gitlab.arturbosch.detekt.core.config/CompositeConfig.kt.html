@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompositeConfig.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config</a> &gt; <span class="el_source">CompositeConfig.kt</span></div><h1>CompositeConfig.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Notification
+import io.gitlab.arturbosch.detekt.core.config.validation.ValidatableConfiguration
+import io.gitlab.arturbosch.detekt.core.config.validation.validateConfig
+import io.gitlab.arturbosch.detekt.core.util.indentCompat
+
+/**
+ * Wraps two different configuration which should be considered when retrieving properties.
+ */
+<span class="fc" id="L12">class CompositeConfig(</span>
+<span class="fc" id="L13">    private val lookFirst: Config,</span>
+<span class="fc" id="L14">    private val lookSecond: Config,</span>
+<span class="fc" id="L15">    override val parent: Config? = null,</span>
+<span class="fc" id="L16">) : Config, ValidatableConfiguration {</span>
+
+    override val parentPath: String?
+<span class="pc bpc" id="L19" title="1 of 2 branches missed.">        get() = lookFirst.parentPath ?: lookSecond.parentPath</span>
+
+    override fun subConfig(key: String): Config =
+<span class="fc" id="L22">        CompositeConfig(lookFirst.subConfig(key), lookSecond.subConfig(key), this)</span>
+
+<span class="fc" id="L24">    override fun subConfigKeys(): Set&lt;String&gt; = lookFirst.subConfigKeys() + lookSecond.subConfigKeys()</span>
+
+    override fun &lt;T : Any&gt; valueOrDefault(key: String, default: T): T {
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (lookFirst.valueOrNull&lt;T&gt;(key) != null) {</span>
+<span class="fc" id="L28">            return lookFirst.valueOrDefault(key, default)</span>
+        }
+<span class="fc" id="L30">        return lookSecond.valueOrDefault(key, default)</span>
+    }
+
+    override fun &lt;T : Any&gt; valueOrNull(key: String): T? =
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        lookFirst.valueOrNull(key) ?: lookSecond.valueOrNull(key)</span>
+
+    @Suppress(&quot;MagicNumber&quot;)
+<span class="nc" id="L37">    override fun toString() = &quot;&quot;&quot;</span>
+        CompositeConfig(
+<span class="nc" id="L39">            lookFirst=${lookFirst.toString().indentCompat(12).trim()},</span>
+<span class="nc" id="L40">            lookSecond=${lookSecond.toString().indentCompat(12).trim()},</span>
+        )
+<span class="nc" id="L42">    &quot;&quot;&quot;.trimIndent()</span>
+
+    /**
+     * Validates both sides of the composite config according to defined properties of the baseline config.
+     */
+    override fun validate(baseline: Config, excludePatterns: Set&lt;Regex&gt;): List&lt;Notification&gt; =
+<span class="fc" id="L48">        validateConfig(lookFirst, baseline, excludePatterns) + validateConfig(lookSecond, baseline, excludePatterns)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

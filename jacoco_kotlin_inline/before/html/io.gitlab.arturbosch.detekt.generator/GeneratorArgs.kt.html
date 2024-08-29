@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GeneratorArgs.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator</a> &gt; <span class="el_source">GeneratorArgs.kt</span></div><h1>GeneratorArgs.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator
+
+import com.beust.jcommander.DynamicParameter
+import com.beust.jcommander.IValueValidator
+import com.beust.jcommander.Parameter
+import com.beust.jcommander.ParameterException
+import com.beust.jcommander.converters.IParameterSplitter
+import com.beust.jcommander.converters.PathConverter
+import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
+
+<span class="fc" id="L13">class GeneratorArgs {</span>
+
+<span class="pc" id="L15">    @Parameter(</span>
+        names = [&quot;--input&quot;, &quot;-i&quot;],
+        required = true,
+        converter = PathConverter::class,
+        splitter = PathSplitter::class,
+        validateValueWith = [PathValidator::class],
+        description = &quot;Input paths to analyze.&quot;
+    )
+<span class="pc" id="L23">    var inputPath: List&lt;Path&gt; = emptyList()</span>
+
+<span class="pc" id="L25">    @Parameter(</span>
+        names = [&quot;--documentation&quot;, &quot;-d&quot;],
+        converter = PathConverter::class,
+        validateValueWith = [DirectoryValidator::class],
+        description = &quot;Output path for generated documentation.&quot;
+    )
+<span class="nc" id="L31">    var documentationPath: Path? = null</span>
+
+<span class="pc" id="L33">    @Parameter(</span>
+        names = [&quot;--config&quot;, &quot;-c&quot;],
+        converter = PathConverter::class,
+        validateValueWith = [DirectoryValidator::class],
+        description = &quot;Output path for generated detekt config.&quot;
+    )
+<span class="nc" id="L39">    var configPath: Path? = null</span>
+
+<span class="pc" id="L41">    @Parameter(</span>
+        names = [&quot;--help&quot;, &quot;-h&quot;],
+        help = true,
+        description = &quot;Shows the usage.&quot;
+    )
+<span class="nc" id="L46">    var help: Boolean = false</span>
+
+<span class="pc" id="L48">    @Parameter(</span>
+        names = [&quot;--generate-custom-rule-config&quot;, &quot;-gcrc&quot;],
+        description = &quot;Generate config for user-defined rules. &quot; +
+            &quot;Path to user rules can be specified with --input option&quot;
+    )
+<span class="nc" id="L53">    var generateCustomRuleConfig: Boolean = false</span>
+
+<span class="pc" id="L55">    @DynamicParameter(</span>
+        names = [&quot;--replace&quot;, &quot;-r&quot;],
+        description = &quot;Any number of key and value pairs that are used to replace placeholders &quot; +
+            &quot;during data collection and output generation. Key and value are separated by '='. &quot; +
+            &quot;The property may be used multiple times.&quot;
+    )
+<span class="pc" id="L61">    var textReplacements: Map&lt;String, String&gt; = mutableMapOf()</span>
+
+<span class="fc" id="L63">    class PathSplitter : IParameterSplitter {</span>
+<span class="fc" id="L64">        override fun split(value: String): List&lt;String&gt; = value.split(',', ';')</span>
+    }
+
+<span class="fc" id="L67">    class PathValidator : IValueValidator&lt;List&lt;Path&gt;&gt; {</span>
+        override fun validate(name: String, value: List&lt;Path&gt;) {
+<span class="fc" id="L69">            value.forEach {</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">                if (!it.exists()) throw ParameterException(&quot;Input path does not exist: $it&quot;)</span>
+<span class="fc" id="L71">            }</span>
+<span class="fc" id="L72">        }</span>
+    }
+
+<span class="nc" id="L75">    class DirectoryValidator : IValueValidator&lt;Path&gt; {</span>
+        override fun validate(name: String, value: Path) {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">            if (!value.isDirectory()) throw ParameterException(&quot;Value passed to $name must be a directory.&quot;)</span>
+<span class="nc" id="L78">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnnecessaryParentheses.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnnecessaryParentheses.kt</span></div><h1>UnnecessaryParentheses.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.com.intellij.psi.tree.IElementType
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.parsing.KotlinExpressionParsing.Precedence
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
+import org.jetbrains.kotlin.psi.KtConstantExpression
+import org.jetbrains.kotlin.psi.KtDelegatedSuperTypeEntry
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtIsExpression
+import org.jetbrains.kotlin.psi.KtParenthesizedExpression
+import org.jetbrains.kotlin.psi.KtPrefixExpression
+import org.jetbrains.kotlin.psi.KtPsiUtil
+
+/**
+ * This rule reports unnecessary parentheses around expressions.
+ * These unnecessary parentheses can safely be removed.
+ *
+ * Added in v1.0.0.RC4
+ *
+ * &lt;noncompliant&gt;
+ * val local = (5 + 3)
+ *
+ * if ((local == 8)) { }
+ *
+ * fun foo() {
+ *     function({ input -&gt; println(input) })
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val local = 5 + 3
+ *
+ * if (local == 8) { }
+ *
+ * fun foo() {
+ *     function { input -&gt; println(input) }
+ * }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L50">class UnnecessaryParentheses(config: Config) : Rule(</span>
+<span class="fc" id="L51">    config,</span>
+<span class="fc" id="L52">    &quot;Unnecessary parentheses don't add any value to the code and should be removed.&quot;</span>
+) {
+
+    @Configuration(
+        &quot;allow parentheses when not strictly required but precedence may be unclear, such as `(a &amp;&amp; b) || c`&quot;
+    )
+<span class="fc" id="L58">    private val allowForUnclearPrecedence: Boolean by config(defaultValue = false)</span>
+
+    override fun visitParenthesizedExpression(expression: KtParenthesizedExpression) {
+<span class="fc" id="L61">        super.visitParenthesizedExpression(expression)</span>
+
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">        val inner = expression.expression ?: return</span>
+
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (expression.parent is KtDelegatedSuperTypeEntry) return</span>
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (!KtPsiUtil.areParenthesesUseless(expression)) return</span>
+
+<span class="fc bfc" id="L69" title="All 4 branches covered.">        if (allowForUnclearPrecedence &amp;&amp; inner.isBinaryOperationPrecedenceUnclearWithParent()) return</span>
+
+<span class="fc bfc" id="L71" title="All 4 branches covered.">        if (allowForUnclearPrecedence &amp;&amp; expression.isUnaryOperationPrecedenceUnclear()) return</span>
+
+<span class="fc" id="L73">        val message = &quot;Parentheses in ${expression.text} are unnecessary and can be replaced with: &quot; +</span>
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">            KtPsiUtil.deparenthesize(expression)?.text</span>
+<span class="fc" id="L75">        report(CodeSmell(Entity.from(expression), message))</span>
+<span class="fc" id="L76">    }</span>
+
+    companion object {
+        /**
+         * Map from operators to a set of other operators between which precedence can be unclear.
+         *
+         * This is built from a mapping of [Precedence] to other, greater, [Precedence](s) which should be considered
+         * unclear when mixed as child binary expressions.
+         */
+        @Suppress(&quot;CommentOverPrivateProperty&quot;)
+        private val childToUnclearPrecedenceParentsMapping: Map&lt;IElementType, Set&lt;IElementType&gt;&gt; = arrayOf(
+<span class="fc" id="L87">            Precedence.ELVIS to arrayOf(</span>
+<span class="fc" id="L88">                Precedence.EQUALITY, // (a ?: b) == c</span>
+<span class="fc" id="L89">                Precedence.COMPARISON, // (a ?: b) &gt; c</span>
+<span class="fc" id="L90">                Precedence.IN_OR_IS, // (a ?: b) in c</span>
+            ),
+<span class="fc" id="L92">            Precedence.SIMPLE_NAME to arrayOf(</span>
+<span class="fc" id="L93">                Precedence.ELVIS, // a ?: (b to c)</span>
+<span class="fc" id="L94">                Precedence.SIMPLE_NAME, // (a to b) to c</span>
+            ),
+<span class="fc" id="L96">            Precedence.MULTIPLICATIVE to arrayOf(</span>
+<span class="fc" id="L97">                Precedence.ADDITIVE, // (a * b) + c</span>
+<span class="fc" id="L98">                Precedence.RANGE, // (a / b)..(c * d)</span>
+                // taken from https://github.com/JetBrains/intellij-kotlin/commit/70cd07bcffe701da0fd8c803abceef2b5c67ab9c
+<span class="fc" id="L100">                Precedence.ELVIS, // a ?: (b * c)</span>
+            ),
+            // (a + b)..(c + d)
+<span class="fc" id="L103">            Precedence.ADDITIVE to arrayOf(</span>
+<span class="fc" id="L104">                Precedence.RANGE,</span>
+                // taken from https://github.com/JetBrains/intellij-kotlin/commit/70cd07bcffe701da0fd8c803abceef2b5c67ab9c
+<span class="fc" id="L106">                Precedence.ELVIS // a ?: (b + c)</span>
+            ),
+            // (a &amp;&amp; b) || c
+<span class="fc" id="L109">            Precedence.CONJUNCTION to arrayOf(Precedence.DISJUNCTION),</span>
+        )
+<span class="fc bfc" id="L111" title="All 2 branches covered.">            .onEach { (child, parents) -&gt;</span>
+<span class="pc bpc" id="L112" title="2 of 4 branches missed.">                parents.forEach { check(child &lt;= it) }</span>
+<span class="fc" id="L113">            }</span>
+<span class="fc" id="L114">            .flatMap { (child, parents) -&gt;</span>
+<span class="fc" id="L115">                child.operations.types.map { childOp -&gt;</span>
+<span class="fc" id="L116">                    childOp to parents.flatMapTo(mutableSetOf()) { parentOp -&gt; parentOp.operations.types.toList() }</span>
+<span class="fc" id="L117">                }</span>
+            }
+<span class="fc" id="L119">            .toMap()</span>
+
+        /**
+         * Retrieves the [IElementType] of the binary operation from this element if it is a non-assignment binary
+         * expression, or null otherwise.
+         */
+        private fun PsiElement.binaryOp(): IElementType? =
+<span class="fc" id="L126">            when (this) {</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">                is KtBinaryExpression -&gt;</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">                    operationReference.takeUnless { operationToken in KtTokens.ALL_ASSIGNMENTS }</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">                is KtBinaryExpressionWithTypeRHS -&gt; operationReference</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">                is KtIsExpression -&gt; operationReference</span>
+<span class="fc" id="L131">                else -&gt; null</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">            }?.getReferencedNameElementType()</span>
+
+        /**
+         * Returns either the parent of this [KtExpression] or its first parent expression which is not a
+         * [KtParenthesizedExpression].
+         */
+        private fun KtExpression.firstNonParenParent(): PsiElement? =
+<span class="pc bpc" id="L139" title="2 of 4 branches missed.">            generateSequence(parent) { (it as? KtParenthesizedExpression)?.parent }</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">                .firstOrNull { it !is KtParenthesizedExpression }</span>
+
+        /**
+         * Determines whether this is a binary expression whose operation precedence is unclear with the parent binary
+         * operation per [childToUnclearPrecedenceParentsMapping].
+         */
+        private fun KtExpression.isBinaryOperationPrecedenceUnclearWithParent(): Boolean {
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            val innerOp = binaryOp() ?: return false</span>
+<span class="pc bpc" id="L148" title="1 of 4 branches missed.">            val outerOp = firstNonParenParent()?.binaryOp() ?: return false</span>
+
+<span class="fc bfc" id="L150" title="All 4 branches covered.">            return childToUnclearPrecedenceParentsMapping[innerOp]?.contains(outerOp) == true</span>
+        }
+
+        /**
+         * Determines whether this is unary operation whose precedence is unclear
+         */
+        @Suppress(&quot;ReturnCount&quot;)
+        private fun KtParenthesizedExpression.isUnaryOperationPrecedenceUnclear(): Boolean {
+<span class="fc" id="L158">            val parentExpression = this.parent</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">            if (parentExpression !is KtPrefixExpression) return false</span>
+
+<span class="fc bfc" id="L161" title="All 2 branches covered.">            if (parentExpression.operationReference.getReferencedNameElementType() in listOf(</span>
+<span class="fc" id="L162">                    KtTokens.PLUSPLUS,</span>
+<span class="fc" id="L163">                    KtTokens.MINUSMINUS,</span>
+                ) &amp;&amp;
+<span class="fc bfc" id="L165" title="All 6 branches covered.">                (this.expression as? KtDotQualifiedExpression)?.receiverExpression is KtConstantExpression</span>
+            ) {
+<span class="fc" id="L167">                return false</span>
+            }
+
+<span class="fc" id="L170">            return parentExpression.operationReference.getReferencedNameElementType() in listOf(</span>
+<span class="fc" id="L171">                KtTokens.PLUS,</span>
+<span class="fc" id="L172">                KtTokens.MINUS,</span>
+<span class="fc" id="L173">                KtTokens.EXCL,</span>
+<span class="fc" id="L174">                KtTokens.PLUSPLUS,</span>
+<span class="fc" id="L175">                KtTokens.MINUSMINUS,</span>
+            )
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

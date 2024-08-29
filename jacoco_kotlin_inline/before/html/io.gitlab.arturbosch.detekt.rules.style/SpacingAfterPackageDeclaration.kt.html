@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SpacingAfterPackageDeclaration.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">SpacingAfterPackageDeclaration.kt</span></div><h1>SpacingAfterPackageDeclaration.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.com.intellij.psi.PsiWhiteSpace
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtImportList
+import org.jetbrains.kotlin.psi.KtPackageDirective
+import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.siblings
+
+/**
+ * This rule verifies spacing between package and import statements as well as between import statements and class
+ * declarations.
+ *
+ * &lt;noncompliant&gt;
+ * package foo
+ * import a.b
+ * class Bar { }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * package foo
+ *
+ * import a.b
+ *
+ * class Bar { }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L35">class SpacingAfterPackageDeclaration(config: Config) : Rule(</span>
+<span class="fc" id="L36">    config,</span>
+<span class="fc" id="L37">    &quot;Violation of the package declaration style detected.&quot;</span>
+) {
+
+    override fun visitKtFile(file: KtFile) {
+<span class="fc bfc" id="L41" title="All 4 branches covered.">        if (file.hasPackage() &amp;&amp; file.anyDescendantOfType&lt;KtClassOrObject&gt;()) {</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">            file.importList?.let {</span>
+<span class="fc bfc" id="L43" title="All 4 branches covered.">                if (it.imports.isNotEmpty()) {</span>
+<span class="fc" id="L44">                    checkPackageDeclaration(it)</span>
+<span class="fc" id="L45">                    checkKtElementsDeclaration(it)</span>
+                }
+<span class="fc" id="L47">            }</span>
+        }
+<span class="fc" id="L49">    }</span>
+
+<span class="pc bpc" id="L51" title="2 of 8 branches missed.">    private fun KtFile.hasPackage() = packageDirective?.name?.isNotEmpty() == true</span>
+
+    private fun checkPackageDeclaration(importList: KtImportList) {
+<span class="fc" id="L54">        val prevSibling = importList.prevSibling</span>
+<span class="pc bpc" id="L55" title="1 of 4 branches missed.">        if (isPackageDeclaration(prevSibling) || prevSibling is PsiWhiteSpace) {</span>
+<span class="fc" id="L56">            checkLinebreakAfterElement(</span>
+<span class="fc" id="L57">                prevSibling,</span>
+<span class="fc" id="L58">                &quot;There should be exactly one empty line in between the &quot; +</span>
+                    &quot;package declaration and the list of imports.&quot;
+            )
+        }
+<span class="fc" id="L62">    }</span>
+
+    private fun isPackageDeclaration(element: PsiElement?) =
+<span class="pc bpc" id="L65" title="2 of 6 branches missed.">        element is KtPackageDirective &amp;&amp; element.text.isNotEmpty()</span>
+
+    private fun checkKtElementsDeclaration(importList: KtImportList) {
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        val ktElement = importList.siblings(withItself = false).filterIsInstance&lt;KtElement&gt;().firstOrNull() ?: return</span>
+<span class="fc" id="L69">        val nextSibling = importList.nextSibling</span>
+<span class="pc bpc" id="L70" title="1 of 4 branches missed.">        if (nextSibling is PsiWhiteSpace || nextSibling is KtElement) {</span>
+<span class="pc bpc" id="L71" title="3 of 6 branches missed.">            val name = (ktElement as? KtClassOrObject)?.name ?: &quot;the class or object&quot;</span>
+
+<span class="fc" id="L73">            checkLinebreakAfterElement(</span>
+<span class="fc" id="L74">                nextSibling,</span>
+<span class="fc" id="L75">                &quot;There should be exactly one empty line in between the &quot; +</span>
+<span class="fc" id="L76">                    &quot;list of imports and the declaration of $name.&quot;</span>
+            )
+        }
+<span class="fc" id="L79">    }</span>
+
+    private fun checkLinebreakAfterElement(element: PsiElement, message: String) {
+<span class="pc bpc" id="L82" title="1 of 4 branches missed.">        if (element is PsiWhiteSpace || element is KtElement) {</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">            val count = element.text.count { it == '\n' }</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            if (count != 2) {</span>
+<span class="fc" id="L85">                report(CodeSmell(Entity.from(element), message))</span>
+            }
+        }
+<span class="fc" id="L88">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>

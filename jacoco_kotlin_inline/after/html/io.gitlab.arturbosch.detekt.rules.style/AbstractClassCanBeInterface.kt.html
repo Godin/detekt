@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractClassCanBeInterface.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">AbstractClassCanBeInterface.kt</span></div><h1>AbstractClassCanBeInterface.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isAbstract
+import io.gitlab.arturbosch.detekt.rules.isInternal
+import io.gitlab.arturbosch.detekt.rules.isProtected
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.descriptors.MemberDescriptor
+import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.psi.KtCallableDeclaration
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.psiUtil.isAbstract
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.lazy.descriptors.LazyClassMemberScope
+import org.jetbrains.kotlin.types.typeUtil.isInterface
+
+/**
+ * This rule inspects `abstract` classes. In case an `abstract class` does not define any
+ * `abstract` members, it should instead be refactored into an interface.
+ *
+ * &lt;noncompliant&gt;
+ * abstract class OnlyAbstractMembersInAbstractClass { // violation: no concrete members
+ *
+ *     abstract val i: Int
+ *     abstract fun f()
+ * }
+ * &lt;/noncompliant&gt;
+ * &lt;compliant&gt;
+ * interface Interface {
+ *     val i: Int
+ *     fun f()
+ * }
+ *
+ * abstract class NonAbstractMembersInAbstractClass {
+ *
+ *     abstract val i: Int
+ *     fun f() {
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.23.0&quot;)
+@RequiresTypeResolution
+<span class="fc" id="L49">class AbstractClassCanBeInterface(config: Config) : Rule(</span>
+<span class="fc" id="L50">    config,</span>
+<span class="fc" id="L51">    &quot;An abstract class is unnecessary. May be refactored to an interface.&quot;</span>
+) {
+
+<span class="fc" id="L54">    private val noConcreteMember = &quot;An abstract class without a concrete member can be refactored to an interface.&quot;</span>
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc" id="L57">        klass.check()</span>
+<span class="fc" id="L58">        super.visitClass(klass)</span>
+<span class="fc" id="L59">    }</span>
+
+    private fun KtClass.check() {
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        val nameIdentifier = this.nameIdentifier ?: return</span>
+<span class="fc bfc" id="L63" title="All 4 branches covered.">        if (isInterface() || !isAbstract()) return</span>
+<span class="fc" id="L64">        val members = members()</span>
+<span class="fc" id="L65">        when {</span>
+<span class="fc bfc" id="L66" title="All 4 branches covered.">            members.isNotEmpty() -&gt; checkMembers(members, nameIdentifier)</span>
+<span class="fc bfc" id="L67" title="All 4 branches covered.">            hasInheritedMember(true) &amp;&amp; isAnyParentAbstract() -&gt; return</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            !hasConstructorParameter() -&gt;</span>
+<span class="fc" id="L69">                report(CodeSmell(Entity.from(nameIdentifier), noConcreteMember))</span>
+        }
+<span class="fc" id="L71">    }</span>
+
+    private fun KtClass.checkMembers(
+        members: List&lt;KtCallableDeclaration&gt;,
+        nameIdentifier: PsiElement
+    ) {
+<span class="fc" id="L77">        val (abstractMembers, concreteMembers) = members.partition { it.isAbstract() }</span>
+<span class="fc" id="L78">        when {</span>
+<span class="fc bfc" id="L79" title="All 4 branches covered.">            abstractMembers.isEmpty() &amp;&amp; !hasInheritedMember(true) -&gt;</span>
+<span class="fc" id="L80">                Unit</span>
+<span class="fc bfc" id="L81" title="All 8 branches covered.">            abstractMembers.any { it.isInternal() || it.isProtected() } || hasConstructorParameter() -&gt;</span>
+<span class="fc" id="L82">                Unit</span>
+<span class="fc bfc" id="L83" title="All 4 branches covered.">            concreteMembers.isEmpty() &amp;&amp; !hasInheritedMember(false) -&gt;</span>
+<span class="fc" id="L84">                report(CodeSmell(Entity.from(nameIdentifier), noConcreteMember))</span>
+        }
+<span class="fc" id="L86">    }</span>
+
+<span class="pc bpc" id="L88" title="1 of 6 branches missed.">    private fun KtClass.members() = body?.children?.filterIsInstance&lt;KtCallableDeclaration&gt;().orEmpty() +</span>
+<span class="pc bpc" id="L89" title="1 of 6 branches missed.">        primaryConstructor?.valueParameters?.filter { it.hasValOrVar() }.orEmpty()</span>
+
+<span class="pc bpc" id="L91" title="1 of 8 branches missed.">    private fun KtClass.hasConstructorParameter() = primaryConstructor?.valueParameters?.isNotEmpty() == true</span>
+
+    private fun KtClass.hasInheritedMember(isAbstract: Boolean): Boolean =
+<span class="fc" id="L94">        when {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            superTypeListEntries.isEmpty() -&gt; false</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">            bindingContext == BindingContext.EMPTY -&gt; true</span>
+            else -&gt; {
+<span class="fc" id="L98">                val descriptor = bindingContext[BindingContext.CLASS, this]</span>
+<span class="pc bpc" id="L99" title="3 of 6 branches missed.">                descriptor?.unsubstitutedMemberScope?.getContributedDescriptors().orEmpty().any {</span>
+<span class="pc bpc" id="L100" title="2 of 8 branches missed.">                    (it as? MemberDescriptor)?.modality == Modality.ABSTRACT == isAbstract</span>
+                }
+            }
+<span class="fc" id="L103">        }</span>
+
+    private fun KtClass.isAnyParentAbstract() =
+<span class="pc bpc" id="L106" title="2 of 6 branches missed.">        (bindingContext[BindingContext.CLASS, this]?.unsubstitutedMemberScope as? LazyClassMemberScope)</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">            ?.supertypes</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">            ?.all { it.isInterface() } == false</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202408290909</span></div></body></html>
