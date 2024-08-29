@@ -1,0 +1,48 @@
+// now covered
+
+io/gitlab/arturbosch/detekt/core/baseline/XmlExtensions.kt
+io/github/detekt/metrics/CognitiveComplexity.kt
+io/github/detekt/utils/Yaml.kt
+io/github/detekt/utils/Markdown.kt
+
+// reified?
+io/gitlab/arturbosch/detekt/rules/style/Junk.kt
+io/gitlab/arturbosch/detekt/core/extensions/Loading.kt
+
+// crossinline?
+
+ io/gitlab/arturbosch/detekt/generator/printer/defaultconfig/ConfigPrinter.kt:22 ci: -5 +1
+ io/gitlab/arturbosch/detekt/generator/printer/defaultconfig/ConfigPrinter.kt:28 ci: -5 +1
+
+ io/gitlab/arturbosch/detekt/rules/style/ModifierOrder.kt:85 ci: -9 +1
+
+ io/gitlab/arturbosch/detekt/rules/coroutines/SuspendFunSwallowedCancellation.kt:107 ci: -8 +1
+
+ io/github/detekt/report/md/MdOutputReport.kt:99 ci: -3 +1
+ io/github/detekt/report/md/MdOutputReport.kt:142 ci: -3 +1
+
+ io/gitlab/arturbosch/detekt/core/reporting/console/ProjectStatisticsReport.kt:20 ci: -5 +1
+
+ io/gitlab/arturbosch/detekt/rules/documentation/OutdatedDocumentation.kt:208 ci: -11 +1
+
+ io/gitlab/arturbosch/detekt/generator/collection/DetektCollector.kt:25 ci: -3 +1
+
+ io/github/detekt/report/html/HtmlOutputReport.kt:108 ci: -3 +1
+ io/github/detekt/report/html/HtmlOutputReport.kt:120 ci: -3 +1
+
+// TODO crossinline ?
+ io/gitlab/arturbosch/detekt/rules/style/MaxChainedCallsOnSameLine.kt:101 mi: +0 ci: +1 mb: +0 cb: +0
+ io/gitlab/arturbosch/detekt/rules/style/MaxChainedCallsOnSameLine.kt:102 mi: +0 ci: +1 mb: +0 cb: +0
+ io/gitlab/arturbosch/detekt/rules/style/MaxChainedCallsOnSameLine.kt:103 mi: +0 ci: +1 mb: +0 cb: +0
+ io/gitlab/arturbosch/detekt/rules/style/MaxChainedCallsOnSameLine.kt:104 mi: +0 ci: +1 mb: +0 cb: +0
+ io/gitlab/arturbosch/detekt/rules/style/MaxChainedCallsOnSameLine.kt:106 mi: +0 ci: +1 mb: +0 cb: +0
+
+// TODO reified ?
+ io/gitlab/arturbosch/detekt/rules/ThrowExtensions.kt:17 mi: +0 ci: +1 mb: +0 cb: +0
+
+// TODO crossinline ?
+ io/gitlab/arturbosch/detekt/formatting/FormattingProvider.kt:285 ci: -5 +1
+ io/gitlab/arturbosch/detekt/formatting/FormattingProvider.kt:286 mi: +0 ci: +1 mb: +0 cb: +0
+ io/gitlab/arturbosch/detekt/formatting/FormattingProvider.kt:287 ci: -6 +1
+ io/gitlab/arturbosch/detekt/formatting/FormattingProvider.kt:288 mi: +0 ci: +1 mb: +0 cb: +0
+ io/gitlab/arturbosch/detekt/formatting/FormattingProvider.kt:289 ci: -6 +1
