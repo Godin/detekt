@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DetektPrinter.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator</a> &gt; <span class="el_source">DetektPrinter.kt</span></div><h1>DetektPrinter.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator
+
+import io.github.detekt.utils.yaml
+import io.gitlab.arturbosch.detekt.generator.collection.RuleSetPage
+import io.gitlab.arturbosch.detekt.generator.out.MarkdownWriter
+import io.gitlab.arturbosch.detekt.generator.out.PropertiesWriter
+import io.gitlab.arturbosch.detekt.generator.out.YamlWriter
+import io.gitlab.arturbosch.detekt.generator.printer.DeprecatedPrinter
+import io.gitlab.arturbosch.detekt.generator.printer.RuleSetPagePrinter
+import io.gitlab.arturbosch.detekt.generator.printer.defaultconfig.ConfigPrinter
+import io.gitlab.arturbosch.detekt.generator.printer.defaultconfig.printRuleSetPage
+import java.nio.file.Path
+import kotlin.io.path.Path
+
+<span class="fc" id="L15">class DetektPrinter(</span>
+<span class="fc" id="L16">    private val documentationPath: Path?,</span>
+<span class="fc" id="L17">    private val configPath: Path?,</span>
+) {
+
+<span class="fc" id="L20">    private val markdownWriter = MarkdownWriter(System.out)</span>
+<span class="fc" id="L21">    private val yamlWriter = YamlWriter(System.out)</span>
+<span class="fc" id="L22">    private val propertiesWriter = PropertiesWriter(System.out)</span>
+
+    fun print(pages: List&lt;RuleSetPage&gt;) {
+<span class="nc bnc" id="L25" title="All 2 branches missed.">        if (documentationPath != null) {</span>
+<span class="nc" id="L26">            pages.forEach {</span>
+<span class="nc" id="L27">                markdownWriter.write(documentationPath, it.ruleSet.name) {</span>
+<span class="nc" id="L28">                    markdownHeader(it.ruleSet.name) + &quot;\n&quot; + RuleSetPagePrinter.print(it)</span>
+                }
+<span class="nc" id="L30">            }</span>
+        }
+<span class="nc bnc" id="L32" title="All 2 branches missed.">        if (configPath != null) {</span>
+<span class="nc" id="L33">            yamlWriter.write(configPath, &quot;default-detekt-config&quot;) {</span>
+<span class="nc" id="L34">                ConfigPrinter.print(</span>
+<span class="nc" id="L35">                    pages.filterNot { it.ruleSet.name in listOf(&quot;formatting&quot;, &quot;libraries&quot;, &quot;ruleauthors&quot;) }</span>
+<span class="nc" id="L36">                )</span>
+            }
+<span class="nc" id="L38">            propertiesWriter.write(configPath, &quot;deprecation&quot;) {</span>
+                // We intentionally not filter for &quot;formatting&quot; as we want to be able to deprecate
+                // properties from that ruleset as well.
+<span class="nc" id="L41">                DeprecatedPrinter.print(pages)</span>
+            }
+        }
+<span class="nc" id="L44">        yamlWriter.write(Path(&quot;../detekt-formatting/src/main/resources/config&quot;), &quot;config&quot;) {</span>
+<span class="nc" id="L45">            yaml {</span>
+<span class="nc" id="L46">                printRuleSetPage(pages.first { it.ruleSet.name == &quot;formatting&quot; })</span>
+<span class="nc" id="L47">            }</span>
+        }
+<span class="nc" id="L49">        yamlWriter.write(Path(&quot;../detekt-rules-libraries/src/main/resources/config&quot;), &quot;config&quot;) {</span>
+<span class="nc" id="L50">            yaml {</span>
+<span class="nc" id="L51">                printRuleSetPage(pages.first { it.ruleSet.name == &quot;libraries&quot; })</span>
+<span class="nc" id="L52">            }</span>
+        }
+<span class="nc" id="L54">        yamlWriter.write(Path(&quot;../detekt-rules-ruleauthors/src/main/resources/config&quot;), &quot;config&quot;) {</span>
+<span class="nc" id="L55">            yaml {</span>
+<span class="nc" id="L56">                printRuleSetPage(pages.first { it.ruleSet.name == &quot;ruleauthors&quot; })</span>
+<span class="nc" id="L57">            }</span>
+        }
+<span class="nc" id="L59">    }</span>
+
+    fun printCustomRuleConfig(pages: List&lt;RuleSetPage&gt;, folder: Path) {
+<span class="fc" id="L62">        yamlWriter.write(folder, &quot;config&quot;) {</span>
+<span class="fc" id="L63">            ConfigPrinter.printCustomRuleConfig(pages)</span>
+        }
+<span class="fc" id="L65">    }</span>
+
+    private fun markdownHeader(ruleSetName: String): String =
+<span class="nc" id="L68">        &quot;&quot;&quot;</span>
+            ---
+<span class="nc" id="L70">            title: ${ruleSetName[0].uppercaseChar()}${ruleSetName.substring(1)} Rule Set</span>
+            sidebar: home_sidebar
+<span class="nc" id="L72">            keywords: [rules, $ruleSetName]</span>
+<span class="nc" id="L73">            permalink: $ruleSetName.html</span>
+            toc: true
+            folder: documentation
+            ---
+<span class="nc" id="L77">        &quot;&quot;&quot;.trimIndent()</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

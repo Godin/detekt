@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AllRulesConfig.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config</a> &gt; <span class="el_source">AllRulesConfig.kt</span></div><h1>AllRulesConfig.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.core.config.validation.DeprecatedRule
+import io.gitlab.arturbosch.detekt.core.config.validation.ValidatableConfiguration
+import io.gitlab.arturbosch.detekt.core.config.validation.validateConfig
+import io.gitlab.arturbosch.detekt.core.util.indentCompat
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L10">internal data class AllRulesConfig(</span>
+<span class="fc" id="L11">    private val wrapped: Config,</span>
+<span class="fc" id="L12">    private val deprecatedRules: Set&lt;DeprecatedRule&gt;,</span>
+<span class="fc" id="L13">    override val parent: Config? = null,</span>
+<span class="fc" id="L14">) : Config, ValidatableConfiguration {</span>
+
+    override val parentPath: String?
+<span class="fc" id="L17">        get() = wrapped.parentPath</span>
+
+    override fun subConfig(key: String) =
+<span class="fc" id="L20">        AllRulesConfig(wrapped.subConfig(key), deprecatedRules, this)</span>
+
+<span class="fc" id="L22">    override fun subConfigKeys(): Set&lt;String&gt; = wrapped.subConfigKeys()</span>
+
+    override fun &lt;T : Any&gt; valueOrDefault(key: String, default: T): T =
+<span class="fc" id="L25">        when (key) {</span>
+<span class="fc bfc" id="L26" title="All 4 branches covered.">            Config.ACTIVE_KEY -&gt; if (isDeprecated()) false as T else wrapped.valueOrDefault(key, true) as T</span>
+<span class="fc" id="L27">            else -&gt; wrapped.valueOrDefault(key, default)</span>
+<span class="fc" id="L28">        }</span>
+
+    override fun &lt;T : Any&gt; valueOrNull(key: String): T? =
+<span class="fc" id="L31">        when (key) {</span>
+<span class="pc bpc" id="L32" title="2 of 6 branches missed.">            Config.ACTIVE_KEY -&gt; if (isDeprecated()) false as T else wrapped.valueOrNull(key) ?: true as? T</span>
+<span class="fc" id="L33">            else -&gt; wrapped.valueOrNull(key)</span>
+<span class="fc" id="L34">        }</span>
+
+    override fun validate(baseline: Config, excludePatterns: Set&lt;Regex&gt;) =
+<span class="nc" id="L37">        validateConfig(wrapped, baseline, excludePatterns)</span>
+
+<span class="fc" id="L39">    private fun isDeprecated(): Boolean = deprecatedRules.any { parentPath == it.toPath() }</span>
+
+<span class="fc" id="L41">    private fun DeprecatedRule.toPath() = &quot;$ruleSetId &gt; $ruleName&quot;</span>
+
+    @Suppress(&quot;MagicNumber&quot;)
+<span class="nc" id="L44">    override fun toString() = &quot;&quot;&quot;</span>
+        AllRulesConfig(
+<span class="nc" id="L46">            wrapped=${wrapped.toString().indentCompat(12).trim()},</span>
+<span class="nc" id="L47">            deprecatedRules=$deprecatedRules,</span>
+        )
+<span class="nc" id="L49">    &quot;&quot;&quot;.trimIndent()</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

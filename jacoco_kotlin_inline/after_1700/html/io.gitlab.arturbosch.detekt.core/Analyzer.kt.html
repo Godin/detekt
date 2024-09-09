@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Analyzer.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core</a> &gt; <span class="el_source">Analyzer.kt</span></div><h1>Analyzer.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core
+
+import io.github.detekt.psi.absolutePath
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.CompilerResources
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.CorrectableCodeSmell
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.FileProcessListener
+import io.gitlab.arturbosch.detekt.api.Finding
+import io.gitlab.arturbosch.detekt.api.Issue
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.RuleInstance
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import io.gitlab.arturbosch.detekt.api.RuleSetProvider
+import io.gitlab.arturbosch.detekt.api.Severity
+import io.gitlab.arturbosch.detekt.api.internal.whichDetekt
+import io.gitlab.arturbosch.detekt.api.internal.whichJava
+import io.gitlab.arturbosch.detekt.api.internal.whichOS
+import io.gitlab.arturbosch.detekt.core.suppressors.buildSuppressors
+import io.gitlab.arturbosch.detekt.core.suppressors.isSuppressedBy
+import io.gitlab.arturbosch.detekt.core.util.isActiveOrDefault
+import io.gitlab.arturbosch.detekt.core.util.shouldAnalyzeFile
+import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowValueFactoryImpl
+import kotlin.reflect.full.hasAnnotation
+
+<span class="fc" id="L31">internal class Analyzer(</span>
+<span class="fc" id="L32">    private val settings: ProcessingSettings,</span>
+<span class="fc" id="L33">    private val providers: List&lt;RuleSetProvider&gt;,</span>
+<span class="fc" id="L34">    private val processors: List&lt;FileProcessListener&gt;</span>
+) {
+<span class="fc" id="L36">    fun run(</span>
+        ktFiles: Collection&lt;KtFile&gt;,
+<span class="fc" id="L38">        bindingContext: BindingContext = BindingContext.EMPTY</span>
+    ): List&lt;Issue&gt; {
+<span class="fc" id="L40">        val languageVersionSettings = settings.environment.configuration.languageVersionSettings</span>
+
+<span class="fc" id="L42">        val dataFlowValueFactory = DataFlowValueFactoryImpl(languageVersionSettings)</span>
+<span class="fc" id="L43">        val compilerResources = CompilerResources(languageVersionSettings, dataFlowValueFactory)</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (bindingContext == BindingContext.EMPTY) {</span>
+<span class="fc" id="L45">            warnAboutEnabledRequiresTypeResolutionRules()</span>
+        }
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">        return if (settings.spec.executionSpec.parallelAnalysis) {</span>
+<span class="nc" id="L48">            runAsync(ktFiles, bindingContext, compilerResources)</span>
+        } else {
+<span class="fc" id="L50">            runSync(ktFiles, bindingContext, compilerResources)</span>
+        }
+    }
+
+    private fun runSync(
+        ktFiles: Collection&lt;KtFile&gt;,
+        bindingContext: BindingContext,
+        compilerResources: CompilerResources
+    ): List&lt;Issue&gt; =
+<span class="fc" id="L59">        ktFiles.flatMap { file -&gt;</span>
+<span class="fc" id="L60">            processors.forEach { it.onProcess(file) }</span>
+<span class="fc" id="L61">            val issues = runCatching { analyze(file, bindingContext, compilerResources) }</span>
+<span class="pc bfc" id="L62" title="All 2 branches covered.">                .onFailure { throwIllegalStateException(file, it) }</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">                .getOrDefault(emptyList())</span>
+<span class="fc" id="L64">            processors.forEach { it.onProcessComplete(file, issues) }</span>
+<span class="fc" id="L65">            issues</span>
+<span class="fc" id="L66">        }</span>
+
+    private fun runAsync(
+        ktFiles: Collection&lt;KtFile&gt;,
+        bindingContext: BindingContext,
+        compilerResources: CompilerResources
+    ): List&lt;Issue&gt; {
+<span class="nc" id="L73">        val service = settings.taskPool</span>
+<span class="nc" id="L74">        val tasks: TaskList&lt;List&lt;Issue&gt;?&gt; = ktFiles.map { file -&gt;</span>
+<span class="nc" id="L75">            service.task {</span>
+<span class="nc" id="L76">                processors.forEach { it.onProcess(file) }</span>
+<span class="nc" id="L77">                val issues = analyze(file, bindingContext, compilerResources)</span>
+<span class="nc" id="L78">                processors.forEach { it.onProcessComplete(file, issues) }</span>
+<span class="nc" id="L79">                issues</span>
+<span class="nc" id="L80">            }.recover { throwIllegalStateException(file, it) }</span>
+        }
+<span class="nc" id="L82">        return awaitAll(tasks).filterNotNull().flatten()</span>
+    }
+
+    private fun analyze(
+        file: KtFile,
+        bindingContext: BindingContext,
+        compilerResources: CompilerResources
+    ): List&lt;Issue&gt; {
+<span class="fc" id="L90">        val activeRuleSetsToRuleSetConfigs = providers.asSequence()</span>
+<span class="fc" id="L91">            .map { it to settings.config.subConfig(it.ruleSetId.value) }</span>
+<span class="fc" id="L92">            .filter { (_, ruleSetConfig) -&gt; ruleSetConfig.isActiveOrDefault(true) }</span>
+<span class="fc" id="L93">            .map { (provider, ruleSetConfig) -&gt; provider.instance() to ruleSetConfig }</span>
+<span class="fc" id="L94">            .filter { (_, ruleSetConfig) -&gt; ruleSetConfig.shouldAnalyzeFile(file, settings.spec.projectSpec.basePath) }</span>
+
+<span class="fc" id="L96">        val (correctableRules, otherRules) = activeRuleSetsToRuleSetConfigs</span>
+<span class="fc" id="L97">            .flatMap { (ruleSet, ruleSetConfig) -&gt;</span>
+<span class="fc" id="L98">                ruleSetConfig.subConfigKeys()</span>
+<span class="fc" id="L99">                    .asSequence()</span>
+<span class="fc" id="L100">                    .mapNotNull { ruleId -&gt;</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">                        extractRuleName(ruleId)?.let { ruleName -&gt; ruleId to ruleName }</span>
+                    }
+<span class="fc" id="L103">                    .mapNotNull { (ruleId, ruleName) -&gt;</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">                        ruleSet.rules[ruleName]?.let { ruleProvider -&gt;</span>
+<span class="fc" id="L105">                            RuleDescriptor(</span>
+<span class="fc" id="L106">                                ruleProvider = ruleProvider,</span>
+<span class="fc" id="L107">                                config = ruleSetConfig.subConfig(ruleId),</span>
+<span class="fc" id="L108">                                ruleId = ruleId,</span>
+<span class="fc" id="L109">                            )</span>
+<span class="fc" id="L110">                        }</span>
+                    }
+<span class="fc" id="L112">                    .filter { (_, config, _) -&gt; config.isActiveOrDefault(false) }</span>
+<span class="fc" id="L113">                    .filter { (_, config, _) -&gt; config.shouldAnalyzeFile(file, settings.spec.projectSpec.basePath) }</span>
+<span class="fc" id="L114">                    .map { (ruleProvider, config, ruleId) -&gt;</span>
+<span class="fc" id="L115">                        val rule = ruleProvider(config)</span>
+<span class="fc" id="L116">                        rule.toRuleInstance(ruleId, ruleSet.id) to rule</span>
+<span class="fc" id="L117">                    }</span>
+            }
+<span class="fc" id="L119">            .filterNot { (ruleInstance, rule) -&gt;</span>
+<span class="fc" id="L120">                file.isSuppressedBy(ruleInstance.id, rule.aliases, ruleInstance.ruleSetId)</span>
+            }
+<span class="fc" id="L122">            .filter { (_, rule) -&gt;</span>
+<span class="fc bfc" id="L123" title="All 4 branches covered.">                bindingContext != BindingContext.EMPTY || !rule::class.hasAnnotation&lt;RequiresTypeResolution&gt;()</span>
+            }
+<span class="fc" id="L125">            .partition { (_, rule) -&gt; rule.autoCorrect }</span>
+
+<span class="fc" id="L127">        return (correctableRules + otherRules).flatMap { (ruleInstance, rule) -&gt;</span>
+<span class="fc" id="L128">            rule.visitFile(file, bindingContext, compilerResources)</span>
+<span class="fc" id="L129">                .filterNot {</span>
+<span class="fc" id="L130">                    it.entity.ktElement.isSuppressedBy(ruleInstance.id, rule.aliases, ruleInstance.ruleSetId)</span>
+                }
+<span class="fc" id="L132">                .filterSuppressedFindings(rule, bindingContext)</span>
+<span class="fc" id="L133">                .map { it.toIssue(ruleInstance, rule.computeSeverity()) }</span>
+        }
+    }
+
+    private fun warnAboutEnabledRequiresTypeResolutionRules() {
+<span class="fc" id="L138">        providers.asSequence()</span>
+<span class="fc" id="L139">            .map { it to settings.config.subConfig(it.ruleSetId.value) }</span>
+<span class="fc" id="L140">            .filter { (_, ruleSetConfig) -&gt; ruleSetConfig.isActiveOrDefault(true) }</span>
+<span class="fc" id="L141">            .map { (provider, ruleSetConfig) -&gt; provider.instance() to ruleSetConfig }</span>
+<span class="fc" id="L142">            .flatMap { (ruleSet, ruleSetConfig) -&gt;</span>
+<span class="fc" id="L143">                ruleSet.rules</span>
+<span class="fc" id="L144">                    .asSequence()</span>
+<span class="fc" id="L145">                    .map { (ruleName, ruleProvider) -&gt; ruleProvider to ruleSetConfig.subConfig(ruleName.value) }</span>
+<span class="fc" id="L146">                    .filter { (_, config) -&gt; config.isActiveOrDefault(false) }</span>
+<span class="fc" id="L147">                    .map { (ruleProvider, config) -&gt; ruleProvider(config) }</span>
+            }
+<span class="fc" id="L149">            .filter { rule -&gt; rule::class.hasAnnotation&lt;RequiresTypeResolution&gt;() }</span>
+<span class="fc" id="L150">            .forEach { rule -&gt;</span>
+<span class="fc" id="L151">                settings.debug { &quot;The rule '${rule.ruleName}' requires type resolution but it was run without it.&quot; }</span>
+<span class="fc" id="L152">            }</span>
+<span class="fc" id="L153">    }</span>
+}
+
+internal fun extractRuleName(key: String): Rule.Name? =
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">    runCatching { Rule.Name(key.split(&quot;/&quot;, limit = 2).first()) }.getOrNull()</span>
+
+<span class="pc" id="L159">private data class RuleDescriptor(val ruleProvider: (Config) -&gt; Rule, val config: Config, val ruleId: String)</span>
+
+private fun List&lt;Finding&gt;.filterSuppressedFindings(rule: Rule, bindingContext: BindingContext): List&lt;Finding&gt; {
+<span class="fc" id="L162">    val suppressors = buildSuppressors(rule, bindingContext)</span>
+<span class="fc bfc" id="L163" title="All 4 branches covered.">    return if (suppressors.isNotEmpty()) {</span>
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        filter { finding -&gt; !suppressors.any { suppressor -&gt; suppressor.shouldSuppress(finding) } }</span>
+    } else {
+<span class="fc" id="L166">        this</span>
+    }
+}
+
+private fun throwIllegalStateException(file: KtFile, error: Throwable): Nothing {
+<span class="fc" id="L171">    val message = &quot;&quot;&quot;</span>
+<span class="fc" id="L172">        Analyzing ${file.absolutePath()} led to an exception.</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        Location: ${error.stackTrace.firstOrNull()?.toString()}</span>
+<span class="fc" id="L174">        The original exception message was: ${error.localizedMessage}</span>
+<span class="fc" id="L175">        Running detekt '${whichDetekt()}' on Java '${whichJava()}' on OS '${whichOS()}'</span>
+        If the exception message does not help, please feel free to create an issue on our GitHub page.
+<span class="fc" id="L177">    &quot;&quot;&quot;.trimIndent()</span>
+<span class="fc" id="L178">    throw IllegalStateException(message, error)</span>
+}
+
+private fun Finding.toIssue(rule: RuleInstance, severity: Severity): Issue =
+<span class="fc" id="L182">    when (this) {</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        is CorrectableCodeSmell -&gt; IssueImpl(rule, entity, message, references, severity, autoCorrectEnabled)</span>
+
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">        is CodeSmell -&gt; IssueImpl(rule, entity, message, references, severity)</span>
+
+<span class="nc" id="L187">        else -&gt; error(&quot;wtf?&quot;)</span>
+<span class="fc" id="L188">    }</span>
+
+private fun Rule.toRuleInstance(id: String, ruleSetId: RuleSet.Id): RuleInstance =
+<span class="fc" id="L191">    RuleInstanceImpl(id, ruleName, ruleSetId, description)</span>
+
+<span class="fc" id="L193">private data class IssueImpl(</span>
+<span class="fc" id="L194">    override val ruleInstance: RuleInstance,</span>
+<span class="fc" id="L195">    override val entity: Entity,</span>
+<span class="fc" id="L196">    override val message: String,</span>
+<span class="pc" id="L197">    override val references: List&lt;Entity&gt;,</span>
+<span class="fc" id="L198">    override val severity: Severity,</span>
+<span class="pc" id="L199">    override val autoCorrectEnabled: Boolean = false,</span>
+<span class="fc" id="L200">) : Issue</span>
+
+<span class="fc" id="L202">private data class RuleInstanceImpl(</span>
+<span class="fc" id="L203">    override val id: String,</span>
+<span class="pc" id="L204">    override val name: Rule.Name,</span>
+<span class="fc" id="L205">    override val ruleSetId: RuleSet.Id,</span>
+<span class="pc" id="L206">    override val description: String,</span>
+) : RuleInstance
+
+/**
+ * Compute severity in the priority order:
+ * - Severity of the rule
+ * - Severity of the parent ruleset
+ * - Default severity
+ */
+private fun Rule.computeSeverity(): Severity {
+<span class="pc bpc" id="L216" title="2 of 4 branches missed.">    val configValue: String = config.valueOrNull(Config.SEVERITY_KEY)</span>
+<span class="pc bpc" id="L217" title="1 of 2 branches missed.">        ?: config.parent?.valueOrNull(Config.SEVERITY_KEY)</span>
+<span class="fc" id="L218">        ?: return Severity.Error</span>
+<span class="nc" id="L219">    return parseToSeverity(configValue)</span>
+}
+
+internal fun parseToSeverity(severity: String): Severity {
+<span class="fc" id="L223">    val lowercase = severity.lowercase()</span>
+<span class="pc bpc" id="L224" title="2 of 6 branches missed.">    return Severity.entries.find { it.name.lowercase() == lowercase }</span>
+<span class="nc" id="L225">        ?: error(&quot;$severity is not a valid Severity. Allowed values are ${Severity.entries}&quot;)</span>
+}
+
+<span class="fc" id="L228">private val Rule.aliases: Set&lt;String&gt; get() = config.valueOrDefault(Config.ALIASES_KEY, emptyList&lt;String&gt;()).toSet()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ForbiddenAnnotation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">ForbiddenAnnotation.kt</span></div><h1>ForbiddenAnnotation.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Location
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.TextLocation
+import io.gitlab.arturbosch.detekt.api.ValueWithReason
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.valuesWithReason
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.psiUtil.endOffset
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.types.KotlinType
+
+/**
+ * This rule allows to set a list of forbidden annotations. This can be used to discourage the use
+ * of language annotations which do not require explicit import.
+ *
+ * &lt;noncompliant&gt;
+ * @@SuppressWarnings(&quot;unused&quot;)
+ * class SomeClass()
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * @@Suppress(&quot;unused&quot;)
+ * class SomeClass()
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L39">class ForbiddenAnnotation(config: Config) : Rule(</span>
+<span class="fc" id="L40">    config,</span>
+<span class="fc" id="L41">    &quot;Avoid using this annotation.&quot;</span>
+) {
+
+    @Configuration(
+        &quot;List of fully qualified annotation classes which are forbidden.&quot;
+    )
+<span class="pc" id="L47">    private val annotations: Map&lt;String, ValueWithReason&gt; by config(</span>
+<span class="fc" id="L48">        valuesWithReason(</span>
+<span class="fc" id="L49">            &quot;java.lang.SuppressWarnings&quot; to &quot;it is a java annotation. Use `Suppress` instead.&quot;,</span>
+<span class="fc" id="L50">            &quot;java.lang.Deprecated&quot; to &quot;it is a java annotation. Use `kotlin.Deprecated` instead.&quot;,</span>
+<span class="fc" id="L51">            &quot;java.lang.annotation.Documented&quot; to &quot;it is a java annotation. &quot; +</span>
+                &quot;Use `kotlin.annotation.MustBeDocumented` instead.&quot;,
+<span class="fc" id="L53">            &quot;java.lang.annotation.Target&quot; to &quot;it is a java annotation. Use `kotlin.annotation.Target` instead.&quot;,</span>
+<span class="fc" id="L54">            &quot;java.lang.annotation.Retention&quot; to &quot;it is a java annotation. Use `kotlin.annotation.Retention` instead.&quot;,</span>
+<span class="fc" id="L55">            &quot;java.lang.annotation.Repeatable&quot; to &quot;it is a java annotation. Use `kotlin.annotation.Repeatable` instead.&quot;,</span>
+<span class="fc" id="L56">            &quot;java.lang.annotation.Inherited&quot; to &quot;Kotlin does not support @Inherited annotation, &quot; +</span>
+                &quot;see https://youtrack.jetbrains.com/issue/KT-22265&quot;,
+        )
+    ) { list -&gt;
+<span class="nc" id="L60">        list.associateBy { it.value }</span>
+    }
+
+    override fun visitAnnotationEntry(annotation: KtAnnotationEntry) {
+<span class="nc" id="L64">        super.visitAnnotationEntry(annotation)</span>
+
+<span class="nc bnc" id="L66" title="All 4 branches missed.">        annotation.typeReference?.fqNameOrNull()?.let {</span>
+<span class="nc" id="L67">            check(annotation, it)</span>
+<span class="nc" id="L68">        }</span>
+<span class="nc" id="L69">    }</span>
+
+    override fun visitExpression(expression: KtExpression) {
+<span class="nc" id="L72">        super.visitExpression(expression)</span>
+
+<span class="nc bnc" id="L74" title="All 4 branches missed.">        expression.expressionTypeOrNull()?.fqNameOrNull()?.let {</span>
+<span class="nc" id="L75">            check(expression, it)</span>
+<span class="nc" id="L76">        }</span>
+<span class="nc" id="L77">    }</span>
+
+    private fun check(element: KtElement, fqName: FqName) {
+<span class="nc" id="L80">        val forbidden = annotations[fqName.asString()]</span>
+
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (forbidden != null) {</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">            val message = if (forbidden.reason != null) {</span>
+<span class="nc" id="L84">                &quot;The annotation `${forbidden.value}` has been forbidden: ${forbidden.reason}&quot;</span>
+            } else {
+<span class="nc" id="L86">                &quot;The annotation `${forbidden.value}` has been forbidden in the detekt config.&quot;</span>
+            }
+<span class="nc" id="L88">            val location = Location.from(element).let { location -&gt;</span>
+<span class="nc" id="L89">                Location(</span>
+<span class="nc" id="L90">                    location.source,</span>
+<span class="nc" id="L91">                    location.endSource,</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">                    TextLocation(location.text.start, element.children.firstOrNull()?.endOffset ?: location.text.end),</span>
+<span class="nc" id="L93">                    location.path</span>
+<span class="nc" id="L94">                )</span>
+            }
+<span class="nc" id="L96">            report(CodeSmell(Entity.from(element, location), message))</span>
+        }
+<span class="nc" id="L98">    }</span>
+
+    private fun KtTypeReference.fqNameOrNull(): FqName? =
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        bindingContext[BindingContext.TYPE, this]?.fqNameOrNull()</span>
+
+    private fun KtExpression.expressionTypeOrNull(): KotlinType? =
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        bindingContext[BindingContext.EXPRESSION_TYPE_INFO, this]?.type</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

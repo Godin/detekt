@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SerialVersionUIDInSerializableClass.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">SerialVersionUIDInSerializableClass.kt</span></div><h1>SerialVersionUIDInSerializableClass.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.companionObject
+import io.gitlab.arturbosch.detekt.rules.isConstant
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtConstantExpression
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtPrefixExpression
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+
+/**
+ * Classes which implement the `Serializable` interface should also correctly declare a `serialVersionUID`.
+ * This rule verifies that a `serialVersionUID` was correctly defined and declared as `private`.
+ *
+ * [More about `SerialVersionUID`](https://docs.oracle.com/javase/7/docs/api/java/io/Serializable.html)
+ *
+ * &lt;noncompliant&gt;
+ * class IncorrectSerializable : Serializable {
+ *
+ *     companion object {
+ *         val serialVersionUID = 1 // wrong declaration for UID
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class CorrectSerializable : Serializable {
+ *
+ *     companion object {
+ *         private const val serialVersionUID = 1L
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.16.0&quot;)
+<span class="fc" id="L44">class SerialVersionUIDInSerializableClass(config: Config) : Rule(</span>
+<span class="fc" id="L45">    config,</span>
+<span class="fc" id="L46">    &quot;A class which implements the Serializable interface does not define a correct serialVersionUID field. &quot; +</span>
+        &quot;The serialVersionUID field should be a private constant long value inside a companion object.&quot;
+) {
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc" id="L51">        super.visitClass(klass)</span>
+<span class="pc bpc" id="L52" title="2 of 4 branches missed.">        if (!klass.isInterface() &amp;&amp; isImplementingSerializable(klass)) {</span>
+<span class="nc" id="L53">            val companionObject = klass.companionObject()</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">            if (companionObject == null) {</span>
+<span class="nc" id="L55">                report(</span>
+<span class="nc" id="L56">                    CodeSmell(</span>
+<span class="nc" id="L57">                        Entity.atName(klass),</span>
+<span class="nc" id="L58">                        klass.getIssueMessage(&quot;class&quot;)</span>
+                    )
+                )
+            } else {
+<span class="nc bnc" id="L62" title="All 2 branches missed.">                val finding = searchSerialVersionUIDFinding(companionObject, klass) ?: return</span>
+<span class="nc" id="L63">                reportFinding(finding)</span>
+            }
+        }
+<span class="fc" id="L66">    }</span>
+
+    override fun visitObjectDeclaration(declaration: KtObjectDeclaration) {
+<span class="nc" id="L69">        super.visitObjectDeclaration(declaration)</span>
+<span class="nc bnc" id="L70" title="All 4 branches missed.">        if (!declaration.isCompanion() &amp;&amp; isImplementingSerializable(declaration)) {</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">            val finding = searchSerialVersionUIDFinding(declaration) ?: return</span>
+<span class="nc" id="L72">            reportFinding(finding)</span>
+        }
+<span class="nc" id="L74">    }</span>
+
+    private fun reportFinding(finding: SerialVersionUIDFindings) {
+<span class="nc" id="L77">        report(</span>
+<span class="nc" id="L78">            CodeSmell(</span>
+<span class="nc" id="L79">                Entity.atName(finding.violatingElement),</span>
+<span class="nc" id="L80">                finding.issueMsg</span>
+            )
+        )
+<span class="nc" id="L83">    }</span>
+
+    private fun isImplementingSerializable(classOrObject: KtClassOrObject) =
+<span class="pc" id="L86">        classOrObject.superTypeListEntries.any { it.text == &quot;Serializable&quot; }</span>
+
+<span class="nc" id="L88">    private fun searchSerialVersionUIDFinding(</span>
+        declaration: KtObjectDeclaration,
+<span class="nc" id="L90">        parentDeclaration: KtNamedDeclaration = declaration,</span>
+    ): SerialVersionUIDFindings? {
+<span class="nc bnc" id="L92" title="All 6 branches missed.">        val property = declaration.body?.properties?.firstOrNull { it.name == &quot;serialVersionUID&quot; }</span>
+<span class="nc" id="L93">            ?: return SerialVersionUIDFindings(</span>
+<span class="nc" id="L94">                parentDeclaration,</span>
+<span class="nc" id="L95">                parentDeclaration.getIssueMessage(</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                    if (parentDeclaration is KtClass) &quot;class&quot; else &quot;object&quot;</span>
+                )
+            )
+<span class="nc bnc" id="L99" title="All 4 branches missed.">        val isPropertyPrivate = declaration.isPrivate() || property.isPrivate()</span>
+<span class="nc bnc" id="L100" title="All 6 branches missed.">        return if (property.isConstant() &amp;&amp; isLongProperty(property) &amp;&amp; isPropertyPrivate) {</span>
+<span class="nc" id="L101">            null</span>
+        } else {
+<span class="nc" id="L103">            SerialVersionUIDFindings(</span>
+<span class="nc" id="L104">                property,</span>
+<span class="nc" id="L105">                &quot;The property `serialVersionUID` signature is not correct. `serialVersionUID` should be &quot; +</span>
+                    &quot;`private` and `constant` and its type should be `Long`&quot;
+            )
+        }
+    }
+
+    private fun KtNamedDeclaration.getIssueMessage(typeOfDeclaration: String) =
+<span class="nc" id="L112">        &quot;The $typeOfDeclaration ${this.nameAsSafeName} &quot; +</span>
+<span class="nc" id="L113">            &quot;implements the `Serializable` interface and should thus define a `serialVersionUID`.&quot;</span>
+
+<span class="nc bnc" id="L115" title="All 4 branches missed.">    private fun isLongProperty(property: KtProperty) = hasLongType(property) || hasLongAssignment(property)</span>
+
+<span class="nc bnc" id="L117" title="All 2 branches missed.">    private fun hasLongType(property: KtProperty) = property.typeReference?.text == &quot;Long&quot;</span>
+
+    private fun hasLongAssignment(property: KtProperty): Boolean {
+<span class="nc" id="L120">        val assignmentText = property.children</span>
+<span class="nc bnc" id="L121" title="All 4 branches missed.">            .singleOrNull { it is KtConstantExpression || it is KtPrefixExpression }</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            ?.text</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        return assignmentText != null &amp;&amp;</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            assignmentText.last() == 'L' &amp;&amp;</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">            assignmentText.substring(0, assignmentText.length - 1).toLongOrNull() != null</span>
+    }
+
+<span class="nc" id="L128">    private data class SerialVersionUIDFindings(</span>
+<span class="nc" id="L129">        val violatingElement: KtNamedDeclaration,</span>
+<span class="nc" id="L130">        val issueMsg: String,</span>
+    )
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

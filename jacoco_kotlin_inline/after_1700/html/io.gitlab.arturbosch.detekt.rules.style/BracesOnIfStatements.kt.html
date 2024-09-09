@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BracesOnIfStatements.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">BracesOnIfStatements.kt</span></div><h1>BracesOnIfStatements.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+
+/**
+ * This rule detects `if` statements which do not comply with the specified rules.
+ * Keeping braces consistent will improve readability and avoid possible errors.
+ *
+ * The available options are:
+ *  * `always`: forces braces on all `if` and `else` branches in the whole codebase.
+ *  * `consistent`: ensures that braces are consistent within each `if`-`else if`-`else` chain.
+ *    If there's a brace on one of the branches, all branches should have it.
+ *  * `necessary`: forces no braces on any `if` and `else` branches in the whole codebase
+ *    except where necessary for multi-statement branches.
+ *  * `never`: forces no braces on any `if` and `else` branches in the whole codebase.
+ *
+ * Single-line if-statement has no line break (\n):
+ * ```kotlin
+ * if (a) b else c
+ * ```
+ * Multi-line if-statement has at least one line break (\n):
+ * ```kotlin
+ * if (a) b
+ * else c
+ * ```
+ *
+ * &lt;noncompliant&gt;
+ * // singleLine = 'never'
+ * if (a) { b } else { c }
+ *
+ * if (a) { b } else c
+ *
+ * if (a) b else { c; d }
+ *
+ * // multiLine = 'never'
+ * if (a) {
+ *    b
+ * } else {
+ *    c
+ * }
+ *
+ * // singleLine = 'always'
+ * if (a) b else c
+ *
+ * if (a) { b } else c
+ *
+ * // multiLine = 'always'
+ * if (a) {
+ *    b
+ * } else
+ *    c
+ *
+ * // singleLine = 'consistent'
+ * if (a) b else { c }
+ * if (a) b else if (c) d else { e }
+ *
+ * // multiLine = 'consistent'
+ * if (a)
+ *    b
+ * else {
+ *    c
+ * }
+ *
+ * // singleLine = 'necessary'
+ * if (a) { b } else { c; d }
+ *
+ * // multiLine = 'necessary'
+ * if (a) {
+ *    b
+ *    c
+ * } else if (d) {
+ *    e
+ * } else {
+ *    f
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * // singleLine = 'never'
+ * if (a) b else c
+ *
+ * // multiLine = 'never'
+ * if (a)
+ *    b
+ * else
+ *    c
+ *
+ * // singleLine = 'always'
+ * if (a) { b } else { c }
+ *
+ * if (a) { b } else if (c) { d }
+ *
+ * // multiLine = 'always'
+ * if (a) {
+ *    b
+ * } else {
+ *    c
+ * }
+ *
+ * if (a) {
+ *    b
+ * } else if (c) {
+ *    d
+ * }
+ *
+ * // singleLine = 'consistent'
+ * if (a) b else c
+ *
+ * if (a) { b } else { c }
+ *
+ * if (a) { b } else { c; d }
+ *
+ * // multiLine = 'consistent'
+ * if (a) {
+ *    b
+ * } else {
+ *    c
+ * }
+ *
+ * if (a) b
+ * else c
+ *
+ * // singleLine = 'necessary'
+ * if (a) b else { c; d }
+ *
+ * // multiLine = 'necessary'
+ * if (a) {
+ *    b
+ *    c
+ * } else if (d)
+ *    e
+ * else
+ *    f
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L147">class BracesOnIfStatements(config: Config) : Rule(</span>
+<span class="fc" id="L148">    config,</span>
+<span class="fc" id="L149">    &quot;Braces do not comply with the specified policy&quot;</span>
+) {
+
+    @Configuration(&quot;single-line braces policy&quot;)
+<span class="fc" id="L153">    private val singleLine: BracePolicy by config(&quot;never&quot;) { BracePolicy.getValue(it) }</span>
+
+    @Configuration(&quot;multi-line braces policy&quot;)
+<span class="fc" id="L156">    private val multiLine: BracePolicy by config(&quot;always&quot;) { BracePolicy.getValue(it) }</span>
+
+    override fun visitIfExpression(expression: KtIfExpression) {
+<span class="fc" id="L159">        super.visitIfExpression(expression)</span>
+
+<span class="fc" id="L161">        val parent = expression.parentIfCandidate()</span>
+        // Ignore `else` branches, they're handled by the initial `if`'s visit.
+        // But let us process `then` branches and conditions, because they might be `if` themselves.
+<span class="fc bfc" id="L164" title="All 4 branches covered.">        if (parent is KtIfExpression &amp;&amp; parent.`else` === expression) return</span>
+
+<span class="fc" id="L166">        val branches: List&lt;KtExpression&gt; = walk(expression)</span>
+<span class="fc" id="L167">        validate(branches, policy(expression))</span>
+<span class="fc" id="L168">    }</span>
+
+    private fun walk(expression: KtExpression): List&lt;KtExpression&gt; {
+<span class="fc" id="L171">        val list = mutableListOf&lt;KtExpression&gt;()</span>
+<span class="fc" id="L172">        var current: KtExpression? = expression</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        while (current is KtIfExpression) {</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">            current.then?.let { list.add(it) }</span>
+<span class="fc bfc" id="L175" title="All 4 branches covered.">            current.`else`?.takeIf {</span>
+                // Don't add `if` because it's an `else if` which we treat as one unit.
+<span class="fc bfc" id="L177" title="All 2 branches covered.">                it !is KtIfExpression &amp;&amp;</span>
+                    // Don't add KtQualifiedExpression because it's `if-else` chained with other expression
+<span class="fc bfc" id="L179" title="All 2 branches covered.">                    it !is KtQualifiedExpression &amp;&amp;</span>
+                    // Don't add KtBinaryExpression because it's `if-else` chained with elvis or other binary expression
+<span class="fc bfc" id="L181" title="All 2 branches covered.">                    it !is KtBinaryExpression</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">            }?.let { list.add(it) }</span>
+<span class="fc" id="L183">            current = current.`else`</span>
+        }
+<span class="fc" id="L185">        return list</span>
+    }
+
+    private fun validate(list: List&lt;KtExpression&gt;, policy: BracePolicy) {
+<span class="fc bfc" id="L189" title="All 4 branches covered.">        val violators = when (policy) {</span>
+            BracePolicy.Always -&gt; {
+<span class="fc bfc" id="L191" title="All 2 branches covered.">                list.filter { !hasBraces(it) }</span>
+            }
+
+            BracePolicy.Necessary -&gt; {
+<span class="fc bfc" id="L195" title="All 4 branches covered.">                list.filter { !isMultiStatement(it) &amp;&amp; hasBraces(it) }</span>
+            }
+
+            BracePolicy.Never -&gt; {
+<span class="fc" id="L199">                list.filter { hasBraces(it) }</span>
+            }
+
+            BracePolicy.Consistent -&gt; {
+<span class="fc" id="L203">                val braces = list.count { hasBraces(it) }</span>
+<span class="fc bfc" id="L204" title="All 2 branches covered.">                val noBraces = list.count { !hasBraces(it) }</span>
+<span class="fc bfc" id="L205" title="All 4 branches covered.">                if (braces != 0 &amp;&amp; noBraces != 0) {</span>
+<span class="fc" id="L206">                    list.take(1)</span>
+                } else {
+<span class="fc" id="L208">                    emptyList()</span>
+                }
+            }
+        }
+<span class="fc" id="L212">        violators.forEach { report(it, policy) }</span>
+<span class="fc" id="L213">    }</span>
+
+    private fun report(violator: KtExpression, policy: BracePolicy) {
+<span class="fc" id="L216">        val iff = violator.parentIfCandidate() as KtIfExpression</span>
+<span class="fc" id="L217">        val reported = when {</span>
+<span class="fc bfc" id="L218" title="All 2 branches covered.">            iff.then === violator -&gt; iff.ifKeyword</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">            iff.`else` === violator -&gt; iff.elseKeyword</span>
+<span class="nc" id="L220">            else -&gt; error(&quot;Violating element (${violator.text}) is not part of this if (${iff.text})&quot;)</span>
+        }
+<span class="fc bfc" id="L222" title="All 4 branches covered.">        val message = when (policy) {</span>
+<span class="fc" id="L223">            BracePolicy.Always -&gt; &quot;Missing braces on this branch, add them.&quot;</span>
+<span class="fc" id="L224">            BracePolicy.Consistent -&gt; &quot;Inconsistent braces, make sure all branches either have or don't have braces.&quot;</span>
+<span class="fc" id="L225">            BracePolicy.Necessary -&gt; &quot;Extra braces exist on this branch, remove them (ignore multi-statement).&quot;</span>
+<span class="fc" id="L226">            BracePolicy.Never -&gt; &quot;Extra braces exist on this branch, remove them.&quot;</span>
+        }
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">        report(CodeSmell(Entity.from(reported ?: violator), message))</span>
+<span class="fc" id="L229">    }</span>
+
+    /**
+     * Returns a potential parent of the expression, that could be a [KtIfExpression].
+     * There's a double-indirection needed because the `then` and `else` branches
+     * are represented as a [org.jetbrains.kotlin.psi.KtContainerNodeForControlStructureBody].
+     * Also, the condition inside the `if` is in an intermediate [org.jetbrains.kotlin.psi.KtContainerNode].
+     * ```
+     *         if        (parent)
+     *      /  |  \
+     * cond  then  else  (parent)
+     *  |     |     |
+     * expr  expr  expr
+     * ```
+     * @see org.jetbrains.kotlin.KtNodeTypes.CONDITION
+     * @see org.jetbrains.kotlin.KtNodeTypes.THEN
+     * @see org.jetbrains.kotlin.KtNodeTypes.ELSE
+     */
+    private fun KtExpression.parentIfCandidate(): PsiElement? =
+<span class="fc" id="L248">        this.parent.parent</span>
+
+    private fun isMultiStatement(expression: KtExpression): Boolean =
+<span class="fc bfc" id="L251" title="All 4 branches covered.">        expression is KtBlockExpression &amp;&amp; expression.statements.size &gt; 1</span>
+
+    private fun policy(expression: KtExpression): BracePolicy =
+<span class="fc bfc" id="L254" title="All 2 branches covered.">        if (expression.textContains('\n')) multiLine else singleLine</span>
+
+    private fun hasBraces(expression: KtExpression): Boolean =
+<span class="fc" id="L257">        expression is KtBlockExpression</span>
+
+<span class="fc" id="L259">    enum class BracePolicy(val config: String) {</span>
+<span class="fc" id="L260">        Always(&quot;always&quot;),</span>
+<span class="fc" id="L261">        Consistent(&quot;consistent&quot;),</span>
+<span class="fc" id="L262">        Necessary(&quot;necessary&quot;),</span>
+<span class="fc" id="L263">        Never(&quot;never&quot;);</span>
+
+        companion object {
+            fun getValue(arg: String): BracePolicy =
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">                entries.singleOrNull { it.config == arg }</span>
+<span class="pc" id="L268">                    ?: error(&quot;Unknown value $arg, allowed values are: ${entries.joinToString(&quot;|&quot;)}&quot;)</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

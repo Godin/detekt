@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NestedClassesVisibility.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">NestedClassesVisibility.kt</span></div><h1>NestedClassesVisibility.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isInternal
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtEnumEntry
+
+/**
+ * Nested classes inherit their visibility from the parent class
+ * and are often used to implement functionality local to the class it is nested in.
+ * These nested classes can't have a higher visibility than their parent.
+ * However, the visibility can be further restricted by using a private modifier for instance.
+ * In internal classes the _explicit_ public modifier for nested classes is misleading and thus unnecessary,
+ * because the nested class still has an internal visibility.
+ *
+ * &lt;noncompliant&gt;
+ * internal class Outer {
+ *     // explicit public modifier still results in an internal nested class
+ *     public class Nested
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * internal class Outer {
+ *     class Nested1
+ *     internal class Nested2
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.16.0&quot;)
+<span class="fc" id="L37">class NestedClassesVisibility(config: Config) : Rule(</span>
+<span class="fc" id="L38">    config,</span>
+<span class="fc" id="L39">    &quot;The explicit public modifier still results in an internal nested class.&quot;</span>
+) {
+
+    override fun visitClass(klass: KtClass) {
+<span class="pc bpc" id="L43" title="2 of 6 branches missed.">        if (!klass.isInterface() &amp;&amp; klass.isTopLevel() &amp;&amp; klass.isInternal()) {</span>
+<span class="fc" id="L44">            checkDeclarations(klass)</span>
+        }
+<span class="fc" id="L46">    }</span>
+
+    private fun checkDeclarations(klass: KtClass) {
+<span class="fc" id="L49">        klass.declarations</span>
+<span class="fc" id="L50">            .filterIsInstance&lt;KtClassOrObject&gt;()</span>
+<span class="pc bnc" id="L51" title="All 6 branches missed.">            .filter { it.hasModifier(KtTokens.PUBLIC_KEYWORD) &amp;&amp; it.isNoEnum() &amp;&amp; it.isNoCompanionObj() }</span>
+<span class="pc" id="L52">            .forEach { report(CodeSmell(Entity.from(it), description)) }</span>
+<span class="fc" id="L53">    }</span>
+
+<span class="nc bnc" id="L55" title="All 4 branches missed.">    private fun KtClassOrObject.isNoEnum() = !this.hasModifier(KtTokens.ENUM_KEYWORD) &amp;&amp; this !is KtEnumEntry</span>
+
+<span class="nc bnc" id="L57" title="All 2 branches missed.">    private fun KtClassOrObject.isNoCompanionObj() = !this.hasModifier(KtTokens.COMPANION_KEYWORD)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

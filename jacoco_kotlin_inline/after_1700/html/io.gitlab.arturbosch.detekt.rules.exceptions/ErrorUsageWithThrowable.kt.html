@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ErrorUsageWithThrowable.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.exceptions</a> &gt; <span class="el_source">ErrorUsageWithThrowable.kt</span></div><h1>ErrorUsageWithThrowable.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.exceptions
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.typeUtil.supertypes
+
+/**
+ * This rule reports usage of `error` method with [Throwable] parameter, i.e, `error(throwable)`.
+ * The above will result in `throw IllegalStateException(throwable.toString())` which doesn't
+ * provide any info about `throwable.message` or `stackTrace`.
+ * Instead, use `throw IllegalStateException(throwable)` to rethrow the throwable as `IllegalStateException`.
+ *
+ * &lt;noncompliant&gt;
+ * fun foo() {
+ *     try {
+ *         // ... some code
+ *     } catch(e: IOException) {
+ *         // some addition handling
+ *         error(e)
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun foo() {
+ *     try {
+ *         // ... some code
+ *     } catch(e: IOException) {
+ *         // some addition handling
+ *         throw e // or throw IllegalStateException(&lt;some custom error msg&gt;, e)
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L47">class ErrorUsageWithThrowable(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;Passing `Throwable` in `error` method is ambiguous. Use &quot; +</span>
+        &quot;`error(throwable.message ?: \&quot;No error message provided\&quot;)` instead.&quot;
+) {
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="nc" id="L54">        super.visitCallExpression(expression)</span>
+<span class="nc bnc" id="L55" title="All 4 branches missed.">        val descriptor = expression.getResolvedCall(bindingContext)?.resultingDescriptor ?: return</span>
+<span class="nc bnc" id="L56" title="All 4 branches missed.">        if (descriptor.fqNameOrNull()?.toString() != ERROR_FQ_NAME) return</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        val errorMsgValueArg = expression.valueArguments.getOrNull(0) ?: return</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        val errorMsgTypeInfo = bindingContext[</span>
+<span class="nc" id="L59">            BindingContext.EXPRESSION_TYPE_INFO,</span>
+<span class="nc" id="L60">            errorMsgValueArg.getArgumentExpression()</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        ]?.type ?: return</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (errorMsgTypeInfo.isThrowableSubtypeOfThrowable()) {</span>
+<span class="nc" id="L63">            report(CodeSmell(Entity.from(errorMsgValueArg), description))</span>
+        }
+<span class="nc" id="L65">    }</span>
+
+    private fun KotlinType.isThrowableSubtypeOfThrowable(): Boolean =
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        this.fqNameOrNull() in throwableTypes ||</span>
+<span class="nc" id="L69">            this.supertypes()</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">                .any { it.fqNameOrNull() in throwableTypes }</span>
+
+    companion object {
+        private const val ERROR_FQ_NAME = &quot;kotlin.error&quot;
+<span class="fc" id="L74">        private val throwableTypes = setOf(</span>
+<span class="fc" id="L75">            StandardNames.FqNames.throwable,</span>
+<span class="fc" id="L76">            FqName(&quot;java.lang.Throwable&quot;)</span>
+        )
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

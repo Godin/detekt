@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HtmlOutputReport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.report.html</a> &gt; <span class="el_source">HtmlOutputReport.kt</span></div><h1>HtmlOutputReport.kt</h1><pre class="source lang-java linenums">package io.github.detekt.report.html
+
+import io.github.detekt.metrics.ComplexityReportGenerator
+import io.github.detekt.utils.openSafeStream
+import io.gitlab.arturbosch.detekt.api.Detektion
+import io.gitlab.arturbosch.detekt.api.Issue
+import io.gitlab.arturbosch.detekt.api.OutputReport
+import io.gitlab.arturbosch.detekt.api.ProjectMetric
+import io.gitlab.arturbosch.detekt.api.RuleInstance
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import io.gitlab.arturbosch.detekt.api.SetupContext
+import io.gitlab.arturbosch.detekt.api.TextLocation
+import io.gitlab.arturbosch.detekt.api.getOrNull
+import io.gitlab.arturbosch.detekt.api.internal.BuiltInOutputReport
+import io.gitlab.arturbosch.detekt.api.internal.whichDetekt
+import kotlinx.html.CommonAttributeGroupFacadeFlowInteractiveContent
+import kotlinx.html.FlowContent
+import kotlinx.html.FlowOrInteractiveContent
+import kotlinx.html.HTMLTag
+import kotlinx.html.HtmlTagMarker
+import kotlinx.html.TagConsumer
+import kotlinx.html.a
+import kotlinx.html.attributesMapOf
+import kotlinx.html.details
+import kotlinx.html.div
+import kotlinx.html.h3
+import kotlinx.html.id
+import kotlinx.html.li
+import kotlinx.html.span
+import kotlinx.html.stream.createHTML
+import kotlinx.html.ul
+import kotlinx.html.visit
+import java.nio.file.Path
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.io.path.absolute
+import kotlin.io.path.invariantSeparatorsPathString
+import kotlin.io.path.relativeTo
+
+private const val DEFAULT_TEMPLATE = &quot;default-html-report-template.html&quot;
+private const val PLACEHOLDER_METRICS = &quot;@@@metrics@@@&quot;
+private const val PLACEHOLDER_ISSUES = &quot;@@@issues@@@&quot;
+private const val PLACEHOLDER_COMPLEXITY_REPORT = &quot;@@@complexity@@@&quot;
+private const val PLACEHOLDER_VERSION = &quot;@@@version@@@&quot;
+private const val PLACEHOLDER_DATE = &quot;@@@date@@@&quot;
+
+private const val DETEKT_WEBSITE_BASE_URL = &quot;https://detekt.dev&quot;
+
+/**
+ * Contains rule violations and metrics formatted in a human friendly way, so that it can be inspected in a web browser.
+ * See: https://detekt.dev/configurations.html#output-reports
+ */
+<span class="fc" id="L55">class HtmlOutputReport : BuiltInOutputReport, OutputReport() {</span>
+
+<span class="fc" id="L57">    override val id: String = &quot;HtmlOutputReport&quot;</span>
+<span class="fc" id="L58">    override val ending = &quot;html&quot;</span>
+
+<span class="pc" id="L60">    var basePath: Path? = null</span>
+
+    override fun init(context: SetupContext) {
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        basePath = context.getOrNull&lt;Path&gt;(DETEKT_OUTPUT_REPORT_BASE_PATH_KEY)?.absolute()</span>
+<span class="fc" id="L64">    }</span>
+
+    override fun render(detektion: Detektion) =
+<span class="fc" id="L67">        javaClass.getResource(&quot;/$DEFAULT_TEMPLATE&quot;)!!</span>
+<span class="fc" id="L68">            .openSafeStream()</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">            .bufferedReader()</span>
+<span class="pc" id="L70">            .use { it.readText() }</span>
+<span class="fc" id="L71">            .replace(PLACEHOLDER_VERSION, renderVersion())</span>
+<span class="fc" id="L72">            .replace(PLACEHOLDER_DATE, renderDate())</span>
+<span class="fc" id="L73">            .replace(PLACEHOLDER_METRICS, renderMetrics(detektion.metrics))</span>
+<span class="fc" id="L74">            .replace(PLACEHOLDER_COMPLEXITY_REPORT, renderComplexity(getComplexityMetrics(detektion)))</span>
+<span class="fc" id="L75">            .replace(PLACEHOLDER_ISSUES, renderIssues(detektion.issues))</span>
+
+<span class="fc" id="L77">    private fun renderVersion(): String = whichDetekt()</span>
+
+    private fun renderDate(): String {
+<span class="fc" id="L80">        val formatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss&quot;)</span>
+<span class="fc" id="L81">        return &quot;${OffsetDateTime.now(ZoneOffset.UTC).format(formatter)} UTC&quot;</span>
+    }
+
+<span class="fc" id="L84">    private fun renderMetrics(metrics: Collection&lt;ProjectMetric&gt;) = createHTML().div {</span>
+<span class="fc" id="L85">        ul {</span>
+<span class="fc" id="L86">            metrics.forEach {</span>
+<span class="fc" id="L87">                li { text(&quot;%,d ${it.type}&quot;.format(Locale.ROOT, it.value)) }</span>
+<span class="fc" id="L88">            }</span>
+<span class="fc" id="L89">        }</span>
+<span class="fc" id="L90">    }</span>
+
+<span class="fc" id="L92">    private fun renderComplexity(complexityReport: List&lt;String&gt;) = createHTML().div {</span>
+<span class="fc" id="L93">        ul {</span>
+<span class="fc" id="L94">            complexityReport.forEach {</span>
+<span class="fc" id="L95">                li { text(it.trim()) }</span>
+<span class="fc" id="L96">            }</span>
+<span class="fc" id="L97">        }</span>
+<span class="fc" id="L98">    }</span>
+
+<span class="fc" id="L100">    private fun renderIssues(issues: List&lt;Issue&gt;) = createHTML().div {</span>
+<span class="fc" id="L101">        val total = issues.count()</span>
+
+<span class="fc" id="L103">        text(&quot;Total: %,d&quot;.format(Locale.ROOT, total))</span>
+
+<span class="fc" id="L105">        issues</span>
+<span class="fc" id="L106">            .groupBy { it.ruleInstance.ruleSetId }</span>
+<span class="fc" id="L107">            .toList()</span>
+<span class="fc" id="L108">            .sortedBy { (group, _) -&gt; group.value }</span>
+<span class="fc" id="L109">            .forEach { (group, groupIssues) -&gt;</span>
+<span class="fc" id="L110">                renderGroup(group, groupIssues)</span>
+<span class="fc" id="L111">            }</span>
+<span class="fc" id="L112">    }</span>
+
+    private fun FlowContent.renderGroup(group: RuleSet.Id, issues: List&lt;Issue&gt;) {
+<span class="fc" id="L115">        h3 { text(&quot;$group: %,d&quot;.format(Locale.ROOT, issues.size)) }</span>
+
+<span class="fc" id="L117">        issues</span>
+<span class="fc" id="L118">            .groupBy { it.ruleInstance }</span>
+<span class="fc" id="L119">            .toList()</span>
+<span class="fc" id="L120">            .sortedBy { (ruleInstance, _) -&gt; ruleInstance.id }</span>
+<span class="fc" id="L121">            .forEach { (ruleInstance, ruleIssues) -&gt;</span>
+<span class="fc" id="L122">                renderRule(ruleInstance, ruleIssues)</span>
+<span class="fc" id="L123">            }</span>
+<span class="fc" id="L124">    }</span>
+
+    private fun FlowContent.renderRule(ruleInstance: RuleInstance, issues: List&lt;Issue&gt;) {
+<span class="fc" id="L127">        val ruleId = ruleInstance.id</span>
+<span class="fc" id="L128">        val ruleName = ruleInstance.name.value</span>
+<span class="fc" id="L129">        val ruleSetId = ruleInstance.ruleSetId.value</span>
+<span class="fc" id="L130">        details {</span>
+<span class="fc" id="L131">            id = ruleId</span>
+<span class="fc" id="L132">            open = true</span>
+
+<span class="fc" id="L134">            summary(&quot;rule-container&quot;) {</span>
+<span class="fc" id="L135">                span(&quot;rule&quot;) { text(&quot;$ruleId: %,d &quot;.format(Locale.ROOT, issues.size)) }</span>
+<span class="fc" id="L136">                span(&quot;description&quot;) { text(ruleInstance.description) }</span>
+<span class="fc" id="L137">            }</span>
+
+<span class="fc" id="L139">            a(&quot;$DETEKT_WEBSITE_BASE_URL/docs/rules/${ruleSetId.lowercase()}#${ruleName.lowercase()}&quot;) {</span>
+<span class="fc" id="L140">                +&quot;Documentation&quot;</span>
+<span class="fc" id="L141">            }</span>
+
+<span class="fc" id="L143">            ul {</span>
+<span class="fc" id="L144">                issues</span>
+<span class="fc" id="L145">                    .sortedWith(</span>
+<span class="fc" id="L146">                        compareBy(</span>
+<span class="fc" id="L147">                            { it.location.path },</span>
+<span class="fc" id="L148">                            { it.location.source.line },</span>
+<span class="fc" id="L149">                            { it.location.source.column },</span>
+                        )
+                    )
+<span class="fc" id="L152">                    .forEach {</span>
+<span class="fc" id="L153">                        li {</span>
+<span class="fc" id="L154">                            renderIssue(it)</span>
+<span class="fc" id="L155">                        }</span>
+<span class="fc" id="L156">                    }</span>
+<span class="fc" id="L157">            }</span>
+<span class="fc" id="L158">        }</span>
+<span class="fc" id="L159">    }</span>
+
+    private fun FlowContent.renderIssue(issue: Issue) {
+<span class="pc bpc" id="L162" title="1 of 4 branches missed.">        val filePath = basePath?.let { issue.location.path.relativeTo(it) } ?: issue.location.path</span>
+<span class="fc" id="L163">        val pathString = filePath.invariantSeparatorsPathString</span>
+<span class="fc" id="L164">        span(&quot;location&quot;) {</span>
+<span class="fc" id="L165">            text(</span>
+<span class="fc" id="L166">                &quot;$pathString:${issue.location.source.line}:${issue.location.source.column}&quot;</span>
+            )
+<span class="fc" id="L168">        }</span>
+
+<span class="pc bpc" id="L170" title="2 of 4 branches missed.">        if (issue.message.isNotEmpty()) {</span>
+<span class="fc" id="L171">            span(&quot;message&quot;) { text(issue.message) }</span>
+        }
+
+<span class="fc" id="L174">        val psiFile = issue.entity.ktElement.containingFile</span>
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        if (psiFile != null) {</span>
+<span class="fc" id="L176">            val lineSequence = psiFile.text.splitToSequence('\n')</span>
+<span class="fc" id="L177">            snippetCode(issue.ruleInstance.name, lineSequence, issue.location.source, issue.location.text.length())</span>
+        }
+<span class="fc" id="L179">    }</span>
+
+    private fun getComplexityMetrics(detektion: Detektion): List&lt;String&gt; =
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        ComplexityReportGenerator.create(detektion).generate().orEmpty()</span>
+}
+
+<span class="nc" id="L185">@HtmlTagMarker</span>
+private fun FlowOrInteractiveContent.summary(
+    classes: String,
+<span class="nc" id="L188">    block: SUMMARY.() -&gt; Unit = {}</span>
+<span class="fc" id="L189">): Unit = SUMMARY(attributesMapOf(&quot;class&quot;, classes), consumer).visit(block)</span>
+
+<span class="fc" id="L191">private class SUMMARY(</span>
+    initialAttributes: Map&lt;String, String&gt;,
+<span class="fc" id="L193">    override val consumer: TagConsumer&lt;*&gt;</span>
+<span class="fc" id="L194">) : HTMLTag(&quot;summary&quot;, consumer, initialAttributes, null, false, false),</span>
+    CommonAttributeGroupFacadeFlowInteractiveContent
+
+<span class="fc" id="L197">private fun TextLocation.length(): Int = end - start</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

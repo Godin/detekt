@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ModifierOrder.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">ModifierOrder.kt</span></div><h1>ModifierOrder.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
+import org.jetbrains.kotlin.lexer.KtTokens.ABSTRACT_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.ACTUAL_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.ANNOTATION_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.COMPANION_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.CONST_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.DATA_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.ENUM_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.EXPECT_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.EXTERNAL_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.FINAL_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.FUN_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.INFIX_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.INLINE_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.INNER_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.INTERNAL_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.LATEINIT_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.OPEN_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.OPERATOR_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.OVERRIDE_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.PRIVATE_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.PROTECTED_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.PUBLIC_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.SEALED_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.SUSPEND_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.TAILREC_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.VALUE_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.VARARG_KEYWORD
+import org.jetbrains.kotlin.psi.KtModifierList
+import org.jetbrains.kotlin.psi.psiUtil.allChildren
+
+/**
+ * This rule reports cases in the code where modifiers are not in the correct order. The default modifier order is
+ * taken from: [Modifiers order](https://kotlinlang.org/docs/coding-conventions.html#modifiers-order)
+ *
+ * &lt;noncompliant&gt;
+ * lateinit internal val str: String
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * internal lateinit val str: String
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L52">class ModifierOrder(config: Config) : Rule(</span>
+<span class="fc" id="L53">    config,</span>
+<span class="fc" id="L54">    &quot;Modifiers are not in the correct order. Consider to reorder these modifiers.&quot;</span>
+) {
+
+    // subset of KtTokens.MODIFIER_KEYWORDS_ARRAY
+<span class="fc" id="L58">    private val order = arrayOf(</span>
+<span class="fc" id="L59">        PUBLIC_KEYWORD, PROTECTED_KEYWORD, PRIVATE_KEYWORD, INTERNAL_KEYWORD,</span>
+<span class="fc" id="L60">        EXPECT_KEYWORD, ACTUAL_KEYWORD,</span>
+<span class="fc" id="L61">        FINAL_KEYWORD, OPEN_KEYWORD, ABSTRACT_KEYWORD, SEALED_KEYWORD, CONST_KEYWORD,</span>
+<span class="fc" id="L62">        EXTERNAL_KEYWORD,</span>
+<span class="fc" id="L63">        OVERRIDE_KEYWORD,</span>
+<span class="fc" id="L64">        LATEINIT_KEYWORD,</span>
+<span class="fc" id="L65">        TAILREC_KEYWORD,</span>
+<span class="fc" id="L66">        VARARG_KEYWORD,</span>
+<span class="fc" id="L67">        SUSPEND_KEYWORD,</span>
+<span class="fc" id="L68">        INNER_KEYWORD,</span>
+<span class="fc" id="L69">        ENUM_KEYWORD, ANNOTATION_KEYWORD, FUN_KEYWORD,</span>
+<span class="fc" id="L70">        COMPANION_KEYWORD,</span>
+<span class="fc" id="L71">        INLINE_KEYWORD,</span>
+<span class="fc" id="L72">        VALUE_KEYWORD,</span>
+<span class="fc" id="L73">        INFIX_KEYWORD,</span>
+<span class="fc" id="L74">        OPERATOR_KEYWORD,</span>
+<span class="fc" id="L75">        DATA_KEYWORD</span>
+    )
+
+    override fun visitModifierList(list: KtModifierList) {
+<span class="fc" id="L79">        super.visitModifierList(list)</span>
+
+<span class="fc" id="L81">        val modifiers = list.allChildren</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            .mapNotNull { it.node.elementType as? KtModifierKeywordToken }</span>
+<span class="fc" id="L83">            .toList()</span>
+
+<span class="fc" id="L85">        val sortedModifiers = modifiers.sortedWith(compareBy { order.indexOf(it) })</span>
+
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        if (modifiers != sortedModifiers) {</span>
+<span class="fc" id="L88">            val modifierString = sortedModifiers.joinToString(&quot; &quot;) { it.value }</span>
+
+<span class="fc" id="L90">            report(CodeSmell(Entity.from(list), &quot;Modifier order should be: $modifierString&quot;))</span>
+        }
+<span class="fc" id="L92">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

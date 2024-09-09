@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompileExtensions.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.test.utils</a> &gt; <span class="el_source">CompileExtensions.kt</span></div><h1>CompileExtensions.kt</h1><pre class="source lang-java linenums">package io.github.detekt.test.utils
+
+import org.intellij.lang.annotations.Language
+import org.jetbrains.kotlin.psi.KtFile
+import java.nio.file.Path
+import kotlin.io.path.Path
+import kotlin.io.path.absolute
+
+/**
+ * Use this method if you define a kt file/class as a plain string in your test.
+ */
+fun compileContentForTest(
+    @Language(&quot;kotlin&quot;) content: String,
+    filename: String,
+): KtFile {
+<span class="pc bpc" id="L16" title="3 of 6 branches missed.">    require('/' !in filename &amp;&amp; '\\' !in filename) {</span>
+<span class="nc" id="L17">        &quot;filename must be a file name only and not contain any path elements&quot;</span>
+    }
+<span class="fc" id="L19">    return compileContentForTest(content, path = Path(&quot;/$filename&quot;))</span>
+}
+
+/**
+ * Use this method if you define a kt file/class as a plain string in your test.
+ */
+<span class="fc" id="L25">fun compileContentForTest(</span>
+    @Language(&quot;kotlin&quot;) content: String,
+<span class="fc" id="L27">    path: Path = Path(&quot;/&quot;).absolute().resolve(&quot;Test.kt&quot;),</span>
+<span class="fc" id="L28">): KtFile = KtTestCompiler.createKtFile(content, path)</span>
+
+/**
+ * Use this method if you test a kt file/class in the test resources.
+ */
+<span class="fc" id="L33">fun compileForTest(path: Path) = KtTestCompiler.compile(path)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

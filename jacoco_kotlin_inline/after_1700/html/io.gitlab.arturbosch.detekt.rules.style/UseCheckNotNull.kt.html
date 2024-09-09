@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UseCheckNotNull.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UseCheckNotNull.kt</span></div><h1>UseCheckNotNull.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isCallingWithNonNullCheckArgument
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+
+/**
+ * Turn on this rule to flag `check` calls for not-null check that can be replaced with a `checkNotNull` call.
+ *
+ * &lt;noncompliant&gt;
+ * check(x != null)
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * checkNotNull(x)
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L26">class UseCheckNotNull(config: Config) : Rule(</span>
+<span class="fc" id="L27">    config,</span>
+<span class="fc" id="L28">    &quot;Use checkNotNull() instead of check() for checking not-null.&quot;</span>
+) {
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L32">        super.visitCallExpression(expression)</span>
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">        if (expression.isCallingWithNonNullCheckArgument(checkFunctionFqName, bindingContext)) {</span>
+<span class="nc" id="L34">            report(CodeSmell(Entity.from(expression), description))</span>
+        }
+<span class="fc" id="L36">    }</span>
+
+    companion object {
+<span class="fc" id="L39">        private val checkFunctionFqName = FqName(&quot;kotlin.check&quot;)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

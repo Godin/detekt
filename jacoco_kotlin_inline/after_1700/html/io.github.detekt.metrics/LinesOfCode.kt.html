@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LinesOfCode.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.metrics</a> &gt; <span class="el_source">LinesOfCode.kt</span></div><h1>LinesOfCode.kt</h1><pre class="source lang-java linenums">package io.github.detekt.metrics
+
+import org.jetbrains.kotlin.com.intellij.lang.ASTNode
+import org.jetbrains.kotlin.com.intellij.psi.PsiComment
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.com.intellij.psi.PsiWhiteSpace
+import org.jetbrains.kotlin.com.intellij.psi.impl.source.tree.LeafElement
+import org.jetbrains.kotlin.com.intellij.psi.impl.source.tree.PsiCommentImpl
+import org.jetbrains.kotlin.com.intellij.psi.impl.source.tree.PsiWhiteSpaceImpl
+import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
+import org.jetbrains.kotlin.kdoc.psi.api.KDoc
+import org.jetbrains.kotlin.kdoc.psi.api.KDocElement
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocElementImpl
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocImpl
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocLink
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocName
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocSection
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocTag
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtFile
+
+<span class="fc" id="L22">fun ASTNode.tokenSequence(skipTreesOf: Set&lt;Class&lt;out PsiElement&gt;&gt;): Sequence&lt;ASTNode&gt; = sequence {</span>
+<span class="fc" id="L23">    val queue = ArrayDeque&lt;ASTNode&gt;()</span>
+<span class="fc" id="L24">    queue.add(this@tokenSequence)</span>
+    do {
+<span class="fc" id="L26">        val curr = queue.removeFirst()</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (curr.psi::class.java !in skipTreesOf) {</span>
+            // Yields only tokens which can be identified in the source code.
+            // Composite elements, e.g. classes or files, are abstractions over many leaf nodes.
+<span class="fc bfc" id="L30" title="All 2 branches covered.">            if (curr is LeafElement) {</span>
+<span class="fc" id="L31">                yield(curr)</span>
+            }
+<span class="fc" id="L33">            queue.addAll(curr.getChildren(null))</span>
+        }
+<span class="fc bfc" id="L35" title="All 4 branches covered.">    } while (queue.isNotEmpty())</span>
+<span class="fc" id="L36">}</span>
+
+<span class="fc" id="L38">fun KtElement.linesOfCode(inFile: KtFile = this.containingKtFile): Int =</span>
+<span class="fc" id="L39">    node.tokenSequence(comments)</span>
+<span class="fc" id="L40">        .map { it.line(inFile) }</span>
+<span class="fc" id="L41">        .distinct()</span>
+<span class="fc" id="L42">        .count()</span>
+
+<span class="fc" id="L44">fun ASTNode.line(inFile: KtFile): Int = DiagnosticUtils.getLineAndColumnInPsiFile(inFile, this.textRange).line</span>
+
+<span class="fc" id="L46">private val comments: Set&lt;Class&lt;out PsiElement&gt;&gt; = setOf(</span>
+<span class="fc" id="L47">    PsiWhiteSpace::class.java,</span>
+<span class="fc" id="L48">    PsiWhiteSpaceImpl::class.java,</span>
+<span class="fc" id="L49">    PsiComment::class.java,</span>
+<span class="fc" id="L50">    PsiCommentImpl::class.java,</span>
+<span class="fc" id="L51">    KDoc::class.java,</span>
+<span class="fc" id="L52">    KDocImpl::class.java,</span>
+<span class="fc" id="L53">    KDocElementImpl::class.java,</span>
+<span class="fc" id="L54">    KDocElement::class.java,</span>
+<span class="fc" id="L55">    KDocLink::class.java,</span>
+<span class="fc" id="L56">    KDocSection::class.java,</span>
+<span class="fc" id="L57">    KDocTag::class.java,</span>
+<span class="fc" id="L58">    KDocName::class.java</span>
+)
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

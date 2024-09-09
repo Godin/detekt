@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Config.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.api</a> &gt; <span class="el_source">Config.kt</span></div><h1>Config.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.api
+
+/**
+ * A configuration holds information about how to configure specific rules.
+ */
+interface Config {
+
+    /**
+     * Keeps track of which key was taken to [subConfig] this configuration.
+     * Sub-sequential calls to [subConfig] are tracked with '&gt;' as a separator.
+     *
+     * May be null if this is the top most configuration object.
+     */
+    val parentPath: String?
+
+    /**
+     * The reference to a parent [Config] from this configuration, useful when navigating with [subConfig].
+     * It's `null` if this is the top most configuration object.
+     */
+    val parent: Config?
+
+    /**
+     * Tries to retrieve part of the configuration based on given key.
+     */
+    fun subConfig(key: String): Config
+
+    /**
+     * Returns a set of all sub configuration keys.
+     */
+    fun subConfigKeys(): Set&lt;String&gt;
+
+    /**
+     * Retrieves a sub configuration or value based on given key. If configuration property cannot be found
+     * the specified default value is returned.
+     */
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">    fun &lt;T : Any&gt; valueOrDefault(key: String, default: T): T = valueOrNull(key) ?: default</span>
+
+    /**
+     * Retrieves a sub configuration or value based on given key.
+     * If the configuration property cannot be found, null is returned.
+     */
+    fun &lt;T : Any&gt; valueOrNull(key: String): T?
+
+    /**
+     * Is thrown when loading a configuration results in errors.
+     */
+<span class="pc" id="L47">    class InvalidConfigurationError(throwable: Throwable? = null) :</span>
+<span class="fc" id="L48">        RuntimeException(</span>
+<span class="fc" id="L49">            &quot;Provided configuration file is invalid: Structure must be from type Map&lt;String,Any&gt;!&quot; +</span>
+<span class="pc bpc" id="L50" title="2 of 4 branches missed.">                throwable?.let { &quot;\n&quot; + it.message }.orEmpty(),</span>
+<span class="fc" id="L51">            throwable</span>
+        )
+
+    companion object {
+
+        /**
+         * An empty configuration with no properties.
+         * This config should only be used in test cases.
+         * Always returns the default value except when 'active' is queried, it returns true.
+         */
+<span class="fc" id="L61">        val empty: Config = object : Config {</span>
+<span class="nc" id="L62">            override val parentPath: String? = null</span>
+
+<span class="fc" id="L64">            override val parent: Config = this</span>
+
+<span class="fc" id="L66">            override fun subConfig(key: String): Config = this</span>
+
+<span class="fc" id="L68">            override fun subConfigKeys(): Set&lt;String&gt; = emptySet()</span>
+
+<span class="fc" id="L70">            override fun &lt;T : Any&gt; valueOrNull(key: String): T? = null</span>
+
+<span class="nc" id="L72">            override fun toString(): String = &quot;Config.empty&quot;</span>
+        }
+
+        const val ACTIVE_KEY: String = &quot;active&quot;
+        const val ALIASES_KEY: String = &quot;aliases&quot;
+        const val AUTO_CORRECT_KEY: String = &quot;autoCorrect&quot;
+        const val SEVERITY_KEY: String = &quot;severity&quot;
+        const val EXCLUDES_KEY: String = &quot;excludes&quot;
+        const val INCLUDES_KEY: String = &quot;includes&quot;
+        const val CONFIG_SEPARATOR: String = &quot;&gt;&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

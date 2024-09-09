@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DoubleNegativeLambda.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">DoubleNegativeLambda.kt</span></div><h1>DoubleNegativeLambda.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.valuesWithReason
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtOperationReferenceExpression
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+
+/**
+ * Detects negation in lambda blocks where the function name is also in the negative (like `takeUnless`).
+ * A double negative is harder to read than a positive. In particular, if there are multiple conditions with `&amp;&amp;` etc. inside
+ * the lambda, then the reader may need to unpack these using DeMorgan's laws. Consider rewriting the lambda to use a positive version
+ * of the function (like `takeIf`).
+ *
+ * &lt;noncompliant&gt;
+ * fun Int.evenOrNull() = takeUnless { it % 2 != 0 }
+ * &lt;/noncompliant&gt;
+ * &lt;compliant&gt;
+ * fun Int.evenOrNull() = takeIf { it % 2 == 0 }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L29">class DoubleNegativeLambda(config: Config) : Rule(</span>
+<span class="fc" id="L30">    config,</span>
+<span class="fc" id="L31">    &quot;Double negative from a function name expressed in the negative (like `takeUnless`) with a lambda block &quot; +</span>
+        &quot;that also contains negation. This is more readable when rewritten using a positive form of the function &quot; +
+        &quot;(like `takeIf`).&quot;,
+) {
+
+<span class="fc" id="L36">    private val splitCamelCaseRegex = &quot;(?&lt;=[a-z])(?=[A-Z])&quot;.toRegex()</span>
+
+<span class="fc" id="L38">    private val negationTokens = listOf(</span>
+<span class="fc" id="L39">        KtTokens.EXCL,</span>
+<span class="fc" id="L40">        KtTokens.EXCLEQ,</span>
+<span class="fc" id="L41">        KtTokens.EXCLEQEQEQ,</span>
+<span class="fc" id="L42">        KtTokens.NOT_IN,</span>
+<span class="fc" id="L43">        KtTokens.NOT_IS,</span>
+    )
+
+    @Configuration(
+        &quot;Function names expressed in the negative that can form double negatives with their lambda blocks. &quot; +
+            &quot;These are grouped together with a recommendation to use a positive counterpart, or `null` if this is &quot; +
+            &quot;unknown.&quot;
+    )
+<span class="pc" id="L51">    private val negativeFunctions: List&lt;NegativeFunction&gt; by config(</span>
+<span class="fc" id="L52">        valuesWithReason(</span>
+<span class="fc" id="L53">            &quot;takeUnless&quot; to &quot;Use `takeIf` instead.&quot;,</span>
+<span class="fc" id="L54">            &quot;none&quot; to &quot;Use `all` instead.&quot;</span>
+        )
+    ) { list -&gt;
+<span class="nc" id="L57">        list.map { NegativeFunction(simpleName = it.value, recommendation = it.reason) }</span>
+    }
+
+    @Configuration(
+        &quot;Function name parts to look for in the lambda block when deciding &quot; +
+            &quot;if the lambda contains a negative.&quot;
+    )
+<span class="pc" id="L64">    private val negativeFunctionNameParts: Set&lt;String&gt; by config(listOf(&quot;not&quot;, &quot;non&quot;)) { it.toSet() }</span>
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="nc" id="L67">        super.visitCallExpression(expression)</span>
+<span class="nc bnc" id="L68" title="All 4 branches missed.">        val calleeExpression = expression.calleeExpression?.text ?: return</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        val negativeFunction = negativeFunctions.firstOrNull { it.simpleName == calleeExpression } ?: return</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        val lambdaArgument = expression.lambdaArguments.firstOrNull() ?: return</span>
+
+<span class="nc" id="L72">        val forbiddenChildren = lambdaArgument.collectDescendantsOfType&lt;KtExpression&gt; {</span>
+<span class="nc" id="L73">            it.isForbiddenNegation()</span>
+        }
+
+<span class="nc bnc" id="L76" title="All 4 branches missed.">        if (forbiddenChildren.isNotEmpty()) {</span>
+<span class="nc" id="L77">            report(</span>
+<span class="nc" id="L78">                CodeSmell(</span>
+<span class="nc" id="L79">                    Entity.from(expression),</span>
+<span class="nc" id="L80">                    formatMessage(forbiddenChildren, negativeFunction)</span>
+                )
+            )
+        }
+<span class="nc" id="L84">    }</span>
+
+    private fun KtExpression.isForbiddenNegation(): Boolean =
+<span class="nc" id="L87">        when (this) {</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            is KtOperationReferenceExpression -&gt; operationSignTokenType in negationTokens</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            is KtCallExpression -&gt; {</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                text == &quot;not()&quot; ||</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">                    text.split(splitCamelCaseRegex).map { it.lowercase() }.any { it in negativeFunctionNameParts }</span>
+            }
+<span class="nc" id="L93">            else -&gt; false</span>
+<span class="nc" id="L94">        }</span>
+
+    private fun formatMessage(
+        forbiddenChildren: List&lt;KtExpression&gt;,
+        negativeFunction: NegativeFunction,
+<span class="nc" id="L99">    ) = buildString {</span>
+<span class="nc" id="L100">        append(&quot;Double negative through using ${forbiddenChildren.joinInBackTicks()} inside a &quot;)</span>
+<span class="nc" id="L101">        append(&quot;`${negativeFunction.simpleName}` lambda. &quot;)</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (negativeFunction.recommendation != null) {</span>
+<span class="nc" id="L103">            append(negativeFunction.recommendation)</span>
+        } else {
+<span class="nc" id="L105">            append(&quot;Rewrite in the positive.&quot;)</span>
+        }
+<span class="nc" id="L107">    }</span>
+
+<span class="nc" id="L109">    private fun List&lt;KtExpression&gt;.joinInBackTicks() = joinToString { &quot;`${it.text}`&quot; }</span>
+
+    /**
+     * A function that can form a double negative with its lambda.
+     */
+<span class="nc" id="L114">    private data class NegativeFunction(</span>
+<span class="nc" id="L115">        val simpleName: String,</span>
+<span class="nc" id="L116">        val recommendation: String?,</span>
+    )
+
+    companion object {
+        const val NEGATIVE_FUNCTIONS = &quot;negativeFunctions&quot;
+        const val NEGATIVE_FUNCTION_NAME_PARTS = &quot;negativeFunctionNameParts&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

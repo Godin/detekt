@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoroutineLaunchedInTestWithoutRunTest.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.coroutines</a> &gt; <span class="el_source">CoroutineLaunchedInTestWithoutRunTest.kt</span></div><h1>CoroutineLaunchedInTestWithoutRunTest.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.coroutines
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import io.gitlab.arturbosch.detekt.rules.hasAnnotation
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getCalleeExpressionIfAny
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getType
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
+import org.jetbrains.kotlin.resolve.source.getPsi
+
+/**
+ * Detect coroutine launches from `@Test` functions outside a `runTest` block.
+ * Launching coroutines in tests without using `runTest` could potentially swallow exceptions,
+ * altering test results or causing crashes on other unrelated tests.
+ *
+ * &lt;noncompliant&gt;
+ * @@Test
+ * fun `test that launches a coroutine`() {
+ *     val scope = CoroutineScope(Dispatchers.Unconfined)
+ *     scope.launch {
+ *         suspendFunction()
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * @@Test
+ * fun `test that launches a coroutine`() = runTest {
+ *     launch {
+ *         suspendFunction()
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L49">class CoroutineLaunchedInTestWithoutRunTest(config: Config) : Rule(</span>
+<span class="fc" id="L50">    config,</span>
+<span class="fc" id="L51">    &quot;Launching coroutines in tests without a `runTest` block could swallow exceptions. &quot; +</span>
+        &quot;You should use `runTest` to avoid altering test results.&quot;
+) {
+<span class="fc" id="L54">    private val funCoroutineLaunchesTraverseHelper = FunCoroutineLaunchesTraverseHelper()</span>
+
+    override fun visitNamedFunction(initialFunction: KtNamedFunction) {
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        if (!initialFunction.hasBody()) return</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (!initialFunction.hasAnnotation(TEST_ANNOTATION_NAME)) return</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (initialFunction.runsInRunTestBlock()) return</span>
+
+        // By this point we know we're inside a test function that is not a `runTest` function.
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (funCoroutineLaunchesTraverseHelper.isFunctionLaunchingCoroutines(initialFunction, bindingContext)) {</span>
+<span class="fc" id="L63">            report(CodeSmell(Entity.from(initialFunction), MESSAGE))</span>
+        }
+<span class="fc" id="L65">    }</span>
+
+    private fun KtNamedFunction.runsInRunTestBlock() =
+<span class="fc" id="L68">        bodyExpression</span>
+<span class="fc" id="L69">            .getResolvedCall(bindingContext)</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            ?.resultingDescriptor</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">            ?.fqNameSafe == RUN_TEST_FQ</span>
+
+    companion object {
+        private const val MESSAGE =
+            &quot;Launching coroutines in tests without a `runTest` block.&quot;
+
+        private const val TEST_ANNOTATION_NAME = &quot;Test&quot;
+<span class="fc" id="L78">        private val RUN_TEST_FQ = FqName(&quot;kotlinx.coroutines.test.runTest&quot;)</span>
+    }
+}
+
+<span class="fc" id="L82">class FunCoroutineLaunchesTraverseHelper {</span>
+<span class="fc" id="L83">    val exploredFunctionsCache = mutableMapOf&lt;KtNamedFunction, Boolean&gt;()</span>
+
+    fun isFunctionLaunchingCoroutines(
+        initialFunction: KtNamedFunction,
+        bindingContext: BindingContext
+    ): Boolean {
+<span class="fc" id="L89">        val traversedFunctions = mutableSetOf&lt;KtNamedFunction&gt;()</span>
+
+<span class="fc" id="L91">        fun checkFunctionAndSaveToCache(</span>
+            function: KtNamedFunction,
+<span class="fc" id="L93">            parents: List&lt;KtNamedFunction&gt; = emptyList()</span>
+        ) {
+<span class="fc" id="L95">            val isLaunching = function.isLaunchingCoroutine(bindingContext)</span>
+<span class="fc" id="L96">            exploredFunctionsCache.putIfAbsent(function, isLaunching)</span>
+
+<span class="fc bfc" id="L98" title="All 2 branches covered.">            if (isLaunching) {</span>
+<span class="fc" id="L99">                parents.forEach { exploredFunctionsCache[it] = true }</span>
+            }
+<span class="fc" id="L101">        }</span>
+
+<span class="nc" id="L103">        fun getChildFunctionsOf(</span>
+            function: KtNamedFunction,
+<span class="nc" id="L105">            parents: List&lt;KtNamedFunction&gt; = emptyList()</span>
+        ): Set&lt;KtNamedFunction&gt; {
+<span class="fc" id="L107">            function.collectDescendantsOfType&lt;KtExpression&gt;().mapNotNull {</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">                it.getResolvedCall(bindingContext)</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">                    ?.resultingDescriptor</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">                    ?.source</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">                    ?.getPsi() as? KtNamedFunction</span>
+<span class="fc" id="L112">            }.forEach {</span>
+<span class="fc" id="L113">                traversedFunctions.add(it)</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">                if (exploredFunctionsCache.contains(it)) return@forEach</span>
+
+<span class="fc" id="L116">                checkFunctionAndSaveToCache(it, parents)</span>
+
+<span class="fc" id="L118">                getChildFunctionsOf(it, parents + it).forEach { childFunction -&gt;</span>
+<span class="fc" id="L119">                    checkFunctionAndSaveToCache(childFunction, parents)</span>
+<span class="fc" id="L120">                }</span>
+<span class="fc" id="L121">            }</span>
+
+<span class="fc" id="L123">            return traversedFunctions</span>
+        }
+
+<span class="fc" id="L126">        traversedFunctions.add(initialFunction)</span>
+<span class="fc" id="L127">        checkFunctionAndSaveToCache(initialFunction)</span>
+<span class="fc" id="L128">        getChildFunctionsOf(initialFunction, listOf(initialFunction))</span>
+
+<span class="fc" id="L130">        return traversedFunctions.any { exploredFunctionsCache[it] == true }</span>
+    }
+
+    private fun KtNamedFunction.isLaunchingCoroutine(bindingContext: BindingContext) =
+<span class="fc" id="L134">        anyDescendantOfType&lt;KtDotQualifiedExpression&gt; {</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">            it.receiverExpression</span>
+<span class="fc" id="L136">                .getType(bindingContext)</span>
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">                ?.fqNameOrNull() == COROUTINE_SCOPE_FQ &amp;&amp;</span>
+<span class="pc bpc" id="L138" title="2 of 4 branches missed.">                it.getCalleeExpressionIfAny()?.text == &quot;launch&quot;</span>
+<span class="fc" id="L139">        }</span>
+
+    companion object {
+<span class="fc" id="L142">        private val COROUTINE_SCOPE_FQ = FqName(&quot;kotlinx.coroutines.CoroutineScope&quot;)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

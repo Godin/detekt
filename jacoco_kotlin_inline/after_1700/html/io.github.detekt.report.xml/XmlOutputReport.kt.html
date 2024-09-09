@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XmlOutputReport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.report.xml</a> &gt; <span class="el_source">XmlOutputReport.kt</span></div><h1>XmlOutputReport.kt</h1><pre class="source lang-java linenums">package io.github.detekt.report.xml
+
+import io.gitlab.arturbosch.detekt.api.Detektion
+import io.gitlab.arturbosch.detekt.api.Issue
+import io.gitlab.arturbosch.detekt.api.OutputReport
+import io.gitlab.arturbosch.detekt.api.SetupContext
+import io.gitlab.arturbosch.detekt.api.getOrNull
+import io.gitlab.arturbosch.detekt.api.internal.BuiltInOutputReport
+import java.nio.file.Path
+import java.util.Locale
+import kotlin.io.path.absolute
+import kotlin.io.path.invariantSeparatorsPathString
+import kotlin.io.path.relativeTo
+
+/**
+ * Contains rule violations in an XML format. The report follows the structure of a Checkstyle report.
+ * See: https://detekt.dev/configurations.html#output-reports
+ */
+<span class="fc" id="L19">class XmlOutputReport : BuiltInOutputReport, OutputReport() {</span>
+
+<span class="fc" id="L21">    override val id: String = &quot;XmlOutputReport&quot;</span>
+<span class="fc" id="L22">    override val ending = &quot;xml&quot;</span>
+
+    private val Issue.severityLabel: String
+<span class="fc" id="L25">        get() = severity.name.lowercase(Locale.US)</span>
+
+<span class="pc" id="L27">    var basePath: Path? = null</span>
+
+    override fun init(context: SetupContext) {
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        basePath = context.getOrNull&lt;Path&gt;(DETEKT_OUTPUT_REPORT_BASE_PATH_KEY)?.absolute()</span>
+<span class="fc" id="L31">    }</span>
+
+    override fun render(detektion: Detektion): String {
+<span class="fc" id="L34">        val lines = ArrayList&lt;String&gt;()</span>
+<span class="fc" id="L35">        lines += &quot;&lt;?xml version=\&quot;1.0\&quot; encoding=\&quot;UTF-8\&quot;?&gt;&quot;</span>
+<span class="fc" id="L36">        lines += &quot;&lt;checkstyle version=\&quot;4.3\&quot;&gt;&quot;</span>
+
+<span class="fc" id="L38">        detektion.issues</span>
+<span class="pc bpc" id="L39" title="1 of 4 branches missed.">            .groupBy { basePath?.let { path -&gt; it.location.path.relativeTo(path) } ?: it.location.path }</span>
+<span class="fc" id="L40">            .forEach { (filePath, issues) -&gt;</span>
+<span class="fc" id="L41">                lines += &quot;&lt;file name=\&quot;${filePath.invariantSeparatorsPathString.toXmlString()}\&quot;&gt;&quot;</span>
+<span class="fc" id="L42">                issues.forEach {</span>
+<span class="fc" id="L43">                    lines += arrayOf(</span>
+<span class="fc" id="L44">                        &quot;\t&lt;error line=\&quot;${it.location.source.line.toXmlString()}\&quot;&quot;,</span>
+<span class="fc" id="L45">                        &quot;column=\&quot;${it.location.source.column.toXmlString()}\&quot;&quot;,</span>
+<span class="fc" id="L46">                        &quot;severity=\&quot;${it.severityLabel.toXmlString()}\&quot;&quot;,</span>
+<span class="fc" id="L47">                        &quot;message=\&quot;${it.message.toXmlString()}\&quot;&quot;,</span>
+<span class="fc" id="L48">                        &quot;source=\&quot;${&quot;detekt.${it.ruleInstance.id.toXmlString()}&quot;}\&quot; /&gt;&quot;</span>
+<span class="fc" id="L49">                    ).joinToString(separator = &quot; &quot;)</span>
+<span class="fc" id="L50">                }</span>
+<span class="fc" id="L51">                lines += &quot;&lt;/file&gt;&quot;</span>
+<span class="fc" id="L52">            }</span>
+
+<span class="fc" id="L54">        lines += &quot;&lt;/checkstyle&gt;&quot;</span>
+<span class="fc" id="L55">        return lines.joinToString(separator = &quot;\n&quot;)</span>
+    }
+
+<span class="fc" id="L58">    private fun Any.toXmlString() = XmlEscape.escapeXml(toString().trim())</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UtilityClassWithPublicConstructor.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UtilityClassWithPublicConstructor.kt</span></div><h1>UtilityClassWithPublicConstructor.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isOpen
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassInitializer
+import org.jetbrains.kotlin.psi.KtDeclaration
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.psi.KtSecondaryConstructor
+import org.jetbrains.kotlin.psi.psiUtil.isPublic
+
+/**
+ * A class which only contains utility variables and functions with no concrete implementation can be refactored
+ * into an `object` or a class with a non-public constructor.
+ * Furthermore, this rule reports utility classes which are not final.
+ *
+ * &lt;noncompliant&gt;
+ * class UtilityClassViolation {
+ *
+ *     // public constructor here
+ *     constructor() {
+ *         // ...
+ *     }
+ *
+ *     companion object {
+ *         val i = 0
+ *     }
+ * }
+ *
+ * open class UtilityClassViolation private constructor() {
+ *
+ *     // ...
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class UtilityClass {
+ *
+ *     private constructor() {
+ *         // ...
+ *     }
+ *
+ *     companion object {
+ *         val i = 0
+ *     }
+ * }
+ * object UtilityClass {
+ *
+ *     val i = 0
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+<span class="fc" id="L58">class UtilityClassWithPublicConstructor(config: Config) : Rule(</span>
+<span class="fc" id="L59">    config,</span>
+<span class="fc" id="L60">    &quot;The class declaration is unnecessary because it only contains utility functions. &quot; +</span>
+        &quot;An object declaration should be used instead.&quot;
+) {
+
+    override fun visitClass(klass: KtClass) {
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (canBeCheckedForUtilityClass(klass)) {</span>
+<span class="fc" id="L66">            val utilityClassConstructor = UtilityClassConstructor(klass)</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">            val declarations = klass.body?.declarations</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            if (hasOnlyUtilityClassMembers(declarations)) {</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">                if (utilityClassConstructor.hasPublicConstructorWithoutParameters()) {</span>
+<span class="fc" id="L70">                    report(</span>
+<span class="fc" id="L71">                        CodeSmell(</span>
+<span class="fc" id="L72">                            Entity.from(klass),</span>
+<span class="fc" id="L73">                            &quot;The class ${klass.nameAsSafeName} only contains&quot; +</span>
+                                &quot; utility functions. Consider defining it as an object.&quot;
+                        )
+                    )
+<span class="pc bpc" id="L77" title="1 of 4 branches missed.">                } else if (klass.isOpen() &amp;&amp; utilityClassConstructor.hasNonPublicConstructorWithoutParameters()) {</span>
+<span class="fc" id="L78">                    report(</span>
+<span class="fc" id="L79">                        CodeSmell(</span>
+<span class="fc" id="L80">                            Entity.from(klass),</span>
+<span class="fc" id="L81">                            &quot;The utility class ${klass.nameAsSafeName} should be final.&quot;</span>
+                        )
+                    )
+                }
+            }
+        }
+<span class="fc" id="L87">        super.visitClass(klass)</span>
+<span class="fc" id="L88">    }</span>
+
+    private fun canBeCheckedForUtilityClass(klass: KtClass): Boolean =
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        !klass.isInterface() &amp;&amp;</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            !klass.superTypeListEntries.any() &amp;&amp;</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">            !klass.isAnnotation() &amp;&amp;</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">            !klass.isSealed()</span>
+
+    private fun hasOnlyUtilityClassMembers(declarations: List&lt;KtDeclaration&gt;?): Boolean {
+<span class="fc bfc" id="L97" title="All 6 branches covered.">        if (declarations.isNullOrEmpty()) {</span>
+<span class="fc" id="L98">            return false</span>
+        }
+<span class="fc" id="L100">        var containsCompanionObject = false</span>
+<span class="fc" id="L101">        var isUtilityClassCandidate = true</span>
+<span class="fc" id="L102">        declarations.forEach {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            if (isCompanionObject(it)) {</span>
+<span class="fc" id="L104">                containsCompanionObject = true</span>
+<span class="pc bpc" id="L105" title="1 of 4 branches missed.">            } else if (it !is KtSecondaryConstructor &amp;&amp; it !is KtClassInitializer) {</span>
+<span class="fc" id="L106">                isUtilityClassCandidate = false</span>
+            }
+<span class="fc" id="L108">        }</span>
+<span class="fc bfc" id="L109" title="All 4 branches covered.">        return containsCompanionObject &amp;&amp; isUtilityClassCandidate</span>
+    }
+
+    private fun isCompanionObject(declaration: KtDeclaration) =
+<span class="pc bpc" id="L113" title="1 of 6 branches missed.">        (declaration as? KtObjectDeclaration)?.isCompanion() == true</span>
+
+<span class="fc" id="L115">    internal class UtilityClassConstructor(private val klass: KtClass) {</span>
+
+<span class="fc" id="L117">        internal fun hasPublicConstructorWithoutParameters() = hasConstructorWithoutParameters(true)</span>
+
+<span class="fc" id="L119">        internal fun hasNonPublicConstructorWithoutParameters() = hasConstructorWithoutParameters(false)</span>
+
+        private fun hasConstructorWithoutParameters(publicModifier: Boolean): Boolean {
+<span class="fc" id="L122">            val primaryConstructor = klass.primaryConstructor</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            if (primaryConstructor != null) {</span>
+<span class="fc bfc" id="L124" title="All 4 branches covered.">                return primaryConstructor.isPublic == publicModifier &amp;&amp; primaryConstructor.valueParameters.isEmpty()</span>
+            }
+<span class="fc" id="L126">            val secondaryConstructors = klass.secondaryConstructors</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">            return secondaryConstructors.isEmpty() ||</span>
+<span class="fc bfc" id="L128" title="All 6 branches covered.">                secondaryConstructors.any { it.isPublic == publicModifier &amp;&amp; it.valueParameters.isEmpty() }</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

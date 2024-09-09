@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FunctionNaming.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.naming</a> &gt; <span class="el_source">FunctionNaming.kt</span></div><h1>FunctionNaming.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.naming
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import io.gitlab.arturbosch.detekt.rules.naming.util.isContainingExcludedClassOrObject
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtUserType
+
+/**
+ * Reports function names that do not follow the specified naming convention.
+ * One exception are factory functions used to create instances of classes.
+ * These factory functions can have the same name as the class being created.
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+@Alias(&quot;FunctionName&quot;)
+<span class="fc" id="L23">class FunctionNaming(config: Config) : Rule(</span>
+<span class="fc" id="L24">    config,</span>
+<span class="fc" id="L25">    &quot;Function names should follow the naming convention set in the configuration.&quot;</span>
+) {
+
+    @Configuration(&quot;naming pattern&quot;)
+<span class="fc" id="L29">    private val functionPattern: Regex by config(&quot;[a-z][a-zA-Z0-9]*&quot;, String::toRegex)</span>
+
+    @Configuration(&quot;ignores functions in classes which match this regex&quot;)
+<span class="fc" id="L32">    private val excludeClassPattern: Regex by config(&quot;$^&quot;, String::toRegex)</span>
+
+    @Configuration(&quot;ignores functions that have the override modifier&quot;)
+    @Deprecated(&quot;This configuration is ignored and will be removed in the future&quot;)
+    @Suppress(&quot;unused&quot;)
+<span class="pc" id="L37">    private val ignoreOverridden: Boolean by config(true)</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc" id="L40">        super.visitNamedFunction(function)</span>
+
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if (function.isOverride()) {</span>
+<span class="fc" id="L43">            return</span>
+        }
+
+<span class="pc bpc" id="L46" title="1 of 4 branches missed.">        val functionName = function.nameIdentifier?.text ?: return</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (!function.isContainingExcludedClassOrObject(excludeClassPattern) &amp;&amp;</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">            !functionName.matches(functionPattern) &amp;&amp;</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">            functionName != function.returnTypeName()</span>
+        ) {
+<span class="fc" id="L51">            report(</span>
+<span class="fc" id="L52">                CodeSmell(</span>
+<span class="fc" id="L53">                    Entity.atName(function),</span>
+<span class="fc" id="L54">                    message = &quot;Function names should match the pattern: $functionPattern&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L58">    }</span>
+
+<span class="fc bfc" id="L60" title="All 6 branches covered.">    private fun KtNamedFunction.returnTypeName() = (typeReference?.typeElement as? KtUserType)?.referencedName</span>
+
+    companion object {
+        const val FUNCTION_PATTERN = &quot;functionPattern&quot;
+        const val EXCLUDE_CLASS_PATTERN = &quot;excludeClassPattern&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

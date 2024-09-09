@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DontDowncastCollectionTypes.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">DontDowncastCollectionTypes.kt</span></div><h1>DontDowncastCollectionTypes.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtIsExpression
+import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.KtUserType
+import org.jetbrains.kotlin.resolve.calls.util.getType
+
+/**
+ * Down-casting immutable types from kotlin.collections should be discouraged.
+ * The result of the downcast is platform specific and can lead to unexpected crashes.
+ * Prefer to use instead the `toMutable&lt;Type&gt;()` functions.
+ *
+ * &lt;noncompliant&gt;
+ * val list : List&lt;Int&gt; = getAList()
+ * if (list is MutableList) {
+ *     list.add(42)
+ * }
+ *
+ * (list as MutableList).add(42)
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val list : List&lt;Int&gt; = getAList()
+ * list.toMutableList().add(42)
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L37">class DontDowncastCollectionTypes(config: Config) : Rule(</span>
+<span class="fc" id="L38">    config,</span>
+<span class="fc" id="L39">    &quot;Down-casting immutable collection types is breaking the collection contract.&quot;</span>
+) {
+
+    override fun visitIsExpression(expression: KtIsExpression) {
+<span class="fc" id="L43">        super.visitIsExpression(expression)</span>
+
+<span class="fc" id="L45">        checkForDowncast(expression, expression.leftHandSide, expression.typeReference)</span>
+<span class="fc" id="L46">    }</span>
+
+    override fun visitBinaryWithTypeRHSExpression(expression: KtBinaryExpressionWithTypeRHS) {
+<span class="fc" id="L49">        super.visitBinaryWithTypeRHSExpression(expression)</span>
+
+<span class="fc" id="L51">        checkForDowncast(expression, expression.left, expression.right)</span>
+<span class="fc" id="L52">    }</span>
+
+    private fun checkForDowncast(parent: KtExpression, left: KtExpression, right: KtTypeReference?) {
+<span class="fc" id="L55">        val lhsType = left</span>
+<span class="fc" id="L56">            .getType(bindingContext)</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">            ?.fqNameOrNull()</span>
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">            ?.shortNameOrSpecial()</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">            ?.asString()</span>
+
+<span class="fc" id="L61">        val rhsType = right</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">            ?.typeElement</span>
+<span class="pc bpc" id="L63" title="2 of 4 branches missed.">            ?.let { it as? KtUserType }</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">            ?.referencedName</span>
+
+<span class="pc bpc" id="L66" title="1 of 4 branches missed.">        if (lhsType in immutableTypes &amp;&amp; rhsType in mutableTypes) {</span>
+<span class="fc" id="L67">            var message = &quot;Down-casting from type $lhsType to $rhsType is risky.&quot;</span>
+<span class="pc bpc" id="L68" title="1 of 4 branches missed.">            if (rhsType != null &amp;&amp; rhsType.startsWith(&quot;Mutable&quot;)) {</span>
+<span class="fc" id="L69">                message += &quot; Use `to$rhsType()` instead.&quot;</span>
+            }
+<span class="fc" id="L71">            report(CodeSmell(Entity.from(parent), message))</span>
+        }
+<span class="fc" id="L73">    }</span>
+
+    companion object {
+<span class="pc" id="L76">        val immutableTypes = listOf(&quot;List&quot;, &quot;Map&quot;, &quot;Set&quot;)</span>
+
+        // Kotlin Stdlib Mutable types plus Type-aliases from:
+        // https://github.com/JetBrains/kotlin/blob/46b7a774b558001c136be225cf4367fa09ba1aee/libraries/stdlib/jvm/src/kotlin/collections/TypeAliases.kt#L13-L17
+<span class="pc" id="L80">        val mutableTypes = listOf(</span>
+<span class="fc" id="L81">            &quot;MutableList&quot;,</span>
+<span class="fc" id="L82">            &quot;MutableMap&quot;,</span>
+<span class="fc" id="L83">            &quot;MutableSet&quot;,</span>
+<span class="fc" id="L84">            &quot;ArrayList&quot;,</span>
+<span class="fc" id="L85">            &quot;LinkedHashSet&quot;,</span>
+<span class="fc" id="L86">            &quot;HashSet&quot;,</span>
+<span class="fc" id="L87">            &quot;LinkedHashMap&quot;,</span>
+<span class="fc" id="L88">            &quot;HashMap&quot;,</span>
+        )
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultBaseline.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.baseline</a> &gt; <span class="el_source">DefaultBaseline.kt</span></div><h1>DefaultBaseline.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.baseline
+
+import io.github.detekt.tooling.api.Baseline
+import io.github.detekt.tooling.api.FindingId
+import io.github.detekt.tooling.api.FindingsIdList
+import io.gitlab.arturbosch.detekt.api.Issue
+import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.isRegularFile
+
+<span class="fc" id="L11">internal data class DefaultBaseline(</span>
+<span class="fc" id="L12">    override val manuallySuppressedIssues: FindingsIdList,</span>
+<span class="fc" id="L13">    override val currentIssues: FindingsIdList,</span>
+) : Baseline {
+
+    override fun contains(id: FindingId): Boolean =
+<span class="fc bfc" id="L17" title="All 4 branches covered.">        currentIssues.contains(id) || manuallySuppressedIssues.contains(id)</span>
+
+    companion object {
+
+        fun load(baselineFile: Path): Baseline {
+<span class="pc bpc" id="L22" title="1 of 2 branches missed.">            require(baselineFile.exists()) { &quot;Baseline file does not exist.&quot; }</span>
+<span class="pc bpc" id="L23" title="1 of 2 branches missed.">            require(baselineFile.isRegularFile()) { &quot;Baseline file is not a regular file.&quot; }</span>
+<span class="fc" id="L24">            return BaselineFormat().read(baselineFile)</span>
+        }
+    }
+}
+
+const val DETEKT_BASELINE_PATH_KEY = &quot;detekt.baseline.path.key&quot;
+const val DETEKT_BASELINE_CREATION_KEY = &quot;detekt.baseline.creation.key&quot;
+
+internal const val SMELL_BASELINE = &quot;SmellBaseline&quot;
+internal const val MANUALLY_SUPPRESSED_ISSUES = &quot;ManuallySuppressedIssues&quot;
+internal const val CURRENT_ISSUES = &quot;CurrentIssues&quot;
+internal const val ID = &quot;ID&quot;
+
+internal val Issue.baselineId: String
+<span class="fc" id="L38">    get() = &quot;${ruleInstance.id}:${this.entity.signature}&quot;</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

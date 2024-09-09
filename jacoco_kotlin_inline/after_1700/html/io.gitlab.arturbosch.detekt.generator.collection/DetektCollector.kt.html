@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DetektCollector.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.collection</a> &gt; <span class="el_source">DetektCollector.kt</span></div><h1>DetektCollector.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.collection
+
+import io.gitlab.arturbosch.detekt.generator.collection.exception.InvalidDocumentationException
+import org.jetbrains.kotlin.psi.KtFile
+
+<span class="fc" id="L6">class DetektCollector(textReplacements: Map&lt;String, String&gt;) : Collector&lt;RuleSetPage&gt; {</span>
+
+<span class="fc" id="L8">    private val ruleSetProviderCollector = RuleSetProviderCollector()</span>
+<span class="fc" id="L9">    private val ruleCollector = RuleCollector(textReplacements)</span>
+
+<span class="fc" id="L11">    private val collectors = listOf(</span>
+<span class="fc" id="L12">        ruleSetProviderCollector,</span>
+<span class="fc" id="L13">        ruleCollector</span>
+    )
+    override val items: List&lt;RuleSetPage&gt;
+<span class="fc" id="L16">        get() = buildRuleSetPages()</span>
+
+    private fun buildRuleSetPages(): List&lt;RuleSetPage&gt; {
+<span class="fc" id="L19">        val rules = ruleCollector.items</span>
+<span class="fc" id="L20">        val ruleSets = ruleSetProviderCollector.items</span>
+
+<span class="fc" id="L22">        return ruleSets.map { ruleSet -&gt;</span>
+<span class="fc" id="L23">            val sortedRules = ruleSet.rules</span>
+<span class="fc" id="L24">                .map { rules.findRuleByName(it) }</span>
+<span class="fc" id="L25">                .sortedBy { rule -&gt; rule.name }</span>
+
+<span class="fc" id="L27">            RuleSetPage(ruleSet, sortedRules)</span>
+        }
+    }
+
+    private fun List&lt;Rule&gt;.findRuleByName(ruleName: String): Rule =
+<span class="pc bpc" id="L32" title="3 of 6 branches missed.">        find { it.name == ruleName } ?: throw InvalidDocumentationException(</span>
+<span class="nc" id="L33">            &quot;Rule '$ruleName' was specified in a provider but it was not defined.&quot;</span>
+<span class="fc" id="L34">        )</span>
+
+    override fun visit(file: KtFile) {
+<span class="fc" id="L37">        collectors.forEach {</span>
+<span class="fc" id="L38">            it.visit(file)</span>
+<span class="fc" id="L39">        }</span>
+<span class="fc" id="L40">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

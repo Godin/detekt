@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultConfigProvider.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.tooling</a> &gt; <span class="el_source">DefaultConfigProvider.kt</span></div><h1>DefaultConfigProvider.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.tooling
+
+import io.github.detekt.tooling.api.DefaultConfigurationProvider
+import io.github.detekt.tooling.api.spec.ExtensionsSpec
+import io.github.detekt.tooling.api.spec.ProcessingSpec
+import io.github.detekt.utils.getSafeResourceAsStream
+import io.github.detekt.utils.openSafeStream
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.core.config.YamlConfig
+import io.gitlab.arturbosch.detekt.core.settings.ExtensionFacade
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+
+<span class="fc" id="L18">class DefaultConfigProvider : DefaultConfigurationProvider {</span>
+    private lateinit var extensionsSpec: ExtensionsSpec
+
+    override fun init(extensionsSpec: ExtensionsSpec) {
+<span class="fc" id="L22">        this.extensionsSpec = extensionsSpec</span>
+<span class="fc" id="L23">    }</span>
+
+<span class="fc" id="L25">    override fun get(): Config = extensionsSpec.getDefaultConfiguration()</span>
+
+    override fun copy(targetLocation: Path) {
+<span class="fc" id="L28">        Files.copy(configInputStream(extensionsSpec), targetLocation, StandardCopyOption.REPLACE_EXISTING)</span>
+<span class="fc" id="L29">    }</span>
+}
+
+private fun configInputStream(extensionsSpec: ExtensionsSpec): InputStream {
+<span class="fc" id="L33">    val outputStream = ByteArrayOutputStream()</span>
+
+<span class="pc bpc" id="L35" title="1 of 2 branches missed.">    requireNotNull(DefaultConfigProvider::class.java.getSafeResourceAsStream(&quot;/default-detekt-config.yml&quot;))</span>
+<span class="pc" id="L36">        .use { it.copyTo(outputStream) }</span>
+
+<span class="fc" id="L38">    ExtensionFacade(extensionsSpec.plugins).pluginLoader</span>
+<span class="fc" id="L39">        .getSafeResourcesAsStreams(&quot;config/config.yml&quot;)</span>
+<span class="fc" id="L40">        .forEach { inputStream -&gt;</span>
+<span class="fc" id="L41">            outputStream.write('\n'.code)</span>
+<span class="pc" id="L42">            inputStream.use { it.copyTo(outputStream) }</span>
+<span class="fc" id="L43">        }</span>
+
+<span class="fc" id="L45">    return ByteArrayInputStream(outputStream.toByteArray())</span>
+}
+
+private fun ClassLoader.getSafeResourcesAsStreams(name: String): Sequence&lt;InputStream&gt; =
+<span class="fc" id="L49">    getResources(name)</span>
+<span class="fc" id="L50">        .asSequence()</span>
+<span class="fc" id="L51">        .map { it.openSafeStream() }</span>
+
+<span class="fc" id="L53">private fun ExtensionsSpec.getDefaultConfiguration(): Config = YamlConfig.load(configInputStream(this).reader())</span>
+
+<span class="fc" id="L55">fun ProcessingSpec.getDefaultConfiguration(): Config = extensionsSpec.getDefaultConfiguration()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KotlinEnvironmentUtils.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.parser</a> &gt; <span class="el_source">KotlinEnvironmentUtils.kt</span></div><h1>KotlinEnvironmentUtils.kt</h1><pre class="source lang-java linenums">package io.github.detekt.parser
+
+import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
+import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
+import org.jetbrains.kotlin.cli.common.arguments.validateArguments
+import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoots
+import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
+import org.jetbrains.kotlin.cli.common.messages.PrintingMessageCollector
+import org.jetbrains.kotlin.cli.common.setupLanguageVersionSettings
+import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.jvm.config.addJavaSourceRoots
+import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
+import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
+import org.jetbrains.kotlin.cli.jvm.configureAdvancedJvmOptions
+import org.jetbrains.kotlin.cli.jvm.setupJvmSpecificArguments
+import org.jetbrains.kotlin.com.intellij.mock.MockProject
+import org.jetbrains.kotlin.com.intellij.openapi.Disposable
+import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
+import org.jetbrains.kotlin.com.intellij.pom.PomModel
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
+import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.JVMConfigurationKeys
+import java.io.File
+import java.io.PrintStream
+import java.nio.file.Path
+
+/**
+ * Creates an environment instance which can be used to compile source code to KtFile's.
+ * This environment also allows to modify the resulting AST files.
+ */
+<span class="fc" id="L33">fun createKotlinCoreEnvironment(</span>
+<span class="fc" id="L34">    configuration: CompilerConfiguration = CompilerConfiguration(),</span>
+<span class="fc" id="L35">    disposable: Disposable = Disposer.newDisposable(),</span>
+    printStream: PrintStream,
+): KotlinCoreEnvironment {
+<span class="fc" id="L38">    configuration.put(</span>
+<span class="fc" id="L39">        CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY,</span>
+<span class="fc" id="L40">        PrintingMessageCollector(printStream, MessageRenderer.PLAIN_FULL_PATHS, false)</span>
+    )
+<span class="fc" id="L42">    configuration.put(CommonConfigurationKeys.MODULE_NAME, &quot;detekt&quot;)</span>
+
+<span class="fc" id="L44">    val environment = KotlinCoreEnvironment.createForProduction(</span>
+<span class="fc" id="L45">        disposable,</span>
+<span class="fc" id="L46">        configuration,</span>
+<span class="fc" id="L47">        EnvironmentConfigFiles.JVM_CONFIG_FILES</span>
+    )
+
+<span class="fc" id="L50">    val projectCandidate = environment.project</span>
+
+<span class="pc bpc" id="L52" title="2 of 4 branches missed.">    val project = requireNotNull(projectCandidate as? MockProject) {</span>
+<span class="nc" id="L53">        &quot;MockProject type expected, actual - ${projectCandidate.javaClass.simpleName}&quot;</span>
+    }
+
+<span class="fc" id="L56">    project.registerService(PomModel::class.java, DetektPomModel)</span>
+
+<span class="fc" id="L58">    return environment</span>
+}
+
+/**
+ * Creates a compiler configuration for the kotlin compiler with all known sources and classpath jars.
+ * Be aware that if any path of [pathsToAnalyze] is a directory it is scanned for java and kotlin files.
+ */
+@Suppress(&quot;LongParameterList&quot;)
+fun createCompilerConfiguration(
+    pathsToAnalyze: List&lt;Path&gt;,
+    classpath: List&lt;String&gt;,
+    apiVersion: String?,
+    languageVersion: String?,
+    jvmTarget: String,
+    jdkHome: Path?,
+    freeCompilerArgs: List&lt;String&gt;,
+    printStream: PrintStream,
+): CompilerConfiguration {
+<span class="fc" id="L76">    val javaFiles = pathsToAnalyze.flatMap { path -&gt;</span>
+<span class="fc" id="L77">        path.toFile().walk()</span>
+<span class="pc bpc" id="L78" title="2 of 4 branches missed.">            .filter { it.isFile &amp;&amp; it.extension.equals(&quot;java&quot;, true) }</span>
+<span class="fc" id="L79">            .toList()</span>
+    }
+<span class="fc" id="L81">    val kotlinFiles = pathsToAnalyze.flatMap { path -&gt;</span>
+<span class="fc" id="L82">        path.toFile().walk()</span>
+<span class="fc" id="L83">            .filter { it.isFile }</span>
+<span class="pc bpc" id="L84" title="1 of 4 branches missed.">            .filter { it.extension.equals(&quot;kt&quot;, true) || it.extension.equals(&quot;kts&quot;, true) }</span>
+<span class="fc" id="L85">            .map { it.absolutePath }</span>
+<span class="fc" id="L86">            .toList()</span>
+    }
+
+<span class="pc" id="L89">    val classpathFiles = classpath.map { File(it) }</span>
+
+<span class="fc" id="L91">    val jvmCompilerArguments = K2JVMCompilerArguments()</span>
+
+<span class="fc" id="L93">    val args = buildList {</span>
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (apiVersion != null) {</span>
+<span class="nc" id="L95">            add(&quot;-api-version&quot;)</span>
+<span class="nc" id="L96">            add(apiVersion)</span>
+        }
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        if (languageVersion != null) {</span>
+<span class="nc" id="L99">            add(&quot;-language-version&quot;)</span>
+<span class="nc" id="L100">            add(languageVersion)</span>
+        }
+<span class="fc" id="L102">        add(&quot;-jvm-target&quot;)</span>
+<span class="fc" id="L103">        add(jvmTarget)</span>
+<span class="fc" id="L104">        addAll(freeCompilerArgs)</span>
+<span class="fc" id="L105">    }</span>
+
+<span class="fc" id="L107">    parseCommandLineArguments(args, jvmCompilerArguments)</span>
+
+<span class="fc bfc" id="L109" title="All 2 branches covered.">    validateArguments(jvmCompilerArguments.errors)?.let { throw IllegalStateException(it) }</span>
+
+<span class="fc" id="L111">    return CompilerConfiguration().apply {</span>
+<span class="fc" id="L112">        addJavaSourceRoots(javaFiles)</span>
+<span class="fc" id="L113">        addKotlinSourceRoots(kotlinFiles)</span>
+<span class="fc" id="L114">        addJvmClasspathRoots(classpathFiles)</span>
+<span class="fc" id="L115">        put(</span>
+<span class="fc" id="L116">            CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY,</span>
+<span class="fc" id="L117">            PrintingMessageCollector(printStream, MessageRenderer.PLAIN_FULL_PATHS, false)</span>
+        )
+<span class="fc" id="L119">        setupLanguageVersionSettings(jvmCompilerArguments)</span>
+<span class="fc" id="L120">        setupJvmSpecificArguments(jvmCompilerArguments)</span>
+<span class="fc" id="L121">        configureAdvancedJvmOptions(jvmCompilerArguments)</span>
+
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (jdkHome != null) {</span>
+<span class="nc" id="L124">            put(JVMConfigurationKeys.JDK_HOME, jdkHome.toFile())</span>
+        } else {
+<span class="fc" id="L126">            put(JVMConfigurationKeys.JDK_HOME, File(System.getProperty(&quot;java.home&quot;)))</span>
+        }
+
+<span class="fc" id="L129">        configureJdkClasspathRoots()</span>
+<span class="fc" id="L130">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

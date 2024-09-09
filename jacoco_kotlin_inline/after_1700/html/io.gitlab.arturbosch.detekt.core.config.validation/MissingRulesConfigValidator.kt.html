@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MissingRulesConfigValidator.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config.validation</a> &gt; <span class="el_source">MissingRulesConfigValidator.kt</span></div><h1>MissingRulesConfigValidator.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config.validation
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Notification
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import io.gitlab.arturbosch.detekt.api.RuleSetProvider
+import io.gitlab.arturbosch.detekt.core.config.YamlConfig
+import io.gitlab.arturbosch.detekt.core.util.SimpleNotification
+import java.util.ServiceLoader
+
+<span class="fc" id="L11">internal class MissingRulesConfigValidator(</span>
+<span class="fc" id="L12">    private val baseline: YamlConfig,</span>
+<span class="fc" id="L13">    private val excludePatterns: Set&lt;Regex&gt;,</span>
+<span class="fc" id="L14">) : AbstractYamlConfigValidator() {</span>
+
+<span class="pc" id="L16">    override val id: String = &quot;MissingRulesConfigValidator&quot;</span>
+
+    override fun validate(
+        configToValidate: YamlConfig,
+        settings: ValidationSettings
+    ): Collection&lt;Notification&gt; {
+<span class="fc bfc" id="L22" title="All 2 branches covered.">        if (!settings.checkExhaustiveness) {</span>
+<span class="fc" id="L23">            return emptyList()</span>
+        }
+<span class="fc" id="L25">        return ruleSetNames.flatMap { ruleSet -&gt; validateRuleSet(ruleSet, configToValidate) }</span>
+    }
+
+    private fun validateRuleSet(
+        ruleSet: RuleSet.Id,
+        configToValidate: YamlConfig,
+    ): List&lt;Notification&gt; {
+<span class="fc" id="L32">        val ruleSetConfigToValidate = configToValidate.getSubMapOrNull(ruleSet)</span>
+<span class="fc" id="L33">        val ruleSetConfigFromBaseline = baseline.getSubMapOrNull(ruleSet)</span>
+<span class="fc" id="L34">        return when {</span>
+<span class="fc bfc" id="L35" title="All 2 branches covered.">            ruleSetConfigFromBaseline == null -&gt; emptyList()</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">            ruleSetConfigToValidate == null -&gt; listOf(ruleSetMissing(ruleSet))</span>
+<span class="fc" id="L37">            else -&gt; checkForMissingRules(ruleSet, ruleSetConfigToValidate, ruleSetConfigFromBaseline)</span>
+        }
+    }
+
+    private fun checkForMissingRules(
+        ruleSetName: RuleSet.Id,
+        ruleSetConfigToValidate: Map&lt;String, Any&gt;,
+        ruleSetConfigFromBaseline: Map&lt;String, Any&gt;,
+    ): List&lt;Notification&gt; {
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (ruleSetConfigToValidate[Config.ACTIVE_KEY] == false) {</span>
+<span class="fc" id="L47">            return emptyList()</span>
+        }
+
+<span class="fc" id="L50">        return ruleSetConfigFromBaseline.keys</span>
+<span class="fc" id="L51">            .filter { ruleNameCandidate -&gt; excludePatterns.none { it.matches(&quot;$ruleSetName&gt;$ruleNameCandidate&quot;) } }</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">            .filter { ruleName -&gt; !ruleSetConfigToValidate.containsKey(ruleName) }</span>
+<span class="fc" id="L53">            .map { ruleName -&gt; ruleMissing(ruleName, ruleSetName) }</span>
+    }
+
+    private fun ruleMissing(ruleName: String, ruleSetName: RuleSet.Id): Notification =
+<span class="fc" id="L57">        SimpleNotification(</span>
+<span class="fc" id="L58">            &quot;Rule '$ruleName' from the '$ruleSetName' rule set is missing in the configuration.&quot;,</span>
+<span class="fc" id="L59">            Notification.Level.Warning,</span>
+<span class="fc" id="L60">        )</span>
+
+    private fun ruleSetMissing(ruleSetName: RuleSet.Id): Notification =
+<span class="fc" id="L63">        SimpleNotification(</span>
+<span class="fc" id="L64">            &quot;Rule set '$ruleSetName' is missing in the configuration.&quot;,</span>
+<span class="fc" id="L65">            Notification.Level.Warning,</span>
+<span class="fc" id="L66">        )</span>
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc bfc" id="L69" title="All 2 branches covered.">    private fun YamlConfig.getSubMapOrNull(ruleSetId: RuleSet.Id) = properties[ruleSetId.value] as? Map&lt;String, Any&gt;</span>
+
+    companion object {
+
+<span class="fc" id="L73">        private val ruleSetNames: List&lt;RuleSet.Id&gt; by lazy(Companion::loadRuleSets)</span>
+        private fun loadRuleSets(): List&lt;RuleSet.Id&gt; =
+<span class="fc" id="L75">            ServiceLoader.load(</span>
+<span class="fc" id="L76">                RuleSetProvider::class.java,</span>
+<span class="fc" id="L77">                MissingRulesConfigValidator::class.java.classLoader</span>
+            )
+<span class="fc" id="L79">                .map { it.ruleSetId }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

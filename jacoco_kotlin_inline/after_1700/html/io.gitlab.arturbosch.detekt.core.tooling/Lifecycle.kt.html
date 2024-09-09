@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Lifecycle.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.tooling</a> &gt; <span class="el_source">Lifecycle.kt</span></div><h1>Lifecycle.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.tooling
+
+import io.github.detekt.parser.generateBindingContext
+import io.github.detekt.tooling.api.AnalysisMode
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Detektion
+import io.gitlab.arturbosch.detekt.api.FileProcessListener
+import io.gitlab.arturbosch.detekt.api.RuleSetProvider
+import io.gitlab.arturbosch.detekt.core.Analyzer
+import io.gitlab.arturbosch.detekt.core.DetektResult
+import io.gitlab.arturbosch.detekt.core.FileProcessorLocator
+import io.gitlab.arturbosch.detekt.core.ProcessingSettings
+import io.gitlab.arturbosch.detekt.core.config.validation.checkConfiguration
+import io.gitlab.arturbosch.detekt.core.extensions.handleReportingExtensions
+import io.gitlab.arturbosch.detekt.core.reporting.OutputFacade
+import io.gitlab.arturbosch.detekt.core.rules.createRuleProviders
+import io.gitlab.arturbosch.detekt.core.util.PerformanceMonitor.Phase
+import io.gitlab.arturbosch.detekt.core.util.getOrCreateMonitor
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.resolve.BindingContext
+
+internal interface Lifecycle {
+
+    val baselineConfig: Config
+    val settings: ProcessingSettings
+    val parsingStrategy: ParsingStrategy
+    val bindingProvider: (files: List&lt;KtFile&gt;) -&gt; BindingContext
+    val processorsProvider: () -&gt; List&lt;FileProcessListener&gt;
+    val ruleSetsProvider: () -&gt; List&lt;RuleSetProvider&gt;
+
+<span class="fc" id="L31">    private fun &lt;R&gt; measure(phase: Phase, block: () -&gt; R): R = settings.getOrCreateMonitor().measure(phase, block)</span>
+
+    fun analyze(): Detektion {
+<span class="fc" id="L34">        measure(Phase.ValidateConfig) { checkConfiguration(settings, baselineConfig) }</span>
+<span class="fc" id="L35">        val filesToAnalyze = measure(Phase.Parsing) { parsingStrategy.invoke(settings) }</span>
+<span class="fc" id="L36">        val bindingContext = measure(Phase.Binding) { bindingProvider.invoke(filesToAnalyze) }</span>
+<span class="fc" id="L37">        val (processors, ruleSets) = measure(Phase.LoadingExtensions) {</span>
+<span class="fc" id="L38">            processorsProvider.invoke() to ruleSetsProvider.invoke()</span>
+        }
+
+<span class="fc" id="L41">        val result = measure(Phase.Analyzer) {</span>
+<span class="fc" id="L42">            val analyzer = Analyzer(settings, ruleSets, processors)</span>
+<span class="fc" id="L43">            processors.forEach { it.onStart(filesToAnalyze) }</span>
+<span class="fc" id="L44">            val issues = analyzer.run(filesToAnalyze, bindingContext)</span>
+<span class="fc" id="L45">            val result: Detektion = DetektResult(issues)</span>
+<span class="fc" id="L46">            processors.forEach { it.onFinish(filesToAnalyze, result) }</span>
+<span class="fc" id="L47">            result</span>
+        }
+
+<span class="fc" id="L50">        return measure(Phase.Reporting) {</span>
+<span class="fc" id="L51">            val finalResult = handleReportingExtensions(settings, result)</span>
+<span class="fc" id="L52">            OutputFacade(settings).run(finalResult)</span>
+<span class="fc" id="L53">            finalResult</span>
+        }
+    }
+}
+
+<span class="fc" id="L58">internal class DefaultLifecycle(</span>
+<span class="fc" id="L59">    override val baselineConfig: Config,</span>
+<span class="fc" id="L60">    override val settings: ProcessingSettings,</span>
+<span class="fc" id="L61">    override val parsingStrategy: ParsingStrategy,</span>
+<span class="fc" id="L62">    override val bindingProvider: (files: List&lt;KtFile&gt;) -&gt; BindingContext =</span>
+<span class="fc" id="L63">        {</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">            if (settings.spec.projectSpec.analysisMode == AnalysisMode.full) {</span>
+<span class="nc" id="L65">                generateBindingContext(settings.environment, it, settings::debug, settings::info)</span>
+<span class="fc" id="L66">            } else {</span>
+<span class="fc" id="L67">                BindingContext.EMPTY</span>
+<span class="fc" id="L68">            }</span>
+        },
+<span class="fc" id="L70">    override val processorsProvider: () -&gt; List&lt;FileProcessListener&gt; =</span>
+<span class="fc" id="L71">        { FileProcessorLocator(settings).load() },</span>
+<span class="fc" id="L72">    override val ruleSetsProvider: () -&gt; List&lt;RuleSetProvider&gt; =</span>
+<span class="fc" id="L73">        { settings.createRuleProviders() }</span>
+<span class="fc" id="L74">) : Lifecycle</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

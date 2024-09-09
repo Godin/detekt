@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProcessingSpecSettingsBridge.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.tooling</a> &gt; <span class="el_source">ProcessingSpecSettingsBridge.kt</span></div><h1>ProcessingSpecSettingsBridge.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.tooling
+
+import io.github.detekt.tooling.api.spec.ProcessingSpec
+import io.github.detekt.utils.openSafeStream
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.OutputReport.Companion.DETEKT_OUTPUT_REPORT_BASE_PATH_KEY
+import io.gitlab.arturbosch.detekt.core.ProcessingSettings
+import io.gitlab.arturbosch.detekt.core.baseline.DETEKT_BASELINE_CREATION_KEY
+import io.gitlab.arturbosch.detekt.core.baseline.DETEKT_BASELINE_PATH_KEY
+import io.gitlab.arturbosch.detekt.core.config.AllRulesConfig
+import io.gitlab.arturbosch.detekt.core.config.CompositeConfig
+import io.gitlab.arturbosch.detekt.core.config.DisabledAutoCorrectConfig
+import io.gitlab.arturbosch.detekt.core.config.YamlConfig
+import io.gitlab.arturbosch.detekt.core.config.validation.DeprecatedRule
+import io.gitlab.arturbosch.detekt.core.config.validation.loadDeprecations
+import io.gitlab.arturbosch.detekt.core.reporting.DETEKT_OUTPUT_REPORT_PATHS_KEY
+import io.gitlab.arturbosch.detekt.core.util.MONITOR_PROPERTY_KEY
+import io.gitlab.arturbosch.detekt.core.util.PerformanceMonitor
+import io.gitlab.arturbosch.detekt.core.util.PerformanceMonitor.Phase
+
+internal fun &lt;R&gt; ProcessingSpec.withSettings(execute: ProcessingSettings.() -&gt; R): R {
+<span class="fc" id="L22">    val monitor = PerformanceMonitor()</span>
+<span class="fc" id="L23">    val configuration = monitor.measure(Phase.LoadConfig) {</span>
+<span class="fc" id="L24">        workaroundConfiguration(loadConfiguration())</span>
+    }
+<span class="fc" id="L26">    val settings = monitor.measure(Phase.CreateSettings) {</span>
+<span class="fc" id="L27">        ProcessingSettings(this, configuration).apply {</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">            baselineSpec.path?.let { register(DETEKT_BASELINE_PATH_KEY, it) }</span>
+<span class="fc" id="L29">            register(DETEKT_BASELINE_CREATION_KEY, baselineSpec.shouldCreateDuringAnalysis)</span>
+<span class="fc" id="L30">            register(MONITOR_PROPERTY_KEY, monitor)</span>
+<span class="fc" id="L31">            register(DETEKT_OUTPUT_REPORT_PATHS_KEY, reportsSpec.reports)</span>
+<span class="fc" id="L32">            register(DETEKT_OUTPUT_REPORT_BASE_PATH_KEY, projectSpec.basePath)</span>
+<span class="fc" id="L33">        }</span>
+    }
+<span class="fc" id="L35">    val result = settings.use { execute(it) }</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">    if (loggingSpec.debug) {</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        for ((phase, duration) in monitor.allFinished()) {</span>
+<span class="fc" id="L38">            settings.debug { &quot;Phase $phase took $duration&quot; }</span>
+        }
+    }
+<span class="fc" id="L41">    return result</span>
+}
+
+<span class="fc" id="L44">internal fun ProcessingSpec.loadConfiguration(): Config = with(configSpec) {</span>
+<span class="fc" id="L45">    return when {</span>
+<span class="fc bfc" id="L46" title="All 4 branches covered.">        configPaths.isNotEmpty() -&gt; configPaths.map { YamlConfig.load(it) }</span>
+<span class="pc bfc" id="L47" title="All 4 branches covered.">        resources.isNotEmpty() -&gt; resources.map { it.openSafeStream().reader().use(YamlConfig::load) }</span>
+<span class="fc" id="L48">        else -&gt; listOf(Config.empty)</span>
+    }
+<span class="fc" id="L50">        .reduce { composite, config -&gt; CompositeConfig(config, composite) }</span>
+}
+
+private fun ProcessingSpec.workaroundConfiguration(config: Config): Config {
+<span class="fc" id="L54">    var declaredConfig: Config = config</span>
+
+<span class="fc bfc" id="L56" title="All 2 branches covered.">    if (rulesSpec.activateAllRules) {</span>
+<span class="fc" id="L57">        val deprecatedRules = loadDeprecations().filterIsInstance&lt;DeprecatedRule&gt;().toSet()</span>
+<span class="fc" id="L58">        declaredConfig = AllRulesConfig(declaredConfig, deprecatedRules)</span>
+    }
+
+<span class="fc bfc" id="L61" title="All 2 branches covered.">    if (!rulesSpec.autoCorrect) {</span>
+<span class="fc" id="L62">        declaredConfig = DisabledAutoCorrectConfig(declaredConfig)</span>
+    }
+
+<span class="fc bfc" id="L65" title="All 4 branches covered.">    if (configSpec.useDefaultConfig || config === Config.empty) {</span>
+<span class="fc" id="L66">        declaredConfig = CompositeConfig(declaredConfig, getDefaultConfiguration())</span>
+    }
+
+<span class="fc" id="L69">    return declaredConfig</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

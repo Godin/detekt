@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InvalidPropertiesConfigValidator.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config.validation</a> &gt; <span class="el_source">InvalidPropertiesConfigValidator.kt</span></div><h1>InvalidPropertiesConfigValidator.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config.validation
+
+import io.gitlab.arturbosch.detekt.api.Notification
+import io.gitlab.arturbosch.detekt.core.config.YamlConfig
+import io.gitlab.arturbosch.detekt.core.extractRuleName
+import io.gitlab.arturbosch.detekt.core.util.SimpleNotification
+
+<span class="fc" id="L8">internal class InvalidPropertiesConfigValidator(</span>
+<span class="fc" id="L9">    private val baseline: YamlConfig,</span>
+    deprecatedProperties: Set&lt;DeprecatedProperty&gt;,
+<span class="fc" id="L11">    private val excludePatterns: Set&lt;Regex&gt;,</span>
+<span class="fc" id="L12">) : AbstractYamlConfigValidator() {</span>
+
+<span class="fc" id="L14">    private val deprecatedPropertyPaths: Set&lt;String&gt; = deprecatedProperties</span>
+<span class="fc" id="L15">        .map { &quot;${it.ruleSetId}&gt;${it.ruleName}&gt;${it.propertyName}&quot; }</span>
+<span class="fc" id="L16">        .toSet()</span>
+
+<span class="pc" id="L18">    override val id: String = &quot;InvalidPropertiesConfigValidator&quot;</span>
+
+    override fun validate(
+        configToValidate: YamlConfig,
+        settings: ValidationSettings
+<span class="fc" id="L23">    ): Collection&lt;Notification&gt; = testKeys(configToValidate.properties, baseline.properties)</span>
+
+<span class="fc" id="L25">    private fun testKeys(</span>
+        configToValidate: Map&lt;String, Any&gt;,
+        baseline: Map&lt;String, Any&gt;,
+<span class="fc" id="L28">        parentPath: String? = null</span>
+    ): List&lt;Notification&gt; {
+<span class="fc" id="L30">        val notifications = mutableListOf&lt;Notification&gt;()</span>
+<span class="fc bfc" id="L31" title="All 2 branches covered.">        for (prop in configToValidate.keys) {</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">            val propertyPath = &quot;${if (parentPath == null) &quot;&quot; else &quot;$parentPath&gt;&quot;}$prop&quot;</span>
+<span class="fc" id="L33">            val isExcluded = excludePatterns.any { it.matches(propertyPath) }</span>
+<span class="fc" id="L34">            val isDeprecated = deprecatedPropertyPaths.contains(propertyPath)</span>
+<span class="fc bfc" id="L35" title="All 4 branches covered.">            if (isExcluded || isDeprecated) {</span>
+<span class="fc" id="L36">                continue</span>
+            }
+<span class="fc" id="L38">            notifications.addAll(</span>
+<span class="fc" id="L39">                checkProp(</span>
+<span class="fc" id="L40">                    propertyName = prop,</span>
+<span class="fc" id="L41">                    propertyPath = propertyPath,</span>
+<span class="fc" id="L42">                    configToValidate = configToValidate,</span>
+<span class="fc" id="L43">                    baseline = baseline</span>
+                )
+            )
+        }
+<span class="fc" id="L47">        return notifications</span>
+    }
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;, &quot;ReturnCount&quot;)
+    private fun checkProp(
+        propertyName: String,
+        propertyPath: String,
+        configToValidate: Map&lt;String, Any&gt;,
+        baseline: Map&lt;String, Any&gt;
+    ): List&lt;Notification&gt; {
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        if (!baseline.contains(propertyName)) {</span>
+<span class="fc" id="L58">            val ruleName = extractRuleName(propertyName)</span>
+<span class="pc bpc" id="L59" title="1 of 4 branches missed.">            if (ruleName == null || !baseline.contains(ruleName.value)) {</span>
+<span class="fc" id="L60">                return listOf(propertyDoesNotExists(propertyPath))</span>
+            }
+        }
+<span class="fc bfc" id="L63" title="All 4 branches covered.">        if (configToValidate[propertyName] is String &amp;&amp; baseline[propertyName] is List&lt;*&gt;) {</span>
+<span class="fc" id="L64">            return listOf(propertyShouldBeAnArray(propertyPath))</span>
+        }
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        val next = configToValidate[propertyName] as? Map&lt;String, Any&gt;</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        val nextBase = baseline[propertyName] as? Map&lt;String, Any&gt;</span>
+<span class="fc" id="L69">        return when {</span>
+<span class="fc bfc" id="L70" title="All 4 branches covered.">            next == null &amp;&amp; nextBase != null -&gt;</span>
+<span class="fc" id="L71">                listOf(nestedConfigurationExpected(propertyPath))</span>
+
+<span class="fc bfc" id="L73" title="All 6 branches covered.">            baseline.contains(propertyName) &amp;&amp; next != null &amp;&amp; nextBase == null -&gt;</span>
+<span class="fc" id="L74">                listOf(unexpectedNestedConfiguration(propertyPath))</span>
+
+<span class="fc bfc" id="L76" title="All 4 branches covered.">            next != null &amp;&amp; nextBase != null -&gt;</span>
+<span class="fc" id="L77">                testKeys(next, nextBase, propertyPath)</span>
+
+<span class="fc" id="L79">            else -&gt; emptyList()</span>
+        }
+    }
+
+    companion object {
+
+        internal fun propertyDoesNotExists(prop: String): Notification =
+<span class="fc" id="L86">            SimpleNotification(</span>
+<span class="fc" id="L87">                &quot;Property '$prop' is misspelled or does not exist. &quot; +</span>
+<span class="fc" id="L88">                    &quot;This error may also indicate a detekt plugin is necessary to handle the '$prop' key.&quot;</span>
+<span class="fc" id="L89">            )</span>
+
+        internal fun nestedConfigurationExpected(prop: String): Notification =
+<span class="fc" id="L92">            SimpleNotification(&quot;Nested config expected for '$prop'.&quot;)</span>
+
+        internal fun unexpectedNestedConfiguration(prop: String): Notification =
+<span class="fc" id="L95">            SimpleNotification(&quot;Unexpected nested config for '$prop'.&quot;)</span>
+
+        internal fun propertyShouldBeAnArray(prop: String): Notification =
+<span class="fc" id="L98">            SimpleNotification(&quot;Property '$prop' should be a YAML array instead of a String.&quot;)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PathMatchers.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.utils</a> &gt; <span class="el_source">PathMatchers.kt</span></div><h1>PathMatchers.kt</h1><pre class="source lang-java linenums">package io.github.detekt.utils
+
+import java.nio.file.FileSystem
+import java.nio.file.FileSystems
+import java.nio.file.PathMatcher
+
+/**
+ * Converts given [pattern] into a [PathMatcher] specified by [FileSystem.getPathMatcher].
+ * We only support the &quot;glob:&quot; syntax to stay os independently.
+ * Internally a globbing pattern is transformed to a regex respecting the Windows file system.
+ */
+internal fun pathMatcher(pattern: String): PathMatcher {
+<span class="fc" id="L13">    val result = when (pattern.substringBefore(&quot;:&quot;)) {</span>
+<span class="fc bfc" id="L14" title="All 2 branches covered.">        &quot;glob&quot; -&gt; pattern</span>
+<span class="fc bfc" id="L15" title="All 2 branches covered.">        &quot;regex&quot; -&gt; throw IllegalArgumentException(USE_GLOB_MSG)</span>
+<span class="fc" id="L16">        else -&gt; &quot;glob:$pattern&quot;</span>
+    }
+
+<span class="fc" id="L19">    return FileSystems.getDefault().getPathMatcher(result)</span>
+}
+
+private const val USE_GLOB_MSG =
+    &quot;Only globbing patterns are supported as they are treated os-independently by the PathMatcher api.&quot;
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

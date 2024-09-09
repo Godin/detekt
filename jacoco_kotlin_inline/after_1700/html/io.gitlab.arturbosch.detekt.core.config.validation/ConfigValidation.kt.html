@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigValidation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config.validation</a> &gt; <span class="el_source">ConfigValidation.kt</span></div><h1>ConfigValidation.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config.validation
+
+import io.github.detekt.tooling.api.InvalidConfig
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.ConfigValidator
+import io.gitlab.arturbosch.detekt.api.Notification
+import io.gitlab.arturbosch.detekt.api.Notification.Level
+import io.gitlab.arturbosch.detekt.core.NL
+import io.gitlab.arturbosch.detekt.core.ProcessingSettings
+import io.gitlab.arturbosch.detekt.core.config.YamlConfig
+import io.gitlab.arturbosch.detekt.core.extensions.loadExtensions
+import io.gitlab.arturbosch.detekt.core.reporting.red
+import io.gitlab.arturbosch.detekt.core.reporting.yellow
+import io.gitlab.arturbosch.detekt.core.util.SimpleNotification
+
+/**
+ * Known existing properties on rules which may be absent in the default-detekt-config.yml.
+ *
+ * We need to predefine them as the user may not have already declared an 'config'-block
+ * in the configuration and we want to validate the config by default.
+ */
+<span class="fc" id="L22">internal val DEFAULT_PROPERTY_EXCLUDES = setOf(</span>
+<span class="fc" id="L23">    &quot;.*&gt;excludes&quot;,</span>
+<span class="fc" id="L24">    &quot;.*&gt;includes&quot;,</span>
+<span class="fc" id="L25">    &quot;.*&gt;active&quot;,</span>
+<span class="fc" id="L26">    &quot;.*&gt;.*&gt;excludes&quot;,</span>
+<span class="fc" id="L27">    &quot;.*&gt;.*&gt;includes&quot;,</span>
+<span class="fc" id="L28">    &quot;.*&gt;.*&gt;active&quot;,</span>
+<span class="fc" id="L29">    &quot;.*&gt;.*&gt;autoCorrect&quot;,</span>
+<span class="fc" id="L30">    &quot;.*&gt;severity&quot;,</span>
+<span class="fc" id="L31">    &quot;.*&gt;.*&gt;severity&quot;,</span>
+<span class="fc" id="L32">    &quot;.*&gt;.*&gt;ignoreAnnotated&quot;,</span>
+<span class="fc" id="L33">    &quot;.*&gt;.*&gt;ignoreFunction&quot;,</span>
+<span class="fc" id="L34">).map { it.toRegex() }</span>
+
+internal fun checkConfiguration(settings: ProcessingSettings, baseline: Config) {
+<span class="fc" id="L37">    var shouldValidate = settings.spec.configSpec.shouldValidateBeforeAnalysis</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">    if (shouldValidate == null) {</span>
+<span class="fc" id="L39">        val props = settings.config.subConfig(&quot;config&quot;)</span>
+<span class="fc" id="L40">        shouldValidate = props.valueOrDefault(&quot;validation&quot;, true)</span>
+    }
+<span class="fc bfc" id="L42" title="All 2 branches covered.">    if (shouldValidate) {</span>
+<span class="fc" id="L43">        val validators =</span>
+<span class="fc" id="L44">            loadExtensions&lt;ConfigValidator&gt;(settings) + DefaultPropertiesConfigValidator(settings, baseline)</span>
+<span class="fc" id="L45">        val notifications = validators.flatMap { it.validate(settings.config) }</span>
+<span class="fc" id="L46">        notifications.map(Notification::message).forEach(settings::info)</span>
+<span class="fc" id="L47">        val errors = notifications.filter(Notification::isError)</span>
+<span class="fc bfc" id="L48" title="All 4 branches covered.">        if (errors.isNotEmpty()) {</span>
+<span class="fc" id="L49">            val problems = notifications.joinToString(NL) { &quot;\t- ${it.renderMessage()}&quot; }</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            val propsString = if (errors.size == 1) &quot;property&quot; else &quot;properties&quot;</span>
+<span class="fc" id="L51">            val title = &quot;Run failed with ${errors.size} invalid config $propsString.&quot;.red()</span>
+<span class="fc" id="L52">            throw InvalidConfig(&quot;$title$NL$problems&quot;)</span>
+        }
+    }
+<span class="fc" id="L55">}</span>
+
+internal fun validateConfig(
+    config: Config,
+    baseline: Config,
+    excludePatterns: Set&lt;Regex&gt;
+): List&lt;Notification&gt; {
+<span class="fc bfc" id="L62" title="All 4 branches covered.">    require(baseline != Config.empty) { &quot;Cannot validate configuration based on an empty baseline config.&quot; }</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">    require(baseline is YamlConfig) {</span>
+<span class="fc" id="L64">        val yamlConfigClass = YamlConfig::class.simpleName</span>
+<span class="fc" id="L65">        val actualClass = baseline.javaClass.simpleName</span>
+
+<span class="fc" id="L67">        &quot;Only supported baseline config is the $yamlConfigClass. Actual type is $actualClass&quot;</span>
+    }
+
+<span class="fc bfc" id="L70" title="All 2 branches covered.">    if (config == Config.empty) {</span>
+<span class="fc" id="L71">        return emptyList()</span>
+    }
+
+<span class="fc" id="L74">    return when (config) {</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        is YamlConfig -&gt; validateYamlConfig(config, baseline, excludePatterns)</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        is ValidatableConfiguration -&gt; config.validate(baseline, excludePatterns)</span>
+<span class="fc" id="L77">        else -&gt; error(&quot;Unsupported config type for validation: '${config::class}'.&quot;)</span>
+    }
+}
+
+private fun validateYamlConfig(
+    configToValidate: YamlConfig,
+    baseline: YamlConfig,
+    excludePatterns: Set&lt;Regex&gt;
+): List&lt;Notification&gt; {
+<span class="fc" id="L86">    val deprecatedProperties = loadDeprecations().filterIsInstance&lt;DeprecatedProperty&gt;().toSet()</span>
+<span class="fc" id="L87">    val warningsAsErrors = configToValidate</span>
+<span class="fc" id="L88">        .subConfig(&quot;config&quot;)</span>
+<span class="fc" id="L89">        .valueOrDefault(&quot;warningsAsErrors&quot;, false)</span>
+
+<span class="fc" id="L91">    val validators: List&lt;ConfigValidator&gt; = listOf(</span>
+<span class="fc" id="L92">        InvalidPropertiesConfigValidator(baseline, deprecatedProperties, excludePatterns),</span>
+<span class="fc" id="L93">        DeprecatedPropertiesConfigValidator(deprecatedProperties),</span>
+<span class="fc" id="L94">        MissingRulesConfigValidator(baseline, excludePatterns)</span>
+    )
+
+<span class="fc" id="L97">    return validators</span>
+<span class="fc" id="L98">        .flatMap { it.validate(configToValidate) }</span>
+<span class="fc" id="L99">        .map { notification -&gt;</span>
+<span class="pc bpc" id="L100" title="1 of 4 branches missed.">            notification.transformIf(warningsAsErrors &amp;&amp; notification.level == Level.Warning) {</span>
+<span class="fc" id="L101">                SimpleNotification(</span>
+<span class="fc" id="L102">                    message = notification.message,</span>
+<span class="fc" id="L103">                    level = Level.Error</span>
+<span class="fc" id="L104">                )</span>
+<span class="fc" id="L105">            }</span>
+        }
+}
+
+private fun &lt;T&gt; T.transformIf(condition: Boolean, transform: () -&gt; T): T =
+<span class="fc bfc" id="L110" title="All 2 branches covered.">    if (condition) transform() else this</span>
+
+internal fun Notification.renderMessage(): String =
+<span class="pc bpc" id="L113" title="2 of 3 branches missed.">    when (level) {</span>
+<span class="fc" id="L114">        Level.Error -&gt; message.red()</span>
+<span class="nc" id="L115">        Level.Warning -&gt; message.yellow()</span>
+<span class="nc" id="L116">        Level.Info -&gt; message</span>
+<span class="fc" id="L117">    }</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

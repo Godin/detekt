@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DetektAnalysisExtension.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.compiler.plugin</a> &gt; <span class="el_source">DetektAnalysisExtension.kt</span></div><h1>DetektAnalysisExtension.kt</h1><pre class="source lang-java linenums">package io.github.detekt.compiler.plugin
+
+import io.github.detekt.compiler.plugin.internal.DetektService
+import io.github.detekt.compiler.plugin.internal.info
+import io.github.detekt.tooling.api.spec.ProcessingSpec
+import org.jetbrains.kotlin.analyzer.AnalysisResult
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.com.intellij.openapi.project.Project
+import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.resolve.BindingTrace
+import org.jetbrains.kotlin.resolve.jvm.extensions.AnalysisHandlerExtension
+import java.nio.file.FileSystems
+import java.nio.file.Path
+import kotlin.io.path.Path
+
+<span class="fc" id="L17">class DetektAnalysisExtension(</span>
+<span class="fc" id="L18">    private val log: MessageCollector,</span>
+<span class="fc" id="L19">    private val spec: ProcessingSpec,</span>
+<span class="fc" id="L20">    private val rootPath: Path,</span>
+<span class="fc" id="L21">    private val excludes: Collection&lt;String&gt;</span>
+) : AnalysisHandlerExtension {
+
+    override fun analysisCompleted(
+        project: Project,
+        module: ModuleDescriptor,
+        bindingTrace: BindingTrace,
+        files: Collection&lt;KtFile&gt;
+    ): AnalysisResult? {
+<span class="pc bpc" id="L30" title="1 of 2 branches missed.">        if (spec.loggingSpec.debug) {</span>
+<span class="nc" id="L31">            log.info(&quot;$spec&quot;)</span>
+        }
+<span class="pc" id="L33">        val matchers = excludes.map { FileSystems.getDefault().getPathMatcher(&quot;glob:$it&quot;) }</span>
+<span class="fc" id="L34">        val (includedFiles, excludedFiles) = files.partition { file -&gt;</span>
+<span class="pc" id="L35">            matchers.none { it.matches(rootPath.relativize(Path(file.virtualFilePath))) }</span>
+        }
+<span class="fc" id="L37">        log.info(&quot;Running detekt on module '${module.name.asString()}'&quot;)</span>
+<span class="pc" id="L38">        excludedFiles.forEach { log.info(&quot;File excluded by filter: ${it.virtualFilePath}&quot;) }</span>
+<span class="fc" id="L39">        DetektService(log, spec).analyze(includedFiles, bindingTrace.bindingContext)</span>
+<span class="fc" id="L40">        return null</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

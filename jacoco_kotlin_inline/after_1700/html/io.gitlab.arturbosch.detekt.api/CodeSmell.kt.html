@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CodeSmell.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.api</a> &gt; <span class="el_source">CodeSmell.kt</span></div><h1>CodeSmell.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.api
+
+/**
+ * A code smell indicates any possible design problem inside a program's source code.
+ * The type of a code smell is described by an [Issue].
+ *
+ * If the design problem manifests by different source locations, references to these
+ * locations can be stored in additional [Entity]'s.
+ */
+<span class="fc" id="L10">open class CodeSmell(</span>
+<span class="fc" id="L11">    final override val entity: Entity,</span>
+<span class="fc" id="L12">    final override val message: String,</span>
+<span class="fc" id="L13">    final override val references: List&lt;Entity&gt; = emptyList()</span>
+<span class="fc" id="L14">) : Finding {</span>
+<span class="fc" id="L15">    init {</span>
+<span class="pc bpc" id="L16" title="2 of 4 branches missed.">        require(message.isNotBlank()) { &quot;The message should not be empty&quot; }</span>
+<span class="fc" id="L17">    }</span>
+
+    override fun toString(): String =
+<span class="fc" id="L20">        &quot;CodeSmell(entity=$entity, &quot; +</span>
+<span class="fc" id="L21">            &quot;message=$message, &quot; +</span>
+<span class="fc" id="L22">            &quot;references=$references)&quot;</span>
+}
+
+/**
+ * Represents a code smell that can be auto-corrected.
+ *
+ * @see CodeSmell
+ */
+<span class="fc" id="L30">open class CorrectableCodeSmell(</span>
+    entity: Entity,
+    message: String,
+<span class="fc" id="L33">    references: List&lt;Entity&gt; = emptyList(),</span>
+<span class="fc" id="L34">    val autoCorrectEnabled: Boolean</span>
+<span class="fc" id="L35">) : CodeSmell(</span>
+<span class="fc" id="L36">    entity,</span>
+<span class="fc" id="L37">    message,</span>
+<span class="fc" id="L38">    references</span>
+) {
+    override fun toString(): String =
+<span class="fc" id="L41">        &quot;CorrectableCodeSmell(&quot; +</span>
+<span class="fc" id="L42">            &quot;autoCorrectEnabled=$autoCorrectEnabled, &quot; +</span>
+<span class="fc" id="L43">            &quot;entity=$entity, &quot; +</span>
+<span class="fc" id="L44">            &quot;message=$message, &quot; +</span>
+<span class="fc" id="L45">            &quot;references=$references)&quot;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

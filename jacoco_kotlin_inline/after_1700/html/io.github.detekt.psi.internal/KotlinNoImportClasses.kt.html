@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KotlinNoImportClasses.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.psi.internal</a> &gt; <span class="el_source">KotlinNoImportClasses.kt</span></div><h1>KotlinNoImportClasses.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;MaxLineLength&quot;)
+
+package io.github.detekt.psi.internal
+
+/*
+ The entries of this map was generate with this script:
+
+#!/usr/bin/env bash
+
+print_classes() {
+  packages=(kotlin kotlin.annotation kotlin.collections kotlin.comparisons kotlin.io kotlin.ranges kotlin.sequences kotlin.text)
+
+  for package in &quot;${packages[@]}&quot;; do
+    curl -s &quot;https://kotlinlang.org/api/latest/jvm/stdlib/$package/&quot; | gsed -n -E &quot;s|&lt;h4&gt;&lt;a href=\&quot;.*\&quot;&gt;([A-Z].*)&lt;/a&gt;&lt;/h4&gt;|\&quot;\1\&quot; to \&quot;$package.\1\&quot;,|p&quot;
+  done
+}
+
+print_classes | sort -u | gsed '/^&quot;[A-Z_]*&quot;/d'
+
+And the list of packages that should be considered was extracted from the kotlin documentation:
+https://kotlinlang.org/docs/packages.html#default-imports
+ */
+<span class="fc" id="L23">internal val defaultImportClasses = mapOf(</span>
+<span class="fc" id="L24">    &quot;AbstractCollection&quot; to &quot;kotlin.collections.AbstractCollection&quot;,</span>
+<span class="fc" id="L25">    &quot;AbstractIterator&quot; to &quot;kotlin.collections.AbstractIterator&quot;,</span>
+<span class="fc" id="L26">    &quot;AbstractList&quot; to &quot;kotlin.collections.AbstractList&quot;,</span>
+<span class="fc" id="L27">    &quot;AbstractMap&quot; to &quot;kotlin.collections.AbstractMap&quot;,</span>
+<span class="fc" id="L28">    &quot;AbstractMutableCollection&quot; to &quot;kotlin.collections.AbstractMutableCollection&quot;,</span>
+<span class="fc" id="L29">    &quot;AbstractMutableList&quot; to &quot;kotlin.collections.AbstractMutableList&quot;,</span>
+<span class="fc" id="L30">    &quot;AbstractMutableMap&quot; to &quot;kotlin.collections.AbstractMutableMap&quot;,</span>
+<span class="fc" id="L31">    &quot;AbstractMutableSet&quot; to &quot;kotlin.collections.AbstractMutableSet&quot;,</span>
+<span class="fc" id="L32">    &quot;AbstractSet&quot; to &quot;kotlin.collections.AbstractSet&quot;,</span>
+<span class="fc" id="L33">    &quot;AccessDeniedException&quot; to &quot;kotlin.io.AccessDeniedException&quot;,</span>
+<span class="fc" id="L34">    &quot;Annotation&quot; to &quot;kotlin.Annotation&quot;,</span>
+<span class="fc" id="L35">    &quot;AnnotationRetention&quot; to &quot;kotlin.annotation.AnnotationRetention&quot;,</span>
+<span class="fc" id="L36">    &quot;AnnotationTarget&quot; to &quot;kotlin.annotation.AnnotationTarget&quot;,</span>
+<span class="fc" id="L37">    &quot;Any&quot; to &quot;kotlin.Any&quot;,</span>
+<span class="fc" id="L38">    &quot;Appendable&quot; to &quot;kotlin.text.Appendable&quot;,</span>
+<span class="fc" id="L39">    &quot;ArithmeticException&quot; to &quot;kotlin.ArithmeticException&quot;,</span>
+<span class="fc" id="L40">    &quot;Array&quot; to &quot;kotlin.Array&quot;,</span>
+<span class="fc" id="L41">    &quot;ArrayDeque&quot; to &quot;kotlin.collections.ArrayDeque&quot;,</span>
+<span class="fc" id="L42">    &quot;ArrayIndexOutOfBoundsException&quot; to &quot;kotlin.ArrayIndexOutOfBoundsException&quot;,</span>
+<span class="fc" id="L43">    &quot;ArrayList&quot; to &quot;kotlin.collections.ArrayList&quot;,</span>
+<span class="fc" id="L44">    &quot;AssertionError&quot; to &quot;kotlin.AssertionError&quot;,</span>
+<span class="fc" id="L45">    &quot;Boolean&quot; to &quot;kotlin.Boolean&quot;,</span>
+<span class="fc" id="L46">    &quot;BooleanArray&quot; to &quot;kotlin.BooleanArray&quot;,</span>
+<span class="fc" id="L47">    &quot;BooleanIterator&quot; to &quot;kotlin.collections.BooleanIterator&quot;,</span>
+<span class="fc" id="L48">    &quot;BuilderInference&quot; to &quot;kotlin.BuilderInference&quot;,</span>
+<span class="fc" id="L49">    &quot;Byte&quot; to &quot;kotlin.Byte&quot;,</span>
+<span class="fc" id="L50">    &quot;ByteArray&quot; to &quot;kotlin.ByteArray&quot;,</span>
+<span class="fc" id="L51">    &quot;ByteIterator&quot; to &quot;kotlin.collections.ByteIterator&quot;,</span>
+<span class="fc" id="L52">    &quot;ClassCastException&quot; to &quot;kotlin.ClassCastException&quot;,</span>
+<span class="fc" id="L53">    &quot;ClosedFloatingPointRange&quot; to &quot;kotlin.ranges.ClosedFloatingPointRange&quot;,</span>
+<span class="fc" id="L54">    &quot;ClosedRange&quot; to &quot;kotlin.ranges.ClosedRange&quot;,</span>
+<span class="fc" id="L55">    &quot;Collection&quot; to &quot;kotlin.collections.Collection&quot;,</span>
+<span class="fc" id="L56">    &quot;Comparable&quot; to &quot;kotlin.Comparable&quot;,</span>
+<span class="fc" id="L57">    &quot;Comparator&quot; to &quot;kotlin.Comparator&quot;,</span>
+<span class="fc" id="L58">    &quot;ConcurrentModificationException&quot; to &quot;kotlin.ConcurrentModificationException&quot;,</span>
+<span class="fc" id="L59">    &quot;Char&quot; to &quot;kotlin.Char&quot;,</span>
+<span class="fc" id="L60">    &quot;CharArray&quot; to &quot;kotlin.CharArray&quot;,</span>
+<span class="fc" id="L61">    &quot;CharCategory&quot; to &quot;kotlin.text.CharCategory&quot;,</span>
+<span class="fc" id="L62">    &quot;CharDirectionality&quot; to &quot;kotlin.text.CharDirectionality&quot;,</span>
+<span class="fc" id="L63">    &quot;CharIterator&quot; to &quot;kotlin.collections.CharIterator&quot;,</span>
+<span class="fc" id="L64">    &quot;CharProgression&quot; to &quot;kotlin.ranges.CharProgression&quot;,</span>
+<span class="fc" id="L65">    &quot;CharRange&quot; to &quot;kotlin.ranges.CharRange&quot;,</span>
+<span class="fc" id="L66">    &quot;CharSequence&quot; to &quot;kotlin.CharSequence&quot;,</span>
+<span class="fc" id="L67">    &quot;CharacterCodingException&quot; to &quot;kotlin.text.CharacterCodingException&quot;,</span>
+<span class="fc" id="L68">    &quot;Charsets&quot; to &quot;kotlin.text.Charsets&quot;,</span>
+<span class="fc" id="L69">    &quot;DeepRecursiveFunction&quot; to &quot;kotlin.DeepRecursiveFunction&quot;,</span>
+<span class="fc" id="L70">    &quot;DeepRecursiveScope&quot; to &quot;kotlin.DeepRecursiveScope&quot;,</span>
+<span class="fc" id="L71">    &quot;Deprecated&quot; to &quot;kotlin.Deprecated&quot;,</span>
+<span class="fc" id="L72">    &quot;DeprecatedSinceKotlin&quot; to &quot;kotlin.DeprecatedSinceKotlin&quot;,</span>
+<span class="fc" id="L73">    &quot;DeprecationLevel&quot; to &quot;kotlin.DeprecationLevel&quot;,</span>
+<span class="fc" id="L74">    &quot;Double&quot; to &quot;kotlin.Double&quot;,</span>
+<span class="fc" id="L75">    &quot;DoubleArray&quot; to &quot;kotlin.DoubleArray&quot;,</span>
+<span class="fc" id="L76">    &quot;DoubleIterator&quot; to &quot;kotlin.collections.DoubleIterator&quot;,</span>
+<span class="fc" id="L77">    &quot;DslMarker&quot; to &quot;kotlin.DslMarker&quot;,</span>
+<span class="fc" id="L78">    &quot;Enum&quot; to &quot;kotlin.Enum&quot;,</span>
+<span class="fc" id="L79">    &quot;Error&quot; to &quot;kotlin.Error&quot;,</span>
+<span class="fc" id="L80">    &quot;Exception&quot; to &quot;kotlin.Exception&quot;,</span>
+<span class="fc" id="L81">    &quot;Experimental&quot; to &quot;kotlin.Experimental&quot;,</span>
+<span class="fc" id="L82">    &quot;ExperimentalMultiplatform&quot; to &quot;kotlin.ExperimentalMultiplatform&quot;,</span>
+<span class="fc" id="L83">    &quot;ExperimentalStdlibApi&quot; to &quot;kotlin.ExperimentalStdlibApi&quot;,</span>
+<span class="fc" id="L84">    &quot;ExperimentalUnsignedTypes&quot; to &quot;kotlin.ExperimentalUnsignedTypes&quot;,</span>
+<span class="fc" id="L85">    &quot;ExtensionFunctionType&quot; to &quot;kotlin.ExtensionFunctionType&quot;,</span>
+<span class="fc" id="L86">    &quot;FileAlreadyExistsException&quot; to &quot;kotlin.io.FileAlreadyExistsException&quot;,</span>
+<span class="fc" id="L87">    &quot;FileSystemException&quot; to &quot;kotlin.io.FileSystemException&quot;,</span>
+<span class="fc" id="L88">    &quot;FileTreeWalk&quot; to &quot;kotlin.io.FileTreeWalk&quot;,</span>
+<span class="fc" id="L89">    &quot;FileWalkDirection&quot; to &quot;kotlin.io.FileWalkDirection&quot;,</span>
+<span class="fc" id="L90">    &quot;Float&quot; to &quot;kotlin.Float&quot;,</span>
+<span class="fc" id="L91">    &quot;FloatArray&quot; to &quot;kotlin.FloatArray&quot;,</span>
+<span class="fc" id="L92">    &quot;FloatIterator&quot; to &quot;kotlin.collections.FloatIterator&quot;,</span>
+<span class="fc" id="L93">    &quot;Function&quot; to &quot;kotlin.Function&quot;,</span>
+<span class="fc" id="L94">    &quot;Grouping&quot; to &quot;kotlin.collections.Grouping&quot;,</span>
+<span class="fc" id="L95">    &quot;HashMap&quot; to &quot;kotlin.collections.HashMap&quot;,</span>
+<span class="fc" id="L96">    &quot;HashSet&quot; to &quot;kotlin.collections.HashSet&quot;,</span>
+<span class="fc" id="L97">    &quot;IllegalArgumentException&quot; to &quot;kotlin.IllegalArgumentException&quot;,</span>
+<span class="fc" id="L98">    &quot;IllegalStateException&quot; to &quot;kotlin.IllegalStateException&quot;,</span>
+<span class="fc" id="L99">    &quot;IndexOutOfBoundsException&quot; to &quot;kotlin.IndexOutOfBoundsException&quot;,</span>
+<span class="fc" id="L100">    &quot;IndexedValue&quot; to &quot;kotlin.collections.IndexedValue&quot;,</span>
+<span class="fc" id="L101">    &quot;Int&quot; to &quot;kotlin.Int&quot;,</span>
+<span class="fc" id="L102">    &quot;IntArray&quot; to &quot;kotlin.IntArray&quot;,</span>
+<span class="fc" id="L103">    &quot;IntIterator&quot; to &quot;kotlin.collections.IntIterator&quot;,</span>
+<span class="fc" id="L104">    &quot;IntProgression&quot; to &quot;kotlin.ranges.IntProgression&quot;,</span>
+<span class="fc" id="L105">    &quot;IntRange&quot; to &quot;kotlin.ranges.IntRange&quot;,</span>
+<span class="fc" id="L106">    &quot;Iterable&quot; to &quot;kotlin.collections.Iterable&quot;,</span>
+<span class="fc" id="L107">    &quot;Iterator&quot; to &quot;kotlin.collections.Iterator&quot;,</span>
+<span class="fc" id="L108">    &quot;KotlinNullPointerException&quot; to &quot;kotlin.KotlinNullPointerException&quot;,</span>
+<span class="fc" id="L109">    &quot;KotlinVersion&quot; to &quot;kotlin.KotlinVersion&quot;,</span>
+<span class="fc" id="L110">    &quot;Lazy&quot; to &quot;kotlin.Lazy&quot;,</span>
+<span class="fc" id="L111">    &quot;LazyThreadSafetyMode&quot; to &quot;kotlin.LazyThreadSafetyMode&quot;,</span>
+<span class="fc" id="L112">    &quot;LinkedHashMap&quot; to &quot;kotlin.collections.LinkedHashMap&quot;,</span>
+<span class="fc" id="L113">    &quot;LinkedHashSet&quot; to &quot;kotlin.collections.LinkedHashSet&quot;,</span>
+<span class="fc" id="L114">    &quot;List&quot; to &quot;kotlin.collections.List&quot;,</span>
+<span class="fc" id="L115">    &quot;ListIterator&quot; to &quot;kotlin.collections.ListIterator&quot;,</span>
+<span class="fc" id="L116">    &quot;Long&quot; to &quot;kotlin.Long&quot;,</span>
+<span class="fc" id="L117">    &quot;LongArray&quot; to &quot;kotlin.LongArray&quot;,</span>
+<span class="fc" id="L118">    &quot;LongIterator&quot; to &quot;kotlin.collections.LongIterator&quot;,</span>
+<span class="fc" id="L119">    &quot;LongProgression&quot; to &quot;kotlin.ranges.LongProgression&quot;,</span>
+<span class="fc" id="L120">    &quot;LongRange&quot; to &quot;kotlin.ranges.LongRange&quot;,</span>
+<span class="fc" id="L121">    &quot;Map&quot; to &quot;kotlin.collections.Map&quot;,</span>
+<span class="fc" id="L122">    &quot;MatchGroup&quot; to &quot;kotlin.text.MatchGroup&quot;,</span>
+<span class="fc" id="L123">    &quot;MatchGroupCollection&quot; to &quot;kotlin.text.MatchGroupCollection&quot;,</span>
+<span class="fc" id="L124">    &quot;MatchNamedGroupCollection&quot; to &quot;kotlin.text.MatchNamedGroupCollection&quot;,</span>
+<span class="fc" id="L125">    &quot;MatchResult&quot; to &quot;kotlin.text.MatchResult&quot;,</span>
+<span class="fc" id="L126">    &quot;Metadata&quot; to &quot;kotlin.Metadata&quot;,</span>
+<span class="fc" id="L127">    &quot;MustBeDocumented&quot; to &quot;kotlin.annotation.MustBeDocumented&quot;,</span>
+<span class="fc" id="L128">    &quot;MutableCollection&quot; to &quot;kotlin.collections.MutableCollection&quot;,</span>
+<span class="fc" id="L129">    &quot;MutableIterable&quot; to &quot;kotlin.collections.MutableIterable&quot;,</span>
+<span class="fc" id="L130">    &quot;MutableIterator&quot; to &quot;kotlin.collections.MutableIterator&quot;,</span>
+<span class="fc" id="L131">    &quot;MutableList&quot; to &quot;kotlin.collections.MutableList&quot;,</span>
+<span class="fc" id="L132">    &quot;MutableListIterator&quot; to &quot;kotlin.collections.MutableListIterator&quot;,</span>
+<span class="fc" id="L133">    &quot;MutableMap&quot; to &quot;kotlin.collections.MutableMap&quot;,</span>
+<span class="fc" id="L134">    &quot;MutableSet&quot; to &quot;kotlin.collections.MutableSet&quot;,</span>
+<span class="fc" id="L135">    &quot;NoSuchElementException&quot; to &quot;kotlin.NoSuchElementException&quot;,</span>
+<span class="fc" id="L136">    &quot;NoSuchFileException&quot; to &quot;kotlin.io.NoSuchFileException&quot;,</span>
+<span class="fc" id="L137">    &quot;NoWhenBranchMatchedException&quot; to &quot;kotlin.NoWhenBranchMatchedException&quot;,</span>
+<span class="fc" id="L138">    &quot;NotImplementedError&quot; to &quot;kotlin.NotImplementedError&quot;,</span>
+<span class="fc" id="L139">    &quot;Nothing&quot; to &quot;kotlin.Nothing&quot;,</span>
+<span class="fc" id="L140">    &quot;NullPointerException&quot; to &quot;kotlin.NullPointerException&quot;,</span>
+<span class="fc" id="L141">    &quot;Number&quot; to &quot;kotlin.Number&quot;,</span>
+<span class="fc" id="L142">    &quot;NumberFormatException&quot; to &quot;kotlin.NumberFormatException&quot;,</span>
+<span class="fc" id="L143">    &quot;OnErrorAction&quot; to &quot;kotlin.io.OnErrorAction&quot;,</span>
+<span class="fc" id="L144">    &quot;OptIn&quot; to &quot;kotlin.OptIn&quot;,</span>
+<span class="fc" id="L145">    &quot;OptionalExpectation&quot; to &quot;kotlin.OptionalExpectation&quot;,</span>
+<span class="fc" id="L146">    &quot;OutOfMemoryError&quot; to &quot;kotlin.OutOfMemoryError&quot;,</span>
+<span class="fc" id="L147">    &quot;OverloadResolutionByLambdaReturnType&quot; to &quot;kotlin.OverloadResolutionByLambdaReturnType&quot;,</span>
+<span class="fc" id="L148">    &quot;Pair&quot; to &quot;kotlin.Pair&quot;,</span>
+<span class="fc" id="L149">    &quot;ParameterName&quot; to &quot;kotlin.ParameterName&quot;,</span>
+<span class="fc" id="L150">    &quot;PublishedApi&quot; to &quot;kotlin.PublishedApi&quot;,</span>
+<span class="fc" id="L151">    &quot;RandomAccess&quot; to &quot;kotlin.collections.RandomAccess&quot;,</span>
+<span class="fc" id="L152">    &quot;Regex&quot; to &quot;kotlin.text.Regex&quot;,</span>
+<span class="fc" id="L153">    &quot;RegexOption&quot; to &quot;kotlin.text.RegexOption&quot;,</span>
+<span class="fc" id="L154">    &quot;Repeatable&quot; to &quot;kotlin.annotation.Repeatable&quot;,</span>
+<span class="fc" id="L155">    &quot;ReplaceWith&quot; to &quot;kotlin.ReplaceWith&quot;,</span>
+<span class="fc" id="L156">    &quot;RequiresOptIn&quot; to &quot;kotlin.RequiresOptIn&quot;,</span>
+<span class="fc" id="L157">    &quot;Result&quot; to &quot;kotlin.Result&quot;,</span>
+<span class="fc" id="L158">    &quot;Retention&quot; to &quot;kotlin.annotation.Retention&quot;,</span>
+<span class="fc" id="L159">    &quot;RuntimeException&quot; to &quot;kotlin.RuntimeException&quot;,</span>
+<span class="fc" id="L160">    &quot;Sequence&quot; to &quot;kotlin.sequences.Sequence&quot;,</span>
+<span class="fc" id="L161">    &quot;SequenceBuilder&quot; to &quot;kotlin.sequences.SequenceBuilder&quot;,</span>
+<span class="fc" id="L162">    &quot;SequenceScope&quot; to &quot;kotlin.sequences.SequenceScope&quot;,</span>
+<span class="fc" id="L163">    &quot;Set&quot; to &quot;kotlin.collections.Set&quot;,</span>
+<span class="fc" id="L164">    &quot;Short&quot; to &quot;kotlin.Short&quot;,</span>
+<span class="fc" id="L165">    &quot;ShortArray&quot; to &quot;kotlin.ShortArray&quot;,</span>
+<span class="fc" id="L166">    &quot;ShortIterator&quot; to &quot;kotlin.collections.ShortIterator&quot;,</span>
+<span class="fc" id="L167">    &quot;SinceKotlin&quot; to &quot;kotlin.SinceKotlin&quot;,</span>
+<span class="fc" id="L168">    &quot;String&quot; to &quot;kotlin.String&quot;,</span>
+<span class="fc" id="L169">    &quot;String&quot; to &quot;kotlin.text.String&quot;,</span>
+<span class="fc" id="L170">    &quot;StringBuilder&quot; to &quot;kotlin.text.StringBuilder&quot;,</span>
+<span class="fc" id="L171">    &quot;Suppress&quot; to &quot;kotlin.Suppress&quot;,</span>
+<span class="fc" id="L172">    &quot;Target&quot; to &quot;kotlin.annotation.Target&quot;,</span>
+<span class="fc" id="L173">    &quot;Throwable&quot; to &quot;kotlin.Throwable&quot;,</span>
+<span class="fc" id="L174">    &quot;Throws&quot; to &quot;kotlin.Throws&quot;,</span>
+<span class="fc" id="L175">    &quot;Triple&quot; to &quot;kotlin.Triple&quot;,</span>
+<span class="fc" id="L176">    &quot;TypeCastException&quot; to &quot;kotlin.TypeCastException&quot;,</span>
+<span class="fc" id="L177">    &quot;Typography&quot; to &quot;kotlin.text.Typography&quot;,</span>
+<span class="fc" id="L178">    &quot;UByte&quot; to &quot;kotlin.UByte&quot;,</span>
+<span class="fc" id="L179">    &quot;UByteArray&quot; to &quot;kotlin.UByteArray&quot;,</span>
+<span class="fc" id="L180">    &quot;UByteIterator&quot; to &quot;kotlin.collections.UByteIterator&quot;,</span>
+<span class="fc" id="L181">    &quot;UInt&quot; to &quot;kotlin.UInt&quot;,</span>
+<span class="fc" id="L182">    &quot;UIntArray&quot; to &quot;kotlin.UIntArray&quot;,</span>
+<span class="fc" id="L183">    &quot;UIntIterator&quot; to &quot;kotlin.collections.UIntIterator&quot;,</span>
+<span class="fc" id="L184">    &quot;UIntProgression&quot; to &quot;kotlin.ranges.UIntProgression&quot;,</span>
+<span class="fc" id="L185">    &quot;UIntRange&quot; to &quot;kotlin.ranges.UIntRange&quot;,</span>
+<span class="fc" id="L186">    &quot;ULong&quot; to &quot;kotlin.ULong&quot;,</span>
+<span class="fc" id="L187">    &quot;ULongArray&quot; to &quot;kotlin.ULongArray&quot;,</span>
+<span class="fc" id="L188">    &quot;ULongIterator&quot; to &quot;kotlin.collections.ULongIterator&quot;,</span>
+<span class="fc" id="L189">    &quot;ULongProgression&quot; to &quot;kotlin.ranges.ULongProgression&quot;,</span>
+<span class="fc" id="L190">    &quot;ULongRange&quot; to &quot;kotlin.ranges.ULongRange&quot;,</span>
+<span class="fc" id="L191">    &quot;UShort&quot; to &quot;kotlin.UShort&quot;,</span>
+<span class="fc" id="L192">    &quot;UShortArray&quot; to &quot;kotlin.UShortArray&quot;,</span>
+<span class="fc" id="L193">    &quot;UShortIterator&quot; to &quot;kotlin.collections.UShortIterator&quot;,</span>
+<span class="fc" id="L194">    &quot;UninitializedPropertyAccessException&quot; to &quot;kotlin.UninitializedPropertyAccessException&quot;,</span>
+<span class="fc" id="L195">    &quot;Unit&quot; to &quot;kotlin.Unit&quot;,</span>
+<span class="fc" id="L196">    &quot;UnsafeVariance&quot; to &quot;kotlin.UnsafeVariance&quot;,</span>
+<span class="fc" id="L197">    &quot;UnsupportedOperationException&quot; to &quot;kotlin.UnsupportedOperationException&quot;,</span>
+<span class="fc" id="L198">    &quot;UseExperimental&quot; to &quot;kotlin.UseExperimental&quot;,</span>
+)
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

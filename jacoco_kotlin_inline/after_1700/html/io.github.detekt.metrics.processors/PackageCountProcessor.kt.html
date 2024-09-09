@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PackageCountProcessor.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.metrics.processors</a> &gt; <span class="el_source">PackageCountProcessor.kt</span></div><h1>PackageCountProcessor.kt</h1><pre class="source lang-java linenums">package io.github.detekt.metrics.processors
+
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Detektion
+import io.gitlab.arturbosch.detekt.api.FileProcessListener
+import io.gitlab.arturbosch.detekt.api.ProjectMetric
+import org.jetbrains.kotlin.com.intellij.openapi.util.Key
+import org.jetbrains.kotlin.psi.KtFile
+
+<span class="fc" id="L10">class PackageCountProcessor : FileProcessListener {</span>
+
+<span class="fc" id="L12">    private val visitor = PackageCountVisitor()</span>
+<span class="fc" id="L13">    private val key = numberOfPackagesKey</span>
+
+<span class="fc" id="L15">    override val id: String = &quot;PackageCountProcessor&quot;</span>
+
+    override fun onProcess(file: KtFile) {
+<span class="fc" id="L18">        file.accept(visitor)</span>
+<span class="fc" id="L19">    }</span>
+
+    override fun onFinish(files: List&lt;KtFile&gt;, result: Detektion) {
+<span class="fc" id="L22">        val count = files</span>
+<span class="fc" id="L23">            .mapNotNull { it.getUserData(key) }</span>
+<span class="fc" id="L24">            .distinct()</span>
+<span class="fc" id="L25">            .size</span>
+<span class="fc" id="L26">        result.add(ProjectMetric(key.toString(), count))</span>
+<span class="fc" id="L27">    }</span>
+}
+
+<span class="fc" id="L30">val numberOfPackagesKey = Key&lt;String&gt;(&quot;number of packages&quot;)</span>
+
+<span class="fc" id="L32">class PackageCountVisitor : DetektVisitor() {</span>
+
+    override fun visitKtFile(file: KtFile) {
+<span class="fc" id="L35">        val packageName = file.packageFqNameByTree.toString()</span>
+<span class="fc" id="L36">        file.putUserData(numberOfPackagesKey, packageName)</span>
+<span class="fc" id="L37">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

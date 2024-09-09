@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RulePrinter.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.printer</a> &gt; <span class="el_source">RulePrinter.kt</span></div><h1>RulePrinter.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.printer
+
+import io.github.detekt.utils.MarkdownContent
+import io.github.detekt.utils.bold
+import io.github.detekt.utils.codeBlock
+import io.github.detekt.utils.crossOut
+import io.github.detekt.utils.h3
+import io.github.detekt.utils.h4
+import io.github.detekt.utils.markdown
+import io.github.detekt.utils.paragraph
+import io.gitlab.arturbosch.detekt.generator.collection.Active
+import io.gitlab.arturbosch.detekt.generator.collection.Rule
+
+internal object RulePrinter : DocumentationPrinter&lt;Rule&gt; {
+
+    override fun print(item: Rule): String =
+<span class="fc" id="L17">        markdown {</span>
+<span class="pc bpc" id="L18" title="1 of 2 branches missed.">            if (item.isDeprecated()) {</span>
+<span class="nc" id="L19">                h3 { crossOut { item.name } }</span>
+<span class="nc bnc" id="L20" title="All 2 branches missed.">                paragraph { item.deprecationMessage.orEmpty() }</span>
+            } else {
+<span class="fc" id="L22">                h3 { item.name }</span>
+            }
+
+<span class="fc bfc" id="L25" title="All 4 branches covered.">            if (item.description.isNotEmpty()) {</span>
+<span class="fc" id="L26">                paragraph { item.description }</span>
+            } else {
+<span class="fc" id="L28">                paragraph { &quot;TODO: Specify description&quot; }</span>
+            }
+
+<span class="fc" id="L31">            paragraph {</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">                &quot;${bold { &quot;Active by default&quot; }}: ${if (item.defaultActivationStatus.active) &quot;Yes&quot; else &quot;No&quot;}&quot; +</span>
+<span class="fc bfc" id="L33" title="All 6 branches covered.">                    ((item.defaultActivationStatus as? Active)?.let { &quot; - Since v${it.since}&quot; }.orEmpty())</span>
+            }
+
+<span class="fc bfc" id="L36" title="All 2 branches covered.">            if (item.requiresTypeResolution) {</span>
+<span class="fc" id="L37">                paragraph {</span>
+<span class="fc" id="L38">                    bold { &quot;Requires Type Resolution&quot; }</span>
+                }
+            }
+
+<span class="fc bfc" id="L42" title="All 4 branches covered.">            if (item.aliases.isNotEmpty()) {</span>
+<span class="fc" id="L43">                paragraph {</span>
+<span class="fc" id="L44">                    &quot;${bold { &quot;Aliases&quot; }}: ${item.aliases.joinToString(&quot;, &quot;)}&quot;</span>
+                }
+            }
+
+<span class="fc" id="L48">            markdown { RuleConfigurationPrinter.print(item.configurations) }</span>
+
+<span class="fc" id="L50">            printRuleCodeExamples(item)</span>
+<span class="fc" id="L51">        }</span>
+
+    private fun MarkdownContent.printRuleCodeExamples(rule: Rule) {
+<span class="pc bpc" id="L54" title="2 of 4 branches missed.">        if (rule.nonCompliantCodeExample.isNotEmpty()) {</span>
+<span class="nc" id="L55">            h4 { &quot;Noncompliant Code:&quot; }</span>
+<span class="nc" id="L56">            paragraph { codeBlock { rule.nonCompliantCodeExample } }</span>
+        }
+
+<span class="pc bpc" id="L59" title="2 of 4 branches missed.">        if (rule.compliantCodeExample.isNotEmpty()) {</span>
+<span class="nc" id="L60">            h4 { &quot;Compliant Code:&quot; }</span>
+<span class="nc" id="L61">            paragraph { codeBlock { rule.compliantCodeExample } }</span>
+        }
+<span class="fc" id="L63">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

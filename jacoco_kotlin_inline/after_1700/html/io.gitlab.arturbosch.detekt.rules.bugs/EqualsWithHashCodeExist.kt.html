@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EqualsWithHashCodeExist.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">EqualsWithHashCodeExist.kt</span></div><h1>EqualsWithHashCodeExist.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isEqualsFunction
+import io.gitlab.arturbosch.detekt.rules.isHashCodeFunction
+import org.jetbrains.kotlin.com.intellij.psi.PsiFile
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtNamedFunction
+
+/**
+ * When a class overrides the equals() method it should also override the hashCode() method.
+ *
+ * All hash-based collections depend on objects meeting the equals-contract. Two equal objects must produce the
+ * same hashcode. When inheriting equals or hashcode, override the inherited and call the super method for
+ * clarification.
+ *
+ * &lt;noncompliant&gt;
+ * class Foo {
+ *
+ *     override fun equals(other: Any?): Boolean {
+ *         return super.equals(other)
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class Foo {
+ *
+ *     override fun equals(other: Any?): Boolean {
+ *         return super.equals(other)
+ *     }
+ *
+ *     override fun hashCode(): Int {
+ *         return super.hashCode()
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L45">class EqualsWithHashCodeExist(config: Config) : Rule(</span>
+<span class="fc" id="L46">    config,</span>
+<span class="fc" id="L47">    &quot;Always override hashCode when you override equals. &quot; +</span>
+        &quot;All hash-based collections depend on objects meeting the equals-contract. &quot; +
+        &quot;Two equal objects must produce the same hashcode. When inheriting equals or hashcode, &quot; +
+        &quot;override the inherited and call the super method for clarification.&quot;
+) {
+
+<span class="fc" id="L53">    private val queue = ArrayDeque&lt;ViolationHolder&gt;(MAXIMUM_EXPECTED_NESTED_CLASSES)</span>
+
+<span class="pc" id="L55">    private data class ViolationHolder(var equals: Boolean = false, var hashCode: Boolean = false) {</span>
+<span class="pc bpc" id="L56" title="5 of 8 branches missed.">        fun violation() = equals &amp;&amp; !hashCode || !equals &amp;&amp; hashCode</span>
+    }
+
+    override fun visitFile(file: PsiFile) {
+<span class="fc" id="L60">        queue.clear()</span>
+<span class="fc" id="L61">        super.visitFile(file)</span>
+<span class="fc" id="L62">    }</span>
+
+    override fun visitClassOrObject(classOrObject: KtClassOrObject) {
+<span class="pc bpc" id="L65" title="2 of 4 branches missed.">        if (classOrObject is KtClass &amp;&amp; classOrObject.isData()) return</span>
+
+<span class="fc" id="L67">        queue.addFirst(ViolationHolder())</span>
+<span class="fc" id="L68">        super.visitClassOrObject(classOrObject)</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (queue.removeFirst().violation()) {</span>
+<span class="nc" id="L70">            report(</span>
+<span class="nc" id="L71">                CodeSmell(</span>
+<span class="nc" id="L72">                    Entity.atName(classOrObject),</span>
+<span class="nc" id="L73">                    &quot;A class should always override hashCode &quot; +</span>
+                        &quot;when overriding equals and the other way around.&quot;
+                )
+            )
+        }
+<span class="fc" id="L78">    }</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        if (!function.isTopLevel) {</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">            if (function.isEqualsFunction()) queue.first().equals = true</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (function.isHashCodeFunction()) queue.first().hashCode = true</span>
+        }
+<span class="fc" id="L85">    }</span>
+}
+
+private const val MAXIMUM_EXPECTED_NESTED_CLASSES = 5
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

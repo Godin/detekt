@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>YamlConfig.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.config</a> &gt; <span class="el_source">YamlConfig.kt</span></div><h1>YamlConfig.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.config
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Config.Companion.CONFIG_SEPARATOR
+import io.gitlab.arturbosch.detekt.api.Notification
+import io.gitlab.arturbosch.detekt.core.config.validation.ValidatableConfiguration
+import io.gitlab.arturbosch.detekt.core.config.validation.validateConfig
+import io.gitlab.arturbosch.detekt.core.util.indentCompat
+import org.snakeyaml.engine.v2.api.Load
+import org.snakeyaml.engine.v2.api.LoadSettings
+import java.io.Reader
+import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.isReadable
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.reader
+
+/**
+ * Config implementation using the yaml format. SubConfigurations can return sub maps according to the
+ * yaml specification.
+ */
+<span class="fc" id="L22">class YamlConfig internal constructor(</span>
+<span class="fc" id="L23">    val properties: Map&lt;String, Any&gt;,</span>
+<span class="fc" id="L24">    override val parentPath: String?,</span>
+<span class="fc" id="L25">    override val parent: Config?,</span>
+) : Config, ValidatableConfiguration {
+
+    override fun subConfig(key: String): Config {
+<span class="fc" id="L29">        @Suppress(&quot;UNCHECKED_CAST&quot;)</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        val subProperties = properties.getOrElse(key) { emptyMap&lt;String, Any&gt;() } as Map&lt;String, Any&gt;</span>
+<span class="fc" id="L31">        return YamlConfig(</span>
+<span class="fc" id="L32">            subProperties,</span>
+<span class="fc bfc" id="L33" title="All 2 branches covered.">            if (parentPath == null) key else &quot;$parentPath $CONFIG_SEPARATOR $key&quot;,</span>
+<span class="fc" id="L34">            this,</span>
+        )
+    }
+
+<span class="fc" id="L38">    override fun subConfigKeys(): Set&lt;String&gt; = properties.keys</span>
+
+    override fun &lt;T : Any&gt; valueOrDefault(key: String, default: T): T {
+<span class="fc" id="L41">        val result = properties[key]</span>
+        @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L43">        return valueOrDefaultInternal(key, result, default) as T</span>
+    }
+
+    override fun &lt;T : Any&gt; valueOrNull(key: String): T? {
+        @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        return properties[key] as? T?</span>
+    }
+
+    @Suppress(&quot;MagicNumber&quot;)
+<span class="nc" id="L52">    override fun toString() = &quot;&quot;&quot;</span>
+        YamlConfig(
+<span class="nc" id="L54">            ${properties.toPrettyString(recursive = 1).indentCompat(12).trim()},</span>
+        )
+<span class="nc" id="L56">    &quot;&quot;&quot;.trimIndent()</span>
+
+    override fun validate(baseline: Config, excludePatterns: Set&lt;Regex&gt;): List&lt;Notification&gt; =
+<span class="nc" id="L59">        validateConfig(this, baseline, excludePatterns)</span>
+
+    companion object {
+        private const val YAML_DOC_LIMIT = 102_400 // limit the YAML size to 100 kB
+
+        // limit the anchors/aliases for collections to prevent attacks from for untrusted sources
+        private const val ALIASES_LIMIT = 100
+
+        /**
+         * Factory method to load a yaml configuration. Given path must exist and point to a readable file.
+         */
+        fun load(path: Path): Config {
+<span class="fc bfc" id="L71" title="All 2 branches covered.">            require(path.exists()) { &quot;Configuration does not exist: $path&quot; }</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">            require(path.isRegularFile()) { &quot;Configuration must be a file: $path&quot; }</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">            require(path.isReadable()) { &quot;Configuration must be readable: $path&quot; }</span>
+
+<span class="fc" id="L75">            return load(path.reader())</span>
+        }
+
+        /**
+         * Constructs a [YamlConfig] from any [Reader].
+         *
+         * Note the reader will be consumed and closed.
+         */
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        fun load(reader: Reader): Config = reader.buffered().use { bufferedReader -&gt;</span>
+<span class="fc" id="L84">            val map: Map&lt;*, *&gt;? = runCatching {</span>
+                @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L86">                createYamlLoad().loadFromReader(bufferedReader) as Map&lt;String, *&gt;?</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            }.getOrElse { throw Config.InvalidConfigurationError(it) }</span>
+            @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            YamlConfig(map.orEmpty() as Map&lt;String, Any&gt;, null, null)</span>
+<span class="fc" id="L90">        }</span>
+
+<span class="fc" id="L92">        private fun createYamlLoad() = Load(</span>
+<span class="fc" id="L93">            LoadSettings.builder()</span>
+<span class="fc" id="L94">                .setAllowDuplicateKeys(false)</span>
+<span class="fc" id="L95">                .setAllowRecursiveKeys(false)</span>
+<span class="fc" id="L96">                .setCodePointLimit(YAML_DOC_LIMIT)</span>
+<span class="fc" id="L97">                .setMaxAliasesForCollections(ALIASES_LIMIT)</span>
+<span class="fc" id="L98">                .build()</span>
+<span class="fc" id="L99">        )</span>
+    }
+}
+
+@Suppress(&quot;MagicNumber&quot;)
+private fun Map&lt;*, *&gt;.toPrettyString(recursive: Int): String =
+<span class="nc bnc" id="L105" title="All 2 branches missed.">    if (isEmpty()) {</span>
+<span class="nc" id="L106">        &quot;{}&quot;</span>
+    } else {
+<span class="nc" id="L108">        toList()</span>
+<span class="nc" id="L109">            .joinToString(separator = &quot;,\n    &quot;, prefix = &quot;{\n    &quot;, postfix = &quot;,\n}&quot;) { (key, value) -&gt;</span>
+<span class="nc" id="L110">                when {</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">                    recursive == 0 -&gt; &quot;$key=$value&quot;</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                    value is Map&lt;*, *&gt; -&gt; &quot;$key=${value.toPrettyString(recursive - 1).indentCompat(4).trim()}&quot;</span>
+<span class="nc" id="L113">                    else -&gt; &quot;$key=$value&quot;</span>
+<span class="nc" id="L114">                }</span>
+            }
+<span class="nc" id="L116">    }</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

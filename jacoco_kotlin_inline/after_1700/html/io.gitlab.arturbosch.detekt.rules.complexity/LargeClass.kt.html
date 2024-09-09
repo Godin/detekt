@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LargeClass.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.complexity</a> &gt; <span class="el_source">LargeClass.kt</span></div><h1>LargeClass.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.complexity
+
+import io.github.detekt.metrics.linesOfCode
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.com.intellij.psi.util.PsiTreeUtil
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+import java.util.IdentityHashMap
+
+/**
+ * This rule reports large classes. Classes should generally have one responsibility. Large classes can indicate that
+ * the class does instead handle multiple responsibilities. Instead of doing many things at once prefer to
+ * split up large classes into smaller classes. These smaller classes are then easier to understand and handle less
+ * things.
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L23">class LargeClass(config: Config) : Rule(</span>
+<span class="fc" id="L24">    config,</span>
+<span class="fc" id="L25">    &quot;One class should have one responsibility. Large classes tend to handle many things at once. &quot; +</span>
+        &quot;Split up large classes into smaller classes that are easier to understand.&quot;
+) {
+
+    @Configuration(&quot;The maximum number of lines allowed per class.&quot;)
+<span class="fc" id="L30">    private val allowedLines: Int by config(defaultValue = 600)</span>
+
+<span class="fc" id="L32">    private val classToLinesCache = IdentityHashMap&lt;KtClassOrObject, Int&gt;()</span>
+<span class="fc" id="L33">    private val nestedClassTracking = IdentityHashMap&lt;KtClassOrObject, HashSet&lt;KtClassOrObject&gt;&gt;()</span>
+
+    override fun preVisit(root: KtFile) {
+<span class="fc" id="L36">        classToLinesCache.clear()</span>
+<span class="fc" id="L37">        nestedClassTracking.clear()</span>
+<span class="fc" id="L38">    }</span>
+
+    override fun postVisit(root: KtFile) {
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        for ((clazz, lines) in classToLinesCache) {</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">            if (lines &gt; allowedLines) {</span>
+<span class="fc" id="L43">                report(</span>
+<span class="fc" id="L44">                    ThresholdedCodeSmell(</span>
+<span class="fc" id="L45">                        Entity.atName(clazz),</span>
+<span class="fc" id="L46">                        Metric(lines, allowedLines),</span>
+<span class="fc" id="L47">                        &quot;Class ${clazz.name} is too large. Consider splitting it into smaller pieces.&quot;</span>
+                    )
+                )
+            }
+        }
+<span class="fc" id="L52">    }</span>
+
+    override fun visitClassOrObject(classOrObject: KtClassOrObject) {
+<span class="fc" id="L55">        val lines = classOrObject.linesOfCode()</span>
+<span class="fc" id="L56">        classToLinesCache[classOrObject] = lines</span>
+<span class="fc" id="L57">        classOrObject.getStrictParentOfType&lt;KtClassOrObject&gt;()</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">            ?.let { nestedClassTracking.getOrPut(it) { HashSet() }.add(classOrObject) }</span>
+<span class="fc" id="L59">        super.visitClassOrObject(classOrObject)</span>
+
+<span class="fc" id="L61">        PsiTreeUtil.findChildrenOfType(classOrObject, KtClassOrObject::class.java)</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">            .fold(0) { acc, next -&gt; acc + (classToLinesCache[next] ?: 0) }</span>
+<span class="fc bfc" id="L63" title="All 4 branches covered.">            .takeIf { it &gt; 0 }</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">            ?.let { classToLinesCache[classOrObject] = lines - it }</span>
+<span class="fc" id="L65">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

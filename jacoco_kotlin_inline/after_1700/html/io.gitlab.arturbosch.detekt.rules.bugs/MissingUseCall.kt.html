@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MissingUseCall.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">MissingUseCall.kt</span></div><h1>MissingUseCall.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.descriptors.ConstructorDescriptor
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtClassBody
+import org.jetbrains.kotlin.psi.KtClassInitializer
+import org.jetbrains.kotlin.psi.KtContainerNodeForControlStructureBody
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
+import org.jetbrains.kotlin.psi.KtParenthesizedExpression
+import org.jetbrains.kotlin.psi.KtPostfixExpression
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.psi.psiUtil.findDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfTypes
+import org.jetbrains.kotlin.psi.psiUtil.parents
+import org.jetbrains.kotlin.psi.psiUtil.parentsWithSelf
+import org.jetbrains.kotlin.psi.psiUtil.siblings
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getType
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.resolve.sam.SamConstructorDescriptor
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.typeUtil.supertypes
+
+/**
+ * Prefer using the `use` function with `Closeable` or `AutoCloseable`. As `use` function ensures proper closure of
+ * `Closable`. It also properly handles exceptions if raised while closing the resource
+ *
+ * &lt;noncompliant&gt;
+ * val myCloseable = MyCloseable()
+ * // do stuff with myCloseable
+ *
+ * MyClosable().doStuff()
+ *
+ * functionThatReturnsClosable().doStuff()
+ *
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * MyCloseable().use {
+ *     // do stuff with myCloseable
+ * }
+ *
+ * MyClosable().use { it.doStuff() }
+ *
+ * functionThatReturnsClosable().use { it.doStuff() }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@Suppress(&quot;TooManyFunctions&quot;)
+<span class="fc" id="L72">class MissingUseCall(config: Config = Config.empty) : Rule(</span>
+<span class="fc" id="L73">    config,</span>
+<span class="fc" id="L74">    &quot;Usage of `Closeable` detected without `use` call. Using `Closeable` without `use` &quot; +</span>
+        &quot;can be problematic as closing `Closeable` may throw exception.&quot;,
+) {
+
+<span class="fc" id="L78">    private val traversedParentExpression: MutableSet&lt;PsiElement&gt; = mutableSetOf()</span>
+<span class="fc" id="L79">    private val usedReferences: MutableSet&lt;CallableDescriptor&gt; = mutableSetOf()</span>
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L82">        super.visitCallExpression(expression)</span>
+<span class="fc" id="L83">        checkAndReport(expression)</span>
+<span class="fc" id="L84">    }</span>
+
+    override fun visitObjectLiteralExpression(expression: KtObjectLiteralExpression) {
+<span class="fc" id="L87">        super.visitObjectLiteralExpression(expression)</span>
+<span class="fc" id="L88">        checkAndReport(expression)</span>
+<span class="fc" id="L89">    }</span>
+
+    private fun checkAndReport(expression: KtExpression) {
+<span class="fc" id="L92">        val isCloseable = isChildOfCloseable(expression)</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (isCloseable.not()) return</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        if (shouldReport(expression)) {</span>
+<span class="fc" id="L95">            report(</span>
+<span class="fc" id="L96">                CodeSmell(</span>
+<span class="fc" id="L97">                    Entity.from(expression),</span>
+<span class="fc" id="L98">                    &quot;${</span>
+                        (
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">                            expression.findDescendantOfType&lt;KtNameReferenceExpression&gt;()</span>
+<span class="nc" id="L101">                                ?: expression</span>
+<span class="fc" id="L102">                            ).text</span>
+<span class="fc" id="L103">                    } doesn't call `use` to access the `Closeable`&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L107">    }</span>
+
+    private fun isChildOfCloseable(expression: KtExpression): Boolean {
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        val expressionType = expression.getType(bindingContext) ?: return false</span>
+<span class="fc" id="L111">        return isChildOfCloseable(expressionType)</span>
+    }
+
+    private fun isChildOfCloseable(type: KotlinType): Boolean {
+<span class="fc" id="L115">        val isCloseable = type.supertypes()</span>
+<span class="fc" id="L116">            .map {</span>
+<span class="fc" id="L117">                it.fqNameOrNull()</span>
+            }
+<span class="fc" id="L119">            .any {</span>
+<span class="fc" id="L120">                it in listOfCloseables</span>
+            }
+<span class="fc" id="L122">        return isCloseable</span>
+    }
+
+    private fun shouldReport(expression: KtExpression): Boolean {
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">        val expressionParent = getParentChainExpression(expression) ?: return false</span>
+<span class="fc" id="L127">        return when {</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">            expressionParent is KtQualifiedExpression -&gt; {</span>
+<span class="fc" id="L129">                val expressionCallDescriptor =</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">                    expression.getResolvedCall(bindingContext)?.resultingDescriptor</span>
+                // this should not first chain as that can't be helper chain
+                if (
+<span class="fc bfc" id="L133" title="All 2 branches covered.">                    expression != expressionParent.firstCallableReceiverOrNull() &amp;&amp;</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">                    expressionCallDescriptor !is ConstructorDescriptor &amp;&amp;</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">                    expressionCallDescriptor !is SamConstructorDescriptor</span>
+                ) {
+                    // probably some helper method which takes and return closeable
+<span class="fc" id="L138">                    return false</span>
+                }
+<span class="fc bfc" id="L140" title="All 2 branches covered.">                expressionParent.doesEndWithUse().not() &amp;&amp;</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">                    expressionParent.firstCallableReceiverOrNull().isCloseableNotUsed()</span>
+            }
+
+<span class="fc bfc" id="L144" title="All 2 branches covered.">            isPartOfIfElseExpressionReturningCloseable(expression) -&gt; {</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">                isExpressionUsedOnSameOrNextLine(expression).not()</span>
+            }
+
+<span class="fc bfc" id="L148" title="All 2 branches covered.">            isParentFunctionReturnsCloseable(expression) -&gt; {</span>
+<span class="fc" id="L149">                false</span>
+            }
+
+<span class="fc bfc" id="L152" title="All 2 branches covered.">            isParamForClosableOrFunReturningClosable(expression) -&gt; {</span>
+<span class="fc" id="L153">                false</span>
+            }
+
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">            expressionParent is KtProperty -&gt; {</span>
+                // rhs has already been analysed
+<span class="nc bnc" id="L158" title="All 2 branches missed.">                traversedParentExpression.contains(expressionParent.children.getOrNull(0)).not()</span>
+            }
+
+            else -&gt; {
+<span class="fc" id="L162">                true</span>
+            }
+<span class="fc" id="L164">        }.also { traversedParentExpression.add(expressionParent) }</span>
+    }
+
+    private fun isParentFunctionReturnsCloseable(expression: KtExpression): Boolean {
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        val parent = expression.getParentOfType&lt;KtNamedFunction&gt;(</span>
+<span class="fc" id="L169">            true,</span>
+<span class="fc" id="L170">            KtLambdaExpression::class.java,</span>
+<span class="fc" id="L171">            KtClassInitializer::class.java,</span>
+<span class="fc" id="L172">            KtClassBody::class.java,</span>
+<span class="fc" id="L173">        ) ?: return false</span>
+<span class="fc" id="L174">        val functionReturnType =</span>
+<span class="pc bpc" id="L175" title="2 of 4 branches missed.">            bindingContext[BindingContext.FUNCTION, parent]?.returnType ?: return false</span>
+<span class="fc" id="L176">        return isChildOfCloseable(functionReturnType)</span>
+    }
+
+    private fun isParamForClosableOrFunReturningClosable(expression: KtExpression): Boolean {
+<span class="fc bfc" id="L180" title="All 2 branches covered.">        if (expression.parent !is KtValueArgument) return false</span>
+<span class="pc bpc" id="L181" title="2 of 4 branches missed.">        val callExpression = expression.parent.parent.parent as? KtCallExpression ?: return false</span>
+<span class="fc" id="L182">        val descriptor =</span>
+<span class="pc bpc" id="L183" title="2 of 4 branches missed.">            callExpression.getResolvedCall(bindingContext)?.resultingDescriptor ?: return false</span>
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">        val returnType = descriptor.returnType ?: return false</span>
+<span class="fc" id="L185">        return isChildOfCloseable(returnType)</span>
+    }
+
+    private fun KtQualifiedExpression.doesEndWithUse(): Boolean {
+<span class="pc bpc" id="L189" title="1 of 4 branches missed.">        receiverExpression.getResolvedCall(bindingContext)?.resultingDescriptor?.let {</span>
+<span class="fc" id="L190">            usedReferences.add(it)</span>
+        }
+<span class="fc" id="L192">        return selectorExpression</span>
+<span class="fc" id="L193">            .getResolvedCall(bindingContext)</span>
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">            ?.resultingDescriptor</span>
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">            ?.fqNameOrNull() in useFqNames</span>
+    }
+
+    private fun KtElement?.isCloseableNotUsed(): Boolean {
+<span class="fc bfc" id="L199" title="All 2 branches covered.">        this ?: return true</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        return usedReferences.contains(this.getResolvedCall(bindingContext)?.resultingDescriptor)</span>
+    }
+
+    private fun isExpressionUsedOnSameOrNextLine(expression: KtExpression): Boolean {
+<span class="fc" id="L204">        val parent = expression.getParentOfTypes(</span>
+<span class="fc" id="L205">            true,</span>
+<span class="fc" id="L206">            KtQualifiedExpression::class.java,</span>
+<span class="fc" id="L207">            KtProperty::class.java</span>
+        )
+
+<span class="fc" id="L210">        return when (parent) {</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">            is KtQualifiedExpression -&gt; {</span>
+<span class="fc" id="L212">                parent.doesEndWithUse()</span>
+            }
+
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">            is KtProperty -&gt; {</span>
+<span class="fc" id="L216">                parent.siblings(forward = true, withItself = false).filter {</span>
+<span class="fc bfc" id="L217" title="All 2 branches covered.">                    it.text.isNotBlank()</span>
+<span class="fc" id="L218">                }.mapNotNull {</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">                    it.parentsWithSelf</span>
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">                        .firstOrNull { element -&gt; element !is KtParenthesizedExpression } as? KtQualifiedExpression</span>
+<span class="fc" id="L221">                }.filter {</span>
+<span class="fc" id="L222">                    it.doesEndWithUse()</span>
+<span class="fc" id="L223">                }.any {</span>
+<span class="fc" id="L224">                    it.receiverExpression.text == parent.name</span>
+                }
+            }
+
+            else -&gt; {
+<span class="nc" id="L229">                false</span>
+            }
+        }
+    }
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun isPartOfIfElseExpressionReturningCloseable(expression: KtExpression): Boolean {
+<span class="pc bpc" id="L236" title="1 of 4 branches missed.">        val expressionAfterParens = expression.parents.firstOrNull { it !is KtParenthesizedExpression } ?: return false</span>
+<span class="fc" id="L237">        val (ifExpression, containerExpression) =</span>
+            @Suppress(&quot;BracesOnIfStatements&quot;)
+<span class="fc bfc" id="L239" title="All 2 branches covered.">            if (expressionAfterParens is KtContainerNodeForControlStructureBody) {</span>
+<span class="fc" id="L240">                expressionAfterParens.parent to expressionAfterParens.expression</span>
+<span class="fc bfc" id="L241" title="All 4 branches covered.">            } else if (expressionAfterParens.parent is KtContainerNodeForControlStructureBody) {</span>
+<span class="fc" id="L242">                expressionAfterParens.parent.parent to</span>
+<span class="fc" id="L243">                    (expressionAfterParens.parent as KtContainerNodeForControlStructureBody).expression</span>
+            } else {
+<span class="fc" id="L245">                null</span>
+<span class="fc" id="L246">            } ?: return false</span>
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">        if (ifExpression !is KtIfExpression) return false</span>
+<span class="fc" id="L248">        val containerExpressionLastExpression =</span>
+<span class="fc bfc" id="L249" title="All 2 branches covered.">            if (containerExpression is KtBlockExpression) {</span>
+<span class="fc" id="L250">                containerExpression.statements.lastOrNull()</span>
+            } else {
+<span class="fc" id="L252">                containerExpression</span>
+            }
+<span class="pc bpc" id="L254" title="1 of 2 branches missed.">        containerExpressionLastExpression ?: return false</span>
+<span class="fc" id="L255">        return isChildOfCloseable(containerExpressionLastExpression)</span>
+    }
+
+    private fun getParentChainExpression(closeableExpression: KtExpression): PsiElement? {
+<span class="fc" id="L259">        var expression: PsiElement? = closeableExpression</span>
+        while (
+<span class="pc bpc" id="L261" title="1 of 4 branches missed.">            expression?.parent is KtQualifiedExpression ||</span>
+            (
+<span class="pc bpc" id="L263" title="1 of 4 branches missed.">                expression?.parent is KtPostfixExpression &amp;&amp;</span>
+<span class="pc bpc" id="L264" title="1 of 2 branches missed.">                    (expression.parent as KtPostfixExpression).operationToken == KtTokens.EXCLEXCL</span>
+                )
+        ) {
+<span class="fc bfc" id="L267" title="All 2 branches covered.">            expression = if (expression.parent is KtPostfixExpression) {</span>
+<span class="fc" id="L268">                expression.parent.parent</span>
+            } else {
+<span class="fc" id="L270">                expression.parent</span>
+            }
+        }
+<span class="fc" id="L273">        return expression</span>
+    }
+
+    private fun KtQualifiedExpression.firstCallableReceiverOrNull(): KtElement? {
+        fun KtExpression.isCallableExpression() =
+<span class="fc bfc" id="L278" title="All 2 branches covered.">            this.getResolvedCall(bindingContext)?.resultingDescriptor is FunctionDescriptor</span>
+
+<span class="fc" id="L280">        var expression = receiverExpression</span>
+
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        if (expression.isCallableExpression().not()) return null</span>
+
+        while (
+<span class="fc bfc" id="L285" title="All 2 branches covered.">            expression is KtQualifiedExpression &amp;&amp;</span>
+<span class="pc bpc" id="L286" title="1 of 2 branches missed.">            isCallableExpression()</span>
+        ) {
+<span class="fc" id="L288">            expression = expression.receiverExpression</span>
+        }
+<span class="fc" id="L290">        return expression</span>
+    }
+
+    companion object {
+<span class="fc" id="L294">        private val listOfCloseables = listOf(</span>
+<span class="fc" id="L295">            FqName(&quot;java.lang.AutoCloseable&quot;),</span>
+<span class="fc" id="L296">            FqName(&quot;java.io.Closeable&quot;),</span>
+        )
+
+<span class="fc" id="L299">        private val useFqNames = listOf(</span>
+<span class="fc" id="L300">            FqName(&quot;kotlin.io.use&quot;),</span>
+<span class="fc" id="L301">            FqName(&quot;kotlin.use&quot;),</span>
+        )
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

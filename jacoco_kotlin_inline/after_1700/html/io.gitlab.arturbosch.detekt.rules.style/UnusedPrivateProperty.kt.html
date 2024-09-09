@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnusedPrivateProperty.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UnusedPrivateProperty.kt</span></div><h1>UnusedPrivateProperty.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Alias
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isExpect
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.descriptors.ClassConstructorDescriptor
+import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
+import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
+import org.jetbrains.kotlin.descriptors.PropertyDescriptor
+import org.jetbrains.kotlin.descriptors.Visibilities
+import org.jetbrains.kotlin.descriptors.isTopLevelInPackage
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtConstructor
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtReferenceExpression
+import org.jetbrains.kotlin.psi.KtSecondaryConstructor
+import org.jetbrains.kotlin.psi.KtValueArgumentList
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+import org.jetbrains.kotlin.psi.psiUtil.isPropertyParameter
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.bindingContextUtil.getReferenceTargets
+import org.jetbrains.kotlin.resolve.source.getPsi
+
+/**
+ * An unused private property can be removed to simplify the source file.
+ *
+ * This rule also detects unused constructor parameters since these can become
+ * properties of the class when they are declared with `val` or `var`.
+ *
+ * &lt;noncompliant&gt;
+ * class Foo {
+ *     private val unused = &quot;unused&quot;
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class Foo {
+ *     private val used = &quot;used&quot;
+ *
+ *     fun greet() {
+ *         println(used)
+ *     }
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.23.0&quot;)
+@Alias(&quot;unused&quot;)
+<span class="fc" id="L66">class UnusedPrivateProperty(config: Config) : Rule(</span>
+<span class="fc" id="L67">    config,</span>
+<span class="fc" id="L68">    &quot;Property is unused and should be removed.&quot;</span>
+) {
+
+    @Configuration(&quot;unused property names matching this regex are ignored&quot;)
+<span class="fc" id="L72">    private val allowedNames: Regex by config(</span>
+<span class="fc" id="L73">        &quot;ignored|expected|serialVersionUID&quot;,</span>
+<span class="fc" id="L74">        String::toRegex</span>
+    )
+
+    override fun visit(root: KtFile) {
+<span class="fc" id="L78">        super.visit(root)</span>
+<span class="fc" id="L79">        val visitor = UnusedPrivatePropertyVisitor(allowedNames, bindingContext)</span>
+<span class="fc" id="L80">        root.accept(visitor)</span>
+<span class="fc" id="L81">        visitor.getUnusedReports().forEach { report(it) }</span>
+<span class="fc" id="L82">    }</span>
+}
+
+@Suppress(&quot;unused&quot;)
+<span class="fc" id="L86">private class UnusedPrivatePropertyVisitor(</span>
+<span class="fc" id="L87">    private val allowedNames: Regex,</span>
+<span class="fc" id="L88">    private val bindingContext: BindingContext,</span>
+<span class="fc" id="L89">) : DetektVisitor() {</span>
+
+<span class="fc" id="L91">    private val topLevelProperties = hashSetOf&lt;KtNamedDeclaration&gt;()</span>
+<span class="fc" id="L92">    private val usedTopLevelProperties = hashSetOf&lt;PsiElement&gt;()</span>
+
+<span class="fc" id="L94">    private val classProperties = hashSetOf&lt;KtNamedDeclaration&gt;()</span>
+<span class="fc" id="L95">    private val usedClassProperties = hashSetOf&lt;PsiElement&gt;()</span>
+
+<span class="fc" id="L97">    private val constructorParameters = hashSetOf&lt;KtNamedDeclaration&gt;()</span>
+<span class="fc" id="L98">    private val usedConstructorParameters = hashSetOf&lt;PsiElement&gt;()</span>
+
+    fun getUnusedReports(): List&lt;CodeSmell&gt; {
+<span class="fc" id="L101">        val propertiesReport = classProperties</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">            .filter { it.psiOrParent !in usedClassProperties }</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            .filter { !allowedNames.matches(it.nameAsSafeName.identifier) }</span>
+<span class="fc" id="L104">            .map {</span>
+<span class="fc" id="L105">                CodeSmell(</span>
+<span class="fc" id="L106">                    entity = Entity.atName(it),</span>
+<span class="fc" id="L107">                    message = &quot;Private property `${it.nameAsSafeName.identifier}` is unused.&quot;</span>
+<span class="fc" id="L108">                )</span>
+            }
+
+<span class="fc" id="L111">        val constructorParametersReport = constructorParameters</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            .filter { it.psiOrParent !in usedConstructorParameters }</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">            .filter { !allowedNames.matches(it.nameAsSafeName.identifier) }</span>
+<span class="fc" id="L114">            .map {</span>
+<span class="fc" id="L115">                CodeSmell(</span>
+<span class="fc" id="L116">                    entity = Entity.atName(it),</span>
+<span class="fc" id="L117">                    message = &quot;Constructor parameter `${it.nameAsSafeName.identifier}` is unused.&quot;,</span>
+<span class="fc" id="L118">                )</span>
+            }
+
+<span class="fc" id="L121">        val topLevelPropertyReport = topLevelProperties</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            .filter { it.psiOrParent !in usedTopLevelProperties }</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            .filter { !allowedNames.matches(it.nameAsSafeName.identifier) }</span>
+<span class="fc" id="L124">            .map {</span>
+<span class="fc" id="L125">                CodeSmell(</span>
+<span class="fc" id="L126">                    entity = Entity.atName(it),</span>
+<span class="fc" id="L127">                    message = &quot;Private top level property `${it.nameAsSafeName.identifier}` is unused.&quot;,</span>
+<span class="fc" id="L128">                )</span>
+            }
+
+<span class="fc" id="L131">        return propertiesReport + constructorParametersReport + topLevelPropertyReport</span>
+    }
+
+    override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor) {
+<span class="fc" id="L135">        super.visitPrimaryConstructor(constructor)</span>
+
+<span class="fc" id="L137">        constructor.valueParameters</span>
+<span class="fc" id="L138">            .filter {</span>
+<span class="fc bfc" id="L139" title="All 4 branches covered.">                (it.isPrivate() || !it.isPropertyParameter()) &amp;&amp;</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">                    !constructor.isExpectClassConstructor() &amp;&amp;</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">                    !constructor.isDataOrValueClassConstructor()</span>
+            }
+<span class="fc" id="L143">            .forEach { valueParameter -&gt;</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">                if (valueParameter.isPropertyParameter()) {</span>
+<span class="fc" id="L145">                    classProperties.add(valueParameter)</span>
+                } else {
+<span class="fc" id="L147">                    constructorParameters.add(valueParameter)</span>
+                }
+<span class="fc" id="L149">            }</span>
+<span class="fc" id="L150">    }</span>
+
+    override fun visitSecondaryConstructor(constructor: KtSecondaryConstructor) {
+<span class="fc" id="L153">        super.visitSecondaryConstructor(constructor)</span>
+<span class="fc" id="L154">        constructorParameters += constructor.valueParameters</span>
+<span class="fc" id="L155">    }</span>
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc" id="L158">        super.visitProperty(property)</span>
+
+<span class="fc bfc" id="L160" title="All 2 branches covered.">        if (!property.isPrivate()) {</span>
+<span class="fc" id="L161">            return</span>
+        }
+
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        if (property.isTopLevel) {</span>
+<span class="fc" id="L165">            topLevelProperties.add(property)</span>
+        } else {
+<span class="fc" id="L167">            classProperties.add(property)</span>
+        }
+<span class="fc" id="L169">    }</span>
+
+    override fun visitReferenceExpression(expression: KtReferenceExpression) {
+<span class="fc" id="L172">        super.visitReferenceExpression(expression)</span>
+<span class="fc" id="L173">        val references = when (expression) {</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">            is KtNameReferenceExpression -&gt; expression.getReferenceTargets(bindingContext)</span>
+<span class="fc bfc" id="L175" title="All 2 branches covered.">            is KtCallExpression -&gt; expression.getChildrenOfType&lt;KtValueArgumentList&gt;()</span>
+<span class="fc" id="L176">                .flatMap { it.arguments }</span>
+<span class="fc" id="L177">                .flatMap {</span>
+<span class="pc bpc" id="L178" title="2 of 4 branches missed.">                    it.getArgumentExpression()?.getReferenceTargets(bindingContext).orEmpty()</span>
+                }
+
+<span class="fc" id="L181">            else -&gt; return</span>
+        }
+
+<span class="fc" id="L184">        references</span>
+<span class="fc" id="L185">            .filter {</span>
+<span class="fc bfc" id="L186" title="All 4 branches covered.">                it.containingDeclaration is ClassConstructorDescriptor || it.isPrivateProperty()</span>
+            }
+<span class="fc" id="L188">            .forEach { descriptor -&gt;</span>
+<span class="pc bpc" id="L189" title="4 of 8 branches missed.">                val psi = (descriptor as? DeclarationDescriptorWithSource)?.source?.getPsi() ?: return@forEach</span>
+<span class="fc" id="L190">                when {</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">                    descriptor.isTopLevelInPackage() -&gt; usedTopLevelProperties.add(psi)</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">                    descriptor.isPropertyParameter() -&gt; usedClassProperties.add(psi)</span>
+<span class="fc" id="L193">                    else -&gt; usedConstructorParameters.add(psi)</span>
+                }
+<span class="fc" id="L195">            }</span>
+<span class="fc" id="L196">    }</span>
+}
+
+private fun KtConstructor&lt;*&gt;.isExpectClassConstructor() =
+<span class="pc bpc" id="L200" title="2 of 4 branches missed.">    containingClassOrObject?.isExpect() == true</span>
+
+private fun KtConstructor&lt;*&gt;.isDataOrValueClassConstructor(): Boolean {
+<span class="pc bpc" id="L203" title="2 of 4 branches missed.">    val parent = parent as? KtClass ?: return false</span>
+<span class="fc bfc" id="L204" title="All 6 branches covered.">    return parent.isData() || parent.isValue() || parent.isInline()</span>
+}
+
+fun DeclarationDescriptor.isPrivateProperty() =
+<span class="pc bpc" id="L208" title="1 of 4 branches missed.">    this is PropertyDescriptor &amp;&amp; visibility.name == Visibilities.Private.name</span>
+
+private fun DeclarationDescriptor.isPropertyParameter() =
+<span class="fc bfc" id="L211" title="All 2 branches covered.">    this is PropertyDescriptor ||</span>
+<span class="pc bpc" id="L212" title="5 of 12 branches missed.">        ((this as? DeclarationDescriptorWithSource)?.source?.getPsi() as? KtParameter)?.isPropertyParameter() ?: false</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

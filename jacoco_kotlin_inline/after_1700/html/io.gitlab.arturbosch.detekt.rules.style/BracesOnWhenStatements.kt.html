@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BracesOnWhenStatements.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">BracesOnWhenStatements.kt</span></div><h1>BracesOnWhenStatements.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtWhenEntry
+import org.jetbrains.kotlin.psi.KtWhenExpression
+import org.jetbrains.kotlin.psi.psiUtil.siblings
+
+/**
+ * This rule detects `when` statements which do not comply with the specified policy.
+ * Keeping braces consistent will improve readability and avoid possible errors.
+ *
+ * Single-line `when` statement is:
+ * a `when` where each of the branches are single-line (has no line breaks `\n`).
+ *
+ * Multi-line `when` statement is:
+ * a `when` where at least one of the branches is multi-line (has a break line `\n`).
+ *
+ * Available options are:
+ *  * `never`: forces no braces on any branch.
+ *  _Tip_: this is very strict, it will force a simple expression, like a single function call / expression.
+ *  Extracting a function for &quot;complex&quot; logic is one way to adhere to this policy.
+ *  * `necessary`: forces no braces on any branch except where necessary for multi-statement branches.
+ *  * `consistent`: ensures that braces are consistent within `when` statement.
+ *    If there are braces on one of the branches, all branches should have it.
+ *  * `always`: forces braces on all branches.
+ *
+ *  &lt;noncompliant&gt;
+ *  // singleLine = 'never'
+ *  when (a) {
+ *      1 -&gt; { f1() } // Not allowed.
+ *      2 -&gt; f2()
+ *  }
+ *  // multiLine = 'never'
+ *  when (a) {
+ *      1 -&gt; { // Not allowed.
+ *          f1()
+ *      }
+ *      2 -&gt; f2()
+ *  }
+ *  // singleLine = 'necessary'
+ *  when (a) {
+ *      1 -&gt; { f1() } // Unnecessary braces.
+ *      2 -&gt; f2()
+ *  }
+ *  // multiLine = 'necessary'
+ *  when (a) {
+ *      1 -&gt; { // Unnecessary braces.
+ *          f1()
+ *      }
+ *      2 -&gt; f2()
+ *  }
+ *
+ *  // singleLine = 'consistent'
+ *  when (a) {
+ *      1 -&gt; { f1() }
+ *      2 -&gt; f2()
+ *  }
+ *  // multiLine = 'consistent'
+ *  when (a) {
+ *      1 -&gt;
+ *          f1() // Missing braces.
+ *      2 -&gt; {
+ *          f2()
+ *          f3()
+ *      }
+ *  }
+ *
+ *  // singleLine = 'always'
+ *  when (a) {
+ *      1 -&gt; { f1() }
+ *      2 -&gt; f2() // Missing braces.
+ *  }
+ *  // multiLine = 'always'
+ *  when (a) {
+ *      1 -&gt;
+ *          f1() // Missing braces.
+ *      2 -&gt; {
+ *          f2()
+ *          f3()
+ *      }
+ *  }
+ *
+ *  &lt;/noncompliant&gt;
+ *
+ *  &lt;compliant&gt;
+ *  // singleLine = 'never'
+ *  when (a) {
+ *      1 -&gt; f1()
+ *      2 -&gt; f2()
+ *  }
+ *  // multiLine = 'never'
+ *  when (a) {
+ *      1 -&gt;
+ *          f1()
+ *      2 -&gt; f2()
+ *  }
+ *  // singleLine = 'necessary'
+ *  when (a) {
+ *      1 -&gt; f1()
+ *      2 -&gt; { f2(); f3() } // Necessary braces because of multiple statements.
+ *  }
+ *  // multiLine = 'necessary'
+ *  when (a) {
+ *      1 -&gt;
+ *          f1()
+ *      2 -&gt; { // Necessary braces because of multiple statements.
+ *          f2()
+ *          f3()
+ *      }
+ *  }
+ *
+ *  // singleLine = 'consistent'
+ *  when (a) {
+ *      1 -&gt; { f1() }
+ *      2 -&gt; { f2() }
+ *  }
+ *  when (a) {
+ *      1 -&gt; f1()
+ *      2 -&gt; f2()
+ *  }
+ *  // multiLine = 'consistent'
+ *  when (a) {
+ *      1 -&gt; {
+ *          f1()
+ *      }
+ *      2 -&gt; {
+ *          f2()
+ *          f3()
+ *      }
+ *  }
+ *
+ *  // singleLine = 'always'
+ *  when (a) {
+ *      1 -&gt; { f1() }
+ *      2 -&gt; { f2() }
+ *  }
+ *  // multiLine = 'always'
+ *  when (a) {
+ *      1 -&gt; {
+ *          f1()
+ *      }
+ *      2 -&gt; {
+ *          f2()
+ *          f3()
+ *      }
+ *  }
+ *
+ *  &lt;/compliant&gt;
+ */
+<span class="fc" id="L157">class BracesOnWhenStatements(config: Config) : Rule(</span>
+<span class="fc" id="L158">    config,</span>
+<span class="fc" id="L159">    &quot;Braces do not comply with the specified policy&quot;</span>
+) {
+
+    @Configuration(&quot;single-line braces policy&quot;)
+<span class="fc" id="L163">    private val singleLine: BracePolicy by config(&quot;necessary&quot;) { BracePolicy.getValue(it) }</span>
+
+    @Configuration(&quot;multi-line braces policy&quot;)
+<span class="fc" id="L166">    private val multiLine: BracePolicy by config(&quot;consistent&quot;) { BracePolicy.getValue(it) }</span>
+
+    override fun visitWhenExpression(expression: KtWhenExpression) {
+<span class="fc" id="L169">        super.visitWhenExpression(expression)</span>
+
+<span class="fc" id="L171">        validate(expression.entries, policy(expression))</span>
+<span class="fc" id="L172">    }</span>
+
+    private fun validate(branches: List&lt;KtWhenEntry&gt;, policy: BracePolicy) {
+<span class="fc bfc" id="L175" title="All 4 branches covered.">        val violators = when (policy) {</span>
+            BracePolicy.Always -&gt; {
+<span class="fc" id="L177">                branches.filter { it.hasNoBraces() }</span>
+            }
+
+            BracePolicy.Necessary -&gt; {
+<span class="fc bfc" id="L181" title="All 4 branches covered.">                branches.filter { !it.isMultiStatement() &amp;&amp; it.hasUnnecessaryBraces() }</span>
+            }
+
+            BracePolicy.Never -&gt; {
+<span class="fc" id="L185">                branches.filter { it.hasUnnecessaryBraces() }</span>
+            }
+
+            BracePolicy.Consistent -&gt; {
+<span class="fc" id="L189">                val braces = branches.count { it.hasUnnecessaryBraces() }</span>
+<span class="fc" id="L190">                val noBraces = branches.count { it.hasNoBraces() }</span>
+<span class="fc bfc" id="L191" title="All 4 branches covered.">                if (braces != 0 &amp;&amp; noBraces != 0) {</span>
+<span class="fc" id="L192">                    branches.take(1)</span>
+                } else {
+<span class="fc" id="L194">                    emptyList()</span>
+                }
+            }
+        }
+<span class="fc" id="L198">        violators.forEach { report(it, policy) }</span>
+<span class="fc" id="L199">    }</span>
+
+<span class="fc bfc" id="L201" title="All 2 branches covered.">    private fun KtWhenEntry.hasNoBraces(): Boolean = expression !is KtBlockExpression</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun KtWhenEntry.hasUnnecessaryBraces(): Boolean {
+<span class="fc" id="L205">        val expression = this.expression</span>
+
+<span class="fc bfc" id="L207" title="All 2 branches covered.">        if (expression !is KtBlockExpression) return false</span>
+<span class="fc bfc" id="L208" title="All 2 branches covered.">        val statements = expression.statements.ifEmpty { return false }</span>
+
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        val singleLambda = statements.singleOrNull() as? KtLambdaExpression</span>
+<span class="fc bfc" id="L211" title="All 4 branches covered.">        return singleLambda == null || singleLambda.functionLiteral.arrow != null</span>
+    }
+
+    private fun KtWhenEntry.isMultiStatement(): Boolean =
+<span class="fc bfc" id="L215" title="All 4 branches covered.">        expression.let { it is KtBlockExpression &amp;&amp; it.statements.size &gt; 1 }</span>
+
+    private fun policy(expression: KtWhenExpression): BracePolicy {
+<span class="fc" id="L218">        val isMultiLine = expression.entries.any { branch -&gt;</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">            requireNotNull(branch.arrow) { &quot;When branch ${branch.text} has no arrow!&quot; }</span>
+<span class="fc" id="L220">                .siblings(forward = true, withItself = false)</span>
+<span class="fc" id="L221">                .any { it.textContains('\n') }</span>
+        }
+<span class="fc bfc" id="L223" title="All 2 branches covered.">        return if (isMultiLine) multiLine else singleLine</span>
+    }
+
+    private fun report(violator: KtWhenEntry, policy: BracePolicy) {
+<span class="fc bfc" id="L227" title="All 2 branches covered.">        val reported = when (policy) {</span>
+<span class="fc" id="L228">            BracePolicy.Consistent -&gt; (violator.parent as KtWhenExpression).whenKeyword</span>
+            BracePolicy.Always,
+            BracePolicy.Necessary,
+<span class="pc bpc" id="L231" title="1 of 2 branches missed.">            BracePolicy.Never -&gt; requireNotNull(violator.arrow) { &quot;When branch ${violator.text} has no arrow!&quot; }</span>
+        }
+<span class="fc" id="L233">        report(CodeSmell(Entity.from(reported), policy.message))</span>
+<span class="fc" id="L234">    }</span>
+
+<span class="fc" id="L236">    enum class BracePolicy(val config: String, val message: String) {</span>
+<span class="fc" id="L237">        Always(&quot;always&quot;, &quot;Missing braces on this branch, add them.&quot;),</span>
+<span class="fc" id="L238">        Consistent(&quot;consistent&quot;, &quot;Inconsistent braces, make sure all branches either have or don't have braces.&quot;),</span>
+<span class="fc" id="L239">        Necessary(&quot;necessary&quot;, &quot;Extra braces exist on this branch, remove them.&quot;),</span>
+<span class="fc" id="L240">        Never(&quot;never&quot;, &quot;Extra braces exist on this branch, remove them.&quot;);</span>
+
+        companion object {
+            fun getValue(arg: String): BracePolicy =
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">                entries.singleOrNull { it.config == arg }</span>
+<span class="pc" id="L245">                    ?: error(&quot;Unknown value $arg, allowed values are: ${entries.joinToString(&quot;|&quot;)}&quot;)</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>
