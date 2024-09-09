@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultActivationStatus.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.generator.collection</a> &gt; <span class="el_source">DefaultActivationStatus.kt</span></div><h1>DefaultActivationStatus.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.generator.collection
+
+import io.gitlab.arturbosch.detekt.generator.collection.exception.InvalidDocumentationException
+
+sealed class DefaultActivationStatus {
+    abstract val active: Boolean
+}
+
+<span class="fc" id="L9">data object Inactive : DefaultActivationStatus() {</span>
+<span class="fc" id="L10">    override val active = false</span>
+}
+
+<span class="fc" id="L13">data class Active(val since: String) : DefaultActivationStatus() {</span>
+<span class="fc" id="L14">    override val active = true</span>
+
+<span class="fc" id="L16">    init {</span>
+<span class="fc bfc" id="L17" title="All 2 branches covered.">        if (!since.matches(SEMANTIC_VERSION_PATTERN)) {</span>
+<span class="fc" id="L18">            throw InvalidDocumentationException(</span>
+<span class="fc" id="L19">                &quot;'$since' must match the semantic version pattern &lt;major&gt;.&lt;minor&gt;.&lt;patch&gt;&quot;</span>
+            )
+        }
+<span class="fc" id="L22">    }</span>
+
+    companion object {
+<span class="fc" id="L25">        private val SEMANTIC_VERSION_PATTERN = &quot;&quot;&quot;^\d+\.\d+.\d+$&quot;&quot;&quot;.toRegex()</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

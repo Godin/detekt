@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoopWithTooManyJumpStatements.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">LoopWithTooManyJumpStatements.kt</span></div><h1>LoopWithTooManyJumpStatements.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBreakExpression
+import org.jetbrains.kotlin.psi.KtContinueExpression
+import org.jetbrains.kotlin.psi.KtDoWhileExpression
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtForExpression
+import org.jetbrains.kotlin.psi.KtLoopExpression
+import org.jetbrains.kotlin.psi.KtPsiUtil
+import org.jetbrains.kotlin.psi.KtWhileExpression
+
+/**
+ * Loops which contain multiple `break` or `continue` statements are hard to read and understand.
+ * To increase readability they should be refactored into simpler loops.
+ *
+ * &lt;noncompliant&gt;
+ * val strs = listOf(&quot;foo, bar&quot;)
+ * for (str in strs) {
+ *     if (str == &quot;bar&quot;) {
+ *         break
+ *     } else {
+ *         continue
+ *     }
+ * }
+ * &lt;/noncompliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+<span class="fc" id="L39">class LoopWithTooManyJumpStatements(config: Config) : Rule(</span>
+<span class="fc" id="L40">    config,</span>
+<span class="fc" id="L41">    &quot;The loop contains more than one break or continue statement. &quot; +</span>
+        &quot;The code should be refactored to increase readability.&quot;
+) {
+
+    @Configuration(&quot;maximum allowed jumps in a loop&quot;)
+<span class="pc" id="L46">    private val maxJumpCount: Int by config(1)</span>
+
+    override fun visitLoopExpression(loopExpression: KtLoopExpression) {
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (countBreakAndReturnStatements(loopExpression.body) &gt; maxJumpCount) {</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">            report(CodeSmell(Entity.from(loopExpression.keyword ?: loopExpression), description))</span>
+        }
+<span class="nc" id="L52">        super.visitLoopExpression(loopExpression)</span>
+<span class="nc" id="L53">    }</span>
+
+<span class="nc bnc" id="L55" title="All 2 branches missed.">    private fun countBreakAndReturnStatements(body: KtExpression?) = body?.countBreakAndReturnStatementsInLoop() ?: 0</span>
+
+    private fun KtElement.countBreakAndReturnStatementsInLoop(): Int {
+<span class="nc" id="L58">        var count = 0</span>
+<span class="nc" id="L59">        this.accept(object : DetektVisitor() {</span>
+            override fun visitKtElement(element: KtElement) {
+<span class="nc bnc" id="L61" title="All 2 branches missed.">                if (element is KtLoopExpression) {</span>
+<span class="nc" id="L62">                    return</span>
+                }
+<span class="nc bnc" id="L64" title="All 4 branches missed.">                if (element is KtBreakExpression || element is KtContinueExpression) {</span>
+<span class="nc" id="L65">                    count++</span>
+                }
+<span class="nc" id="L67">                element.children.forEach { it.accept(this) }</span>
+<span class="nc" id="L68">            }</span>
+        })
+<span class="nc" id="L70">        return count</span>
+    }
+}
+
+/**
+ * For some reason not all keyword properties are exposed on [KtLoopExpression] subclasses, so we have to do it manually.
+ */
+@Suppress(&quot;CommentOverPrivateProperty&quot;)
+private val KtLoopExpression.keyword: PsiElement?
+    get() =
+<span class="nc" id="L80">        when (this) {</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">            is KtForExpression -&gt; this.forKeyword</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            is KtWhileExpression -&gt; this.whileKeyword</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">            is KtDoWhileExpression -&gt; this.doKeyword</span>
+<span class="nc" id="L84">            else -&gt; null</span>
+<span class="nc" id="L85">        }</span>
+
+private val KtDoWhileExpression.doKeyword: PsiElement?
+<span class="nc" id="L88">    get() = KtPsiUtil.findChildByType(this, KtTokens.DO_KEYWORD)</span>
+
+private val KtWhileExpression.whileKeyword: PsiElement?
+<span class="nc" id="L91">    get() = KtPsiUtil.findChildByType(this, KtTokens.WHILE_KEYWORD)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FunctionOnlyReturningConstant.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">FunctionOnlyReturningConstant.kt</span></div><h1>FunctionOnlyReturningConstant.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.simplePatternToRegex
+import io.gitlab.arturbosch.detekt.rules.isActual
+import io.gitlab.arturbosch.detekt.rules.isOpen
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.psi.KtConstantExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi.psiUtil.containingClass
+
+/**
+ * A function that only returns a single constant can be misleading. Instead, prefer declaring the constant
+ * as a `const val`.
+ *
+ * &lt;noncompliant&gt;
+ * fun functionReturningConstantString() = &quot;1&quot;
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * const val constantString = &quot;1&quot;
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+<span class="fc" id="L34">class FunctionOnlyReturningConstant(config: Config) : Rule(</span>
+<span class="fc" id="L35">    config,</span>
+<span class="fc" id="L36">    &quot;A function that only returns a constant is misleading. Consider declaring a constant instead.&quot;</span>
+) {
+
+    @Configuration(&quot;if overridden functions should be ignored&quot;)
+<span class="fc" id="L40">    private val ignoreOverridableFunction: Boolean by config(true)</span>
+
+    @Configuration(&quot;if actual functions should be ignored&quot;)
+<span class="fc" id="L43">    private val ignoreActualFunction: Boolean by config(true)</span>
+
+    @Configuration(&quot;excluded functions&quot;)
+<span class="fc" id="L46">    private val excludedFunctions: List&lt;Regex&gt; by config(emptyList&lt;String&gt;()) { it.map(String::simplePatternToRegex) }</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        if (isNotIgnored(function) &amp;&amp;</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            isNotExcluded(function) &amp;&amp;</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">            isReturningAConstant(function)</span>
+        ) {
+<span class="fc" id="L53">            report(</span>
+<span class="fc" id="L54">                CodeSmell(</span>
+<span class="fc" id="L55">                    Entity.atName(function),</span>
+<span class="fc" id="L56">                    &quot;${function.nameAsSafeName} is returning a constant. Prefer declaring a constant instead.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L60">        super.visitNamedFunction(function)</span>
+<span class="fc" id="L61">    }</span>
+
+    private fun isNotIgnored(function: KtNamedFunction): Boolean =
+<span class="fc bfc" id="L64" title="All 4 branches covered.">        checkOverridableFunction(function) &amp;&amp; checkActualFunction(function)</span>
+
+    private fun checkOverridableFunction(function: KtNamedFunction): Boolean =
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (ignoreOverridableFunction) {</span>
+<span class="fc bfc" id="L68" title="All 6 branches covered.">            !function.isOverride() &amp;&amp; !function.isOpen() &amp;&amp; !checkContainingInterface(function)</span>
+        } else {
+<span class="fc" id="L70">            true</span>
+<span class="fc" id="L71">        }</span>
+
+    private fun checkContainingInterface(function: KtNamedFunction): Boolean {
+<span class="fc" id="L74">        val containingClass = function.containingClass()</span>
+<span class="fc bfc" id="L75" title="All 4 branches covered.">        return containingClass != null &amp;&amp; containingClass.isInterface()</span>
+    }
+
+    private fun checkActualFunction(function: KtNamedFunction): Boolean =
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if (ignoreActualFunction) {</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">            !function.isActual()</span>
+        } else {
+<span class="fc" id="L82">            true</span>
+<span class="fc" id="L83">        }</span>
+
+    private fun isNotExcluded(function: KtNamedFunction) =
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        function.name !in excludedFunctions</span>
+
+    private fun isReturningAConstant(function: KtNamedFunction) =
+<span class="fc bfc" id="L89" title="All 4 branches covered.">        isConstantExpression(function.bodyExpression) || returnsConstant(function)</span>
+
+    private fun isConstantExpression(expression: KtExpression?): Boolean {
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (expression is KtConstantExpression) {</span>
+<span class="fc" id="L93">            return true</span>
+        }
+<span class="fc bfc" id="L95" title="All 4 branches covered.">        return expression is KtStringTemplateExpression &amp;&amp; !expression.hasInterpolation()</span>
+    }
+
+    private fun returnsConstant(function: KtNamedFunction): Boolean {
+<span class="pc bpc" id="L99" title="2 of 6 branches missed.">        val returnExpression = function.bodyExpression?.children?.singleOrNull() as? KtReturnExpression</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        return isConstantExpression(returnExpression?.returnedExpression)</span>
+    }
+}
+
+<span class="pc bpc" id="L104" title="1 of 4 branches missed.">private operator fun Iterable&lt;Regex&gt;.contains(input: String?): Boolean = input != null &amp;&amp; any { it.matches(input) }</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

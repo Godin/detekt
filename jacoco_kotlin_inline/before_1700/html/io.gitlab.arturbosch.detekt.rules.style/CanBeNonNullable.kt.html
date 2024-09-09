@@ -1,0 +1,579 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CanBeNonNullable.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">CanBeNonNullable.kt</span></div><h1>CanBeNonNullable.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isAbstract
+import io.gitlab.arturbosch.detekt.rules.isNonNullCheck
+import io.gitlab.arturbosch.detekt.rules.isNullCheck
+import io.gitlab.arturbosch.detekt.rules.isOpen
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.com.intellij.psi.tree.IElementType
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
+import org.jetbrains.kotlin.descriptors.PropertyDescriptor
+import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtConstantExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtIsExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtNullableType
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtPostfixExpression
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtPropertyAccessor
+import org.jetbrains.kotlin.psi.KtPropertyDelegate
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
+import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.KtWhenCondition
+import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
+import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
+import org.jetbrains.kotlin.psi.KtWhenExpression
+import org.jetbrains.kotlin.psi.psiUtil.allChildren
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import org.jetbrains.kotlin.psi.psiUtil.containingClass
+import org.jetbrains.kotlin.psi.psiUtil.forEachDescendantOfType
+import org.jetbrains.kotlin.psi.psiUtil.isFirstStatement
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+import org.jetbrains.kotlin.psi2ir.deparenthesize
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.smartcasts.getKotlinTypeForComparison
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getType
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.TypeUtils
+import org.jetbrains.kotlin.types.isNullable
+
+/**
+ * This rule inspects variables marked as nullable and reports which could be
+ * declared as non-nullable instead.
+ *
+ * It's preferred to not have functions that do &quot;nothing&quot;.
+ * A function that does nothing when the value is null hides the logic,
+ * so it should not allow null values in the first place.
+ * It is better to move the null checks up around the calls,
+ * instead of having it inside the function.
+ *
+ * This could lead to less nullability overall in the codebase.
+ *
+ * &lt;noncompliant&gt;
+ * class A {
+ *     var a: Int? = 5
+ *
+ *     fun foo() {
+ *         a = 6
+ *     }
+ * }
+ *
+ * class A {
+ *     val a: Int?
+ *         get() = 5
+ * }
+ *
+ * fun foo(a: Int?) {
+ *     val b = a!! + 2
+ * }
+ *
+ * fun foo(a: Int?) {
+ *     if (a != null) {
+ *         println(a)
+ *     }
+ * }
+ *
+ * fun foo(a: Int?) {
+ *     if (a == null) return
+ *     println(a)
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class A {
+ *     var a: Int = 5
+ *
+ *     fun foo() {
+ *         a = 6
+ *     }
+ * }
+ *
+ * class A {
+ *     val a: Int
+ *         get() = 5
+ * }
+ *
+ * fun foo(a: Int) {
+ *     val b = a + 2
+ * }
+ *
+ * fun foo(a: Int) {
+ *     println(a)
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L129">class CanBeNonNullable(config: Config) : Rule(</span>
+<span class="fc" id="L130">    config,</span>
+<span class="fc" id="L131">    &quot;Variable can be changed to non-nullable, as it is never set to null.&quot;</span>
+) {
+
+    override fun visitKtFile(file: KtFile) {
+<span class="fc" id="L135">        super.visitKtFile(file)</span>
+<span class="fc" id="L136">        PropertyCheckVisitor().visitKtFile(file)</span>
+<span class="fc" id="L137">        ParameterCheckVisitor().visitKtFile(file)</span>
+<span class="fc" id="L138">    }</span>
+
+<span class="fc" id="L140">    @Suppress(&quot;TooManyFunctions&quot;)</span>
+<span class="fc" id="L141">    private inner class ParameterCheckVisitor : DetektVisitor() {</span>
+<span class="fc" id="L142">        private val nullableParams = mutableMapOf&lt;DeclarationDescriptor, NullableParam&gt;()</span>
+
+        override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc bfc" id="L145" title="All 2 branches covered.">            if (function.isOverride()) {</span>
+<span class="fc" id="L146">                return</span>
+            }
+
+<span class="fc" id="L149">            val candidateDescriptors = mutableSetOf&lt;DeclarationDescriptor&gt;()</span>
+<span class="fc" id="L150">            function.valueParameters.asSequence()</span>
+<span class="fc" id="L151">                .filter {</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">                    it.typeReference?.typeElement is KtNullableType</span>
+                }
+<span class="fc" id="L154">                .mapNotNull { parameter -&gt;</span>
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">                    bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, parameter]?.let {</span>
+<span class="fc" id="L156">                        it to parameter</span>
+<span class="fc" id="L157">                    }</span>
+                }
+<span class="fc" id="L159">                .forEach { (descriptor, param) -&gt;</span>
+<span class="fc" id="L160">                    candidateDescriptors.add(descriptor)</span>
+<span class="fc" id="L161">                    nullableParams[descriptor] = NullableParam(param)</span>
+<span class="fc" id="L162">                }</span>
+
+<span class="fc bfc" id="L164" title="All 2 branches covered.">            val validSingleChildExpression = if (function.initializer == null) {</span>
+<span class="fc" id="L165">                val children = function.bodyBlockExpression</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">                    ?.allChildren</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">                    ?.filterIsInstance&lt;KtExpression&gt;()</span>
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">                    ?.toList()</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">                    .orEmpty()</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">                if (children.size == 1) {</span>
+<span class="fc" id="L171">                    children.first().determineSingleExpression(candidateDescriptors)</span>
+                } else {
+<span class="fc" id="L173">                    INELIGIBLE_SINGLE_EXPRESSION</span>
+                }
+            } else {
+<span class="fc" id="L176">                INELIGIBLE_SINGLE_EXPRESSION</span>
+            }
+
+            // Evaluate the function, then analyze afterwards whether the candidate properties
+            // could be made non-nullable.
+<span class="fc" id="L181">            super.visitNamedFunction(function)</span>
+
+<span class="fc" id="L183">            candidateDescriptors.asSequence()</span>
+<span class="fc" id="L184">                .mapNotNull(nullableParams::remove)</span>
+                // The heuristic for whether a nullable param can be made non-nullable is:
+                // * It has been forced into a non-null type, either by `!!` or by
+                //   `checkNonNull()`/`requireNonNull()`, or
+                // * The containing function only consists of a single non-null check on
+                //   the param, either via an if/when check or with a safe-qualified expression.
+<span class="fc" id="L190">                .filter {</span>
+<span class="fc bfc" id="L191" title="All 6 branches covered.">                    val onlyNonNullCheck = validSingleChildExpression &amp;&amp; it.isNonNullChecked &amp;&amp; !it.isNullChecked</span>
+<span class="fc bfc" id="L192" title="All 6 branches covered.">                    it.isNonNullForced || it.isNullCheckReturnsUnit || onlyNonNullCheck</span>
+                }
+<span class="fc" id="L194">                .forEach { nullableParam -&gt;</span>
+<span class="fc" id="L195">                    report(</span>
+<span class="fc" id="L196">                        CodeSmell(</span>
+<span class="fc" id="L197">                            Entity.from(nullableParam.param),</span>
+<span class="fc" id="L198">                            &quot;The nullable parameter '${nullableParam.param.name}' can be made non-nullable.&quot;</span>
+                        )
+                    )
+<span class="fc" id="L201">                }</span>
+<span class="fc" id="L202">        }</span>
+
+        override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L205">            val calleeName = expression.calleeExpression</span>
+<span class="fc" id="L206">                .getResolvedCall(bindingContext)</span>
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">                ?.resultingDescriptor</span>
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">                ?.name</span>
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">                ?.toString()</span>
+            // Check for whether a call to `checkNonNull()` or `requireNonNull()` has
+            // been made.
+<span class="fc bfc" id="L212" title="All 4 branches covered.">            if (calleeName == REQUIRE_NOT_NULL_NAME || calleeName == CHECK_NOT_NULL_NAME) {</span>
+<span class="fc" id="L213">                expression.valueArguments.forEach { valueArgument -&gt;</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">                    valueArgument.getArgumentExpression()?.let { argumentExpression -&gt;</span>
+<span class="fc" id="L215">                        updateNullableParam(argumentExpression) { it.isNonNullForced = true }</span>
+<span class="fc" id="L216">                    }</span>
+<span class="fc" id="L217">                }</span>
+            }
+<span class="fc" id="L219">            super.visitCallExpression(expression)</span>
+<span class="fc" id="L220">        }</span>
+
+        override fun visitPostfixExpression(expression: KtPostfixExpression) {
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">            if (expression.operationToken == KtTokens.EXCLEXCL) {</span>
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">                expression.baseExpression?.let { baseExpression -&gt;</span>
+<span class="fc" id="L225">                    updateNullableParam(baseExpression) { it.isNonNullForced = true }</span>
+<span class="fc" id="L226">                }</span>
+            }
+<span class="fc" id="L228">            super.visitPostfixExpression(expression)</span>
+<span class="fc" id="L229">        }</span>
+
+        override fun visitWhenExpression(expression: KtWhenExpression) {
+<span class="fc" id="L232">            val nullCheckedDescriptor = expression.subjectExpression</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">                ?.collectDescendantsOfType&lt;KtNameReferenceExpression&gt;()</span>
+<span class="fc bfc" id="L234" title="All 2 branches covered.">                .orEmpty()</span>
+<span class="fc" id="L235">                .mapNotNull { it.getResolvedCall(bindingContext) }</span>
+<span class="pc bpc" id="L236" title="1 of 4 branches missed.">                .filter { callDescriptor -&gt; callDescriptor.resultingDescriptor.returnType?.isNullable() == true }</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">                .mapNotNull { callDescriptor -&gt; callDescriptor.resultingDescriptor as? ValueParameterDescriptor }</span>
+<span class="fc" id="L238">            val whenConditions = expression.entries.flatMap { it.conditions.asList() }</span>
+<span class="fc bfc" id="L239" title="All 4 branches covered.">            if (nullCheckedDescriptor.isNotEmpty()) {</span>
+<span class="fc" id="L240">                whenConditions.evaluateSubjectWhenExpression(expression, nullCheckedDescriptor)</span>
+            } else {
+<span class="fc" id="L242">                whenConditions.forEach { whenCondition -&gt;</span>
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">                    if (whenCondition is KtWhenConditionWithExpression) {</span>
+<span class="fc" id="L244">                        whenCondition.expression.evaluateCheckStatement(expression.elseExpression)</span>
+                    }
+<span class="fc" id="L246">                }</span>
+            }
+<span class="fc" id="L248">            super.visitWhenExpression(expression)</span>
+<span class="fc" id="L249">        }</span>
+
+        override fun visitIfExpression(expression: KtIfExpression) {
+<span class="fc" id="L252">            expression.condition.evaluateCheckStatement(expression.`else`)</span>
+<span class="fc bfc" id="L253" title="All 2 branches covered.">            if (expression.isFirstStatement()) {</span>
+<span class="fc" id="L254">                evaluateNullCheckReturnsUnit(expression.condition, expression.then)</span>
+            }
+<span class="fc" id="L256">            super.visitIfExpression(expression)</span>
+<span class="fc" id="L257">        }</span>
+
+        private fun evaluateNullCheckReturnsUnit(condition: KtExpression?, then: KtExpression?) {
+<span class="fc bfc" id="L260" title="All 2 branches covered.">            val thenExpression = if (then is KtBlockExpression) then.firstStatement else then</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">            if (thenExpression !is KtReturnExpression) return</span>
+<span class="fc bfc" id="L262" title="All 2 branches covered.">            if (thenExpression.returnedExpression != null) return</span>
+
+<span class="pc bpc" id="L264" title="2 of 4 branches missed.">            if (condition is KtBinaryExpression &amp;&amp; condition.isNullCheck()) {</span>
+<span class="fc" id="L265">                getDescriptor(condition.left, condition.right)</span>
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">                    ?.let { nullableParams[it] }</span>
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">                    ?.let { it.isNullCheckReturnsUnit = true }</span>
+            }
+<span class="fc" id="L269">        }</span>
+
+        override fun visitSafeQualifiedExpression(expression: KtSafeQualifiedExpression) {
+<span class="fc" id="L272">            updateNullableParam(expression.receiverExpression) { it.isNonNullChecked = true }</span>
+<span class="fc" id="L273">            super.visitSafeQualifiedExpression(expression)</span>
+<span class="fc" id="L274">        }</span>
+
+        override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
+<span class="fc" id="L277">            val isExtensionForNullable = expression.getResolvedCall(bindingContext)</span>
+<span class="fc bfc" id="L278" title="All 2 branches covered.">                ?.resultingDescriptor</span>
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">                ?.extensionReceiverParameter</span>
+<span class="fc bfc" id="L280" title="All 2 branches covered.">                ?.type</span>
+<span class="pc bpc" id="L281" title="1 of 2 branches missed.">                ?.isMarkedNullable</span>
+<span class="fc bfc" id="L282" title="All 2 branches covered.">            if (isExtensionForNullable == true) {</span>
+<span class="fc" id="L283">                expression.receiverExpression</span>
+<span class="fc" id="L284">                    .getRootExpression()</span>
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">                    ?.let { rootExpression -&gt;</span>
+<span class="fc" id="L286">                        updateNullableParam(rootExpression) { it.isNullChecked = true }</span>
+<span class="fc" id="L287">                    }</span>
+            }
+<span class="fc" id="L289">            super.visitDotQualifiedExpression(expression)</span>
+<span class="fc" id="L290">        }</span>
+
+        override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc bfc" id="L293" title="All 2 branches covered.">            if (expression.operationToken == KtTokens.ELVIS) {</span>
+<span class="fc" id="L294">                expression.left</span>
+<span class="fc" id="L295">                    .getRootExpression()</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">                    ?.let { rootExpression -&gt;</span>
+<span class="pc" id="L297">                        updateNullableParam(rootExpression) { it.isNullChecked = true }</span>
+<span class="fc" id="L298">                    }</span>
+            }
+<span class="fc" id="L300">            super.visitBinaryExpression(expression)</span>
+<span class="fc" id="L301">        }</span>
+
+        private fun KtExpression?.getRootExpression(): KtExpression? {
+            // Look for the expression that was the root of a potential call chain.
+<span class="fc" id="L305">            var receiverExpression = this</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">            while (receiverExpression is KtQualifiedExpression) {</span>
+<span class="fc" id="L307">                receiverExpression = receiverExpression.receiverExpression</span>
+            }
+<span class="fc" id="L309">            return receiverExpression</span>
+        }
+
+        private fun KtExpression?.determineSingleExpression(candidateDescriptors: Set&lt;DeclarationDescriptor&gt;): Boolean =
+<span class="fc" id="L313">            when (this) {</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">                is KtReturnExpression -&gt; INELIGIBLE_SINGLE_EXPRESSION</span>
+<span class="fc bfc" id="L315" title="All 2 branches covered.">                is KtIfExpression -&gt; ELIGIBLE_SINGLE_EXPRESSION</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">                is KtDotQualifiedExpression -&gt; {</span>
+<span class="pc bpc" id="L317" title="1 of 2 branches missed.">                    this.getRootExpression()</span>
+<span class="fc" id="L318">                        .getResolvedCall(bindingContext)</span>
+<span class="pc bpc" id="L319" title="1 of 2 branches missed.">                        ?.resultingDescriptor</span>
+<span class="pc bpc" id="L320" title="1 of 2 branches missed.">                        ?.let(candidateDescriptors::contains) == true</span>
+                }
+<span class="fc bfc" id="L322" title="All 2 branches covered.">                is KtCallExpression -&gt; INELIGIBLE_SINGLE_EXPRESSION</span>
+<span class="fc" id="L323">                else -&gt; ELIGIBLE_SINGLE_EXPRESSION</span>
+<span class="fc" id="L324">            }</span>
+
+        private fun KtElement?.getNonNullChecks(parentOperatorToken: IElementType?): List&lt;CallableDescriptor&gt;? =
+<span class="fc" id="L327">            when (this) {</span>
+<span class="fc bfc" id="L328" title="All 2 branches covered.">                is KtBinaryExpression -&gt; evaluateBinaryExpression(parentOperatorToken)</span>
+<span class="fc bfc" id="L329" title="All 2 branches covered.">                is KtIsExpression -&gt; evaluateIsExpression()</span>
+<span class="fc" id="L330">                else -&gt; null</span>
+<span class="fc" id="L331">            }</span>
+
+        private fun KtExpression?.evaluateCheckStatement(elseExpression: KtExpression?) {
+<span class="fc bfc" id="L334" title="All 2 branches covered.">            this.getNonNullChecks(null)?.let { nonNullChecks -&gt;</span>
+<span class="fc bfc" id="L335" title="All 2 branches covered.">                val nullableParamCallback = if (elseExpression.isValidElseExpression()) {</span>
+                    { nullableParam: NullableParam -&gt;
+<span class="fc" id="L337">                        nullableParam.isNonNullChecked = true</span>
+<span class="fc" id="L338">                        nullableParam.isNullChecked = true</span>
+<span class="fc" id="L339">                    }</span>
+                } else {
+<span class="fc" id="L341">                    { nullableParam -&gt; nullableParam.isNonNullChecked = true }</span>
+                }
+<span class="fc" id="L343">                nonNullChecks.forEach {</span>
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">                    nullableParams[it]?.let(nullableParamCallback)</span>
+<span class="fc" id="L345">                }</span>
+<span class="fc" id="L346">            }</span>
+<span class="fc" id="L347">        }</span>
+
+        // Helper function for if- and when-statements that will recursively check for whether
+        // any function params have been checked for being a non-nullable type.
+        private fun KtBinaryExpression.evaluateBinaryExpression(
+            parentOperatorToken: IElementType?,
+        ): List&lt;CallableDescriptor&gt; {
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">            val leftExpression = left?.deparenthesize()</span>
+<span class="pc bpc" id="L355" title="1 of 2 branches missed.">            val rightExpression = right?.deparenthesize()</span>
+<span class="fc" id="L356">            val nonNullChecks = mutableListOf&lt;CallableDescriptor&gt;()</span>
+
+<span class="fc bfc" id="L358" title="All 2 branches covered.">            if (isNullCheck()) {</span>
+<span class="fc" id="L359">                getDescriptor(leftExpression, rightExpression)</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">                    ?.let { nullableParams[it] }</span>
+<span class="pc bpc" id="L361" title="1 of 2 branches missed.">                    ?.let { it.isNullChecked = true }</span>
+<span class="fc bfc" id="L362" title="All 4 branches covered.">            } else if (isNonNullCheck() &amp;&amp; parentOperatorToken != KtTokens.OROR) {</span>
+<span class="fc bfc" id="L363" title="All 2 branches covered.">                getDescriptor(leftExpression, rightExpression)?.let(nonNullChecks::add)</span>
+            }
+
+<span class="fc bfc" id="L366" title="All 2 branches covered.">            leftExpression.getNonNullChecks(operationToken)?.let(nonNullChecks::addAll)</span>
+<span class="fc bfc" id="L367" title="All 2 branches covered.">            rightExpression.getNonNullChecks(operationToken)?.let(nonNullChecks::addAll)</span>
+<span class="fc" id="L368">            return nonNullChecks</span>
+        }
+
+        private fun getDescriptor(leftExpression: KtElement?, rightExpression: KtElement?): CallableDescriptor? =
+<span class="fc" id="L372">            when {</span>
+<span class="fc bfc" id="L373" title="All 2 branches covered.">                leftExpression is KtNameReferenceExpression -&gt; leftExpression</span>
+<span class="fc bfc" id="L374" title="All 2 branches covered.">                rightExpression is KtNameReferenceExpression -&gt; rightExpression</span>
+<span class="fc" id="L375">                else -&gt; null</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">            }?.getResolvedCall(bindingContext)</span>
+<span class="pc bpc" id="L377" title="1 of 2 branches missed.">                ?.resultingDescriptor</span>
+
+        private fun KtIsExpression.evaluateIsExpression(): List&lt;CallableDescriptor&gt; {
+<span class="pc bpc" id="L380" title="2 of 4 branches missed.">            val descriptor = this.leftHandSide.getResolvedCall(bindingContext)?.resultingDescriptor</span>
+<span class="nc" id="L381">                ?: return emptyList()</span>
+<span class="fc bfc" id="L382" title="All 2 branches covered.">            return if (isNullableCheck(typeReference, isNegated)) {</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">                nullableParams[descriptor]?.let { it.isNullChecked = true }</span>
+<span class="fc" id="L384">                emptyList()</span>
+            } else {
+<span class="fc" id="L386">                listOf(descriptor)</span>
+            }
+        }
+
+        private fun List&lt;KtWhenCondition&gt;.evaluateSubjectWhenExpression(
+            expression: KtWhenExpression,
+            subjectDescriptors: List&lt;CallableDescriptor&gt;,
+        ) {
+<span class="fc" id="L394">            var isNonNullChecked = false</span>
+<span class="fc" id="L395">            var isNullChecked = false</span>
+<span class="fc" id="L396">            forEach { whenCondition -&gt;</span>
+<span class="fc" id="L397">                when (whenCondition) {</span>
+<span class="fc bfc" id="L398" title="All 2 branches covered.">                    is KtWhenConditionWithExpression -&gt; {</span>
+<span class="pc bpc" id="L399" title="1 of 4 branches missed.">                        if (whenCondition.expression?.text == &quot;null&quot;) {</span>
+<span class="fc" id="L400">                            isNullChecked = true</span>
+                        }
+                    }
+<span class="pc bpc" id="L403" title="1 of 2 branches missed.">                    is KtWhenConditionIsPattern -&gt; {</span>
+<span class="fc bfc" id="L404" title="All 2 branches covered.">                        if (isNullableCheck(whenCondition.typeReference, whenCondition.isNegated)) {</span>
+<span class="fc" id="L405">                            isNullChecked = true</span>
+                        } else {
+<span class="fc" id="L407">                            isNonNullChecked = true</span>
+                        }
+                    }
+                }
+<span class="fc" id="L411">            }</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">            if (expression.elseExpression.isValidElseExpression()) {</span>
+<span class="pc bpc" id="L413" title="1 of 2 branches missed.">                if (isNullChecked) {</span>
+<span class="nc" id="L414">                    isNonNullChecked = true</span>
+<span class="pc bpc" id="L415" title="1 of 2 branches missed.">                } else if (isNonNullChecked) {</span>
+<span class="fc" id="L416">                    isNullChecked = true</span>
+                }
+            }
+<span class="fc" id="L419">            subjectDescriptors.forEach { callableDescriptor -&gt;</span>
+<span class="pc bpc" id="L420" title="1 of 2 branches missed.">                nullableParams[callableDescriptor]?.let {</span>
+<span class="fc bfc" id="L421" title="All 2 branches covered.">                    if (isNullChecked) it.isNullChecked = true</span>
+<span class="fc bfc" id="L422" title="All 2 branches covered.">                    if (isNonNullChecked) it.isNonNullChecked = true</span>
+<span class="fc" id="L423">                }</span>
+<span class="fc" id="L424">            }</span>
+<span class="fc" id="L425">        }</span>
+
+        private fun isNullableCheck(typeReference: KtTypeReference?, isNegated: Boolean): Boolean {
+<span class="fc" id="L428">            val isNullable = typeReference.isNullable(bindingContext)</span>
+<span class="pc bpc" id="L429" title="2 of 8 branches missed.">            return (isNullable &amp;&amp; !isNegated) || (!isNullable &amp;&amp; isNegated)</span>
+        }
+
+        private fun KtExpression?.isValidElseExpression(): Boolean =
+<span class="pc bpc" id="L433" title="1 of 6 branches missed.">            this != null &amp;&amp; this !is KtIfExpression &amp;&amp; this !is KtWhenExpression</span>
+
+        private fun KtTypeReference?.isNullable(bindingContext: BindingContext): Boolean =
+<span class="pc bpc" id="L436" title="2 of 6 branches missed.">            this?.let { bindingContext[BindingContext.TYPE, it] }?.isMarkedNullable == true</span>
+
+        private fun updateNullableParam(expression: KtExpression, updateCallback: (NullableParam) -&gt; Unit) {
+<span class="fc" id="L439">            expression.getResolvedCall(bindingContext)</span>
+<span class="pc bpc" id="L440" title="1 of 2 branches missed.">                ?.resultingDescriptor</span>
+<span class="pc bpc" id="L441" title="1 of 2 branches missed.">                ?.let { nullableParams[it] }</span>
+<span class="fc bfc" id="L442" title="All 2 branches covered.">                ?.let(updateCallback)</span>
+<span class="fc" id="L443">        }</span>
+    }
+
+<span class="fc" id="L446">    private class NullableParam(val param: KtParameter) {</span>
+<span class="fc" id="L447">        var isNullChecked = false</span>
+<span class="fc" id="L448">        var isNonNullChecked = false</span>
+<span class="fc" id="L449">        var isNonNullForced = false</span>
+<span class="fc" id="L450">        var isNullCheckReturnsUnit = false</span>
+    }
+
+<span class="fc" id="L453">    private inner class PropertyCheckVisitor : DetektVisitor() {</span>
+        // A list of properties that are marked as nullable during their
+        // declaration but do not explicitly receive a nullable value in
+        // the declaration, so they could potentially be marked as non-nullable
+        // if the file does not encounter these properties being assigned
+        // a nullable value.
+<span class="fc" id="L459">        private val candidateProps = mutableMapOf&lt;FqName, KtProperty&gt;()</span>
+
+        override fun visitKtFile(file: KtFile) {
+<span class="fc" id="L462">            file.collectCandidateProps()</span>
+<span class="fc" id="L463">            super.visitKtFile(file)</span>
+            // Any candidate properties that were not removed during the inspection
+            // of the Kotlin file were never assigned nullable values in the code,
+            // thus they can be converted to non-nullable.
+<span class="fc" id="L467">            candidateProps.forEach { (_, property) -&gt;</span>
+<span class="fc" id="L468">                report(</span>
+<span class="fc" id="L469">                    CodeSmell(</span>
+<span class="fc" id="L470">                        Entity.from(property),</span>
+<span class="fc" id="L471">                        &quot;The nullable variable '${property.name}' can be made non-nullable.&quot;</span>
+                    )
+                )
+<span class="fc" id="L474">            }</span>
+<span class="fc" id="L475">        }</span>
+
+        private fun KtFile.collectCandidateProps() {
+<span class="fc" id="L478">            forEachDescendantOfType&lt;KtProperty&gt; { property -&gt;</span>
+<span class="fc" id="L479">                val fqName = property.fqName</span>
+<span class="fc bfc" id="L480" title="All 4 branches covered.">                if (fqName != null &amp;&amp; property.isCandidate()) {</span>
+<span class="fc" id="L481">                    candidateProps[fqName] = property</span>
+                }
+<span class="fc" id="L483">            }</span>
+<span class="fc" id="L484">        }</span>
+
+        override fun visitBinaryExpression(expression: KtBinaryExpression) {
+<span class="fc bfc" id="L487" title="All 2 branches covered.">            if (expression.operationToken == KtTokens.EQ) {</span>
+<span class="fc" id="L488">                val fqName = expression.left</span>
+<span class="pc bpc" id="L489" title="1 of 2 branches missed.">                    ?.getResolvedCall(bindingContext)</span>
+<span class="fc bfc" id="L490" title="All 2 branches covered.">                    ?.resultingDescriptor</span>
+<span class="pc bpc" id="L491" title="1 of 2 branches missed.">                    ?.fqNameOrNull()</span>
+                if (
+<span class="fc bfc" id="L493" title="All 2 branches covered.">                    fqName != null &amp;&amp;</span>
+<span class="fc bfc" id="L494" title="All 2 branches covered.">                    candidateProps.containsKey(fqName) &amp;&amp;</span>
+<span class="pc bpc" id="L495" title="1 of 6 branches missed.">                    expression.right?.isNullableType() == true</span>
+                ) {
+                    // A candidate property has been assigned a nullable value
+                    // in the file's code, so it can be removed from the map of
+                    // candidates for flagging.
+<span class="fc" id="L500">                    candidateProps.remove(fqName)</span>
+                }
+            }
+<span class="fc" id="L503">            super.visitBinaryExpression(expression)</span>
+<span class="fc" id="L504">        }</span>
+
+        /**
+         * Determines whether a type is nullable and can be made non-nullable; for most properties
+         * this is simply whether they are nullable, but for type parameters they can only be made
+         * non-nullable when explicitly marked nullable.
+         *
+         * Note that [KotlinType.isNullable] for type parameter types is true unless it inherits
+         * from a non-nullable type, e.g.:
+         * - nullable: &lt;T&gt; or &lt;T : Any?&gt;
+         * - non-nullable: &lt;T : Any&gt;
+         * But even if T is nullable, a property `val t: T` cannot be made into a non-nullable type.
+         */
+        private fun KotlinType.isNullableAndCanBeNonNullable(): Boolean =
+<span class="fc bfc" id="L518" title="All 2 branches covered.">            if (TypeUtils.isTypeParameter(this)) isMarkedNullable else isNullable()</span>
+
+        private fun KtProperty.isCandidate(): Boolean {
+<span class="fc bfc" id="L521" title="All 10 branches covered.">            if (isOpen() || isAbstract() || containingClass()?.isInterface() == true) return false</span>
+
+<span class="fc" id="L523">            val type = getKotlinTypeForComparison(bindingContext)</span>
+<span class="fc bfc" id="L524" title="All 6 branches covered.">            if (type?.isNullableAndCanBeNonNullable() != true) return false</span>
+
+<span class="fc bfc" id="L526" title="All 6 branches covered.">            val isSetToNonNullable = initializer?.isNullableType() != true &amp;&amp;</span>
+<span class="fc bfc" id="L527" title="All 6 branches covered.">                getter?.isNullableType() != true &amp;&amp;</span>
+<span class="fc bfc" id="L528" title="All 6 branches covered.">                delegate?.returnsNullable() != true</span>
+<span class="fc bfc" id="L529" title="All 10 branches covered.">            val cannotSetViaNonPrivateMeans = !isVar || (isPrivate() || (setter?.isPrivate() == true))</span>
+<span class="fc bfc" id="L530" title="All 4 branches covered.">            return isSetToNonNullable &amp;&amp; cannotSetViaNonPrivateMeans</span>
+        }
+
+        private fun KtPropertyDelegate?.returnsNullable(): Boolean {
+<span class="pc bpc" id="L534" title="3 of 6 branches missed.">            val property = this?.parent as? KtProperty ?: return false</span>
+<span class="fc" id="L535">            val propertyDescriptor =</span>
+<span class="pc bpc" id="L536" title="1 of 2 branches missed.">                bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, property] as? PropertyDescriptor</span>
+<span class="pc bpc" id="L537" title="2 of 4 branches missed.">            return propertyDescriptor?.getter?.let {</span>
+<span class="pc bfc" id="L538" title="All 2 branches covered.">                bindingContext[BindingContext.DELEGATED_PROPERTY_RESOLVED_CALL, it]</span>
+<span class="pc bpc" id="L539" title="1 of 2 branches missed.">                    ?.resultingDescriptor</span>
+<span class="pc bpc" id="L540" title="1 of 2 branches missed.">                    ?.returnType</span>
+<span class="pc bpc" id="L541" title="1 of 2 branches missed.">                    ?.isNullable() == true</span>
+<span class="nc" id="L542">            } ?: false</span>
+        }
+
+        private fun KtExpression?.isNullableType(): Boolean =
+<span class="fc" id="L546">            when (this) {</span>
+<span class="fc bfc" id="L547" title="All 2 branches covered.">                is KtConstantExpression -&gt; {</span>
+<span class="fc" id="L548">                    this.text == &quot;null&quot;</span>
+                }
+<span class="fc bfc" id="L550" title="All 2 branches covered.">                is KtIfExpression -&gt; {</span>
+<span class="pc bpc" id="L551" title="2 of 4 branches missed.">                    this.then.isNullableType() || this.`else`.isNullableType()</span>
+                }
+<span class="fc bfc" id="L553" title="All 2 branches covered.">                is KtPropertyAccessor -&gt; {</span>
+<span class="pc bpc" id="L554" title="1 of 8 branches missed.">                    (initializer?.getType(bindingContext)?.isNullable() == true) ||</span>
+                        (
+<span class="pc bfc" id="L556" title="All 2 branches covered.">                            bodyExpression</span>
+<span class="pc bpc" id="L557" title="1 of 4 branches missed.">                                ?.collectDescendantsOfType&lt;KtReturnExpression&gt;()</span>
+<span class="fc" id="L558">                                ?.any { it.returnedExpression.isNullableType() } == true</span>
+                            )
+                }
+                else -&gt; {
+                    // only consider types which can be made non-nullable as nullable to warn on
+                    // cases where a field has declared type `T?` but is only assigned as `T`; here
+                    // `T` should not be considered nullable to enforce that the field could be
+                    // declared as just `T`
+<span class="pc bpc" id="L566" title="2 of 6 branches missed.">                    this?.getType(bindingContext)?.isNullableAndCanBeNonNullable() == true</span>
+                }
+<span class="fc" id="L568">            }</span>
+    }
+
+    private companion object {
+        private const val REQUIRE_NOT_NULL_NAME = &quot;requireNotNull&quot;
+        private const val CHECK_NOT_NULL_NAME = &quot;checkNotNull&quot;
+
+        private const val INELIGIBLE_SINGLE_EXPRESSION = false
+        private const val ELIGIBLE_SINGLE_EXPRESSION = true
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

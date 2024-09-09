@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConstructorParameterNaming.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.naming</a> &gt; <span class="el_source">ConstructorParameterNaming.kt</span></div><h1>ConstructorParameterNaming.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.naming
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import io.gitlab.arturbosch.detekt.rules.naming.util.isContainingExcludedClassOrObject
+import org.jetbrains.kotlin.psi.KtConstructor
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+
+/**
+ * Reports constructor parameter names that do not follow the specified naming convention.
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L20">class ConstructorParameterNaming(config: Config) : Rule(</span>
+<span class="fc" id="L21">    config,</span>
+<span class="fc" id="L22">    &quot;Constructor parameter names should follow the naming convention set in the projects configuration.&quot;</span>
+) {
+
+    @Configuration(&quot;naming pattern&quot;)
+<span class="fc" id="L26">    private val parameterPattern: Regex by config(&quot;[a-z][A-Za-z0-9]*&quot;) { it.toRegex() }</span>
+
+    @Configuration(&quot;naming pattern&quot;)
+<span class="fc" id="L29">    private val privateParameterPattern: Regex by config(&quot;[a-z][A-Za-z0-9]*&quot;) { it.toRegex() }</span>
+
+    @Configuration(&quot;ignores variables in classes which match this regex&quot;)
+<span class="fc" id="L32">    private val excludeClassPattern: Regex by config(&quot;$^&quot;) { it.toRegex() }</span>
+
+    @Configuration(&quot;ignores constructor properties that have the override modifier&quot;)
+    @Deprecated(&quot;This configuration is ignored and will be removed in the future&quot;)
+    @Suppress(&quot;unused&quot;)
+<span class="pc" id="L37">    private val ignoreOverridden: Boolean by config(true)</span>
+
+    override fun visitParameter(parameter: KtParameter) {
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        if (!parameter.isConstructor() ||</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">            parameter.isContainingExcludedClassOrObject(excludeClassPattern) ||</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">            parameter.isOverride()</span>
+        ) {
+<span class="fc" id="L44">            return</span>
+        }
+
+<span class="fc" id="L47">        val identifier = parameter.name</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        if (parameter.isPrivate()) {</span>
+<span class="fc" id="L49">            visitPrivateParameter(parameter)</span>
+        } else {
+<span class="pc bpc" id="L51" title="1 of 6 branches missed.">            if (identifier?.matches(parameterPattern) == false) {</span>
+<span class="fc" id="L52">                report(</span>
+<span class="fc" id="L53">                    CodeSmell(</span>
+<span class="fc" id="L54">                        Entity.from(parameter),</span>
+<span class="fc" id="L55">                        message = &quot;Constructor parameter names should match the pattern: $parameterPattern&quot;</span>
+                    )
+                )
+            }
+        }
+<span class="fc" id="L60">    }</span>
+
+    private fun visitPrivateParameter(parameter: KtParameter) {
+<span class="fc" id="L63">        val identifier = parameter.name</span>
+<span class="pc bpc" id="L64" title="1 of 6 branches missed.">        if (identifier?.matches(privateParameterPattern) == false) {</span>
+<span class="fc" id="L65">            report(</span>
+<span class="fc" id="L66">                CodeSmell(</span>
+<span class="fc" id="L67">                    Entity.from(parameter),</span>
+<span class="fc" id="L68">                    message = &quot;Constructor private parameter names should match the pattern: $privateParameterPattern&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L72">    }</span>
+
+<span class="fc" id="L74">    private fun KtParameter.isConstructor(): Boolean = this.ownerFunction is KtConstructor&lt;*&gt;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

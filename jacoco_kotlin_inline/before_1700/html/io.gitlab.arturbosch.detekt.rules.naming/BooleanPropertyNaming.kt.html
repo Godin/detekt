@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BooleanPropertyNaming.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.naming</a> &gt; <span class="el_source">BooleanPropertyNaming.kt</span></div><h1>BooleanPropertyNaming.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.naming
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import io.gitlab.arturbosch.detekt.rules.isConstant
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.psi.KtCallableDeclaration
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.resolve.typeBinding.createTypeBindingForReturnType
+
+/**
+ * Reports when a boolean property doesn't match a pattern
+ *
+ * &lt;noncompliant&gt;
+ * val progressBar: Boolean = true
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val hasProgressBar: Boolean = true
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L30">class BooleanPropertyNaming(config: Config) : Rule(</span>
+<span class="fc" id="L31">    config,</span>
+<span class="fc" id="L32">    &quot;Boolean property name should follow the naming convention set in the projects configuration.&quot;</span>
+) {
+
+    @Configuration(&quot;naming pattern&quot;)
+<span class="fc" id="L36">    private val allowedPattern: Regex by config(&quot;^(is|has|are)&quot;, String::toRegex)</span>
+
+    @Configuration(&quot;ignores properties that have the override modifier&quot;)
+    @Deprecated(&quot;This configuration is ignored and will be removed in the future&quot;)
+    @Suppress(&quot;unused&quot;)
+<span class="pc" id="L41">    private val ignoreOverridden: Boolean by config(true)</span>
+
+    override fun visitParameter(parameter: KtParameter) {
+<span class="fc" id="L44">        super.visitParameter(parameter)</span>
+
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">        if (parameter.hasValOrVar()) {</span>
+<span class="fc" id="L47">            validateDeclaration(parameter)</span>
+        }
+<span class="fc" id="L49">    }</span>
+
+    override fun visitProperty(property: KtProperty) {
+<span class="fc" id="L52">        super.visitProperty(property)</span>
+
+<span class="fc" id="L54">        validateDeclaration(property)</span>
+<span class="fc" id="L55">    }</span>
+
+    private fun validateDeclaration(declaration: KtCallableDeclaration) {
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">        val name = declaration.name ?: return</span>
+<span class="fc" id="L59">        val typeName = getTypeName(declaration)</span>
+<span class="fc" id="L60">        val isBooleanType =</span>
+<span class="fc bfc" id="L61" title="All 4 branches covered.">            typeName == KOTLIN_BOOLEAN_TYPE_NAME || typeName == JAVA_BOOLEAN_TYPE_NAME</span>
+<span class="fc bfc" id="L62" title="All 4 branches covered.">        val isNonConstantBooleanType = isBooleanType &amp;&amp; !declaration.isConstant()</span>
+
+<span class="fc bfc" id="L64" title="All 6 branches covered.">        if (isNonConstantBooleanType &amp;&amp; !name.contains(allowedPattern) &amp;&amp; !declaration.isOverride()) {</span>
+<span class="fc" id="L65">            report(reportCodeSmell(declaration, name))</span>
+        }
+<span class="fc" id="L67">    }</span>
+
+    private fun reportCodeSmell(
+        declaration: KtCallableDeclaration,
+        name: String
+    ): CodeSmell {
+<span class="fc" id="L73">        val description = &quot;Boolean property name should match a $allowedPattern pattern.&quot;</span>
+<span class="fc" id="L74">        return CodeSmell(</span>
+<span class="fc" id="L75">            Entity.atName(declaration),</span>
+<span class="fc" id="L76">            message = &quot;$description Actual name is $name&quot;</span>
+        )
+    }
+
+    private fun getTypeName(parameter: KtCallableDeclaration): String =
+<span class="fc" id="L81">        parameter.createTypeBindingForReturnType(bindingContext)</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            ?.type</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            ?.fqNameOrNull()</span>
+<span class="fc" id="L84">            .toString()</span>
+
+    companion object {
+        const val KOTLIN_BOOLEAN_TYPE_NAME = &quot;kotlin.Boolean&quot;
+        const val JAVA_BOOLEAN_TYPE_NAME = &quot;java.lang.Boolean&quot;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

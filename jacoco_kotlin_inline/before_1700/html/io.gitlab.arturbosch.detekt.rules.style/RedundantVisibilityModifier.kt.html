@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RedundantVisibilityModifier.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">RedundantVisibilityModifier.kt</span></div><h1>RedundantVisibilityModifier.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.DetektVisitor
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isInternal
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.config.AnalysisFlags
+import org.jetbrains.kotlin.config.ExplicitApiMode
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtDeclaration
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtModifierListOwner
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
+
+/**
+ * This rule checks for redundant visibility modifiers.
+ * One exemption is the
+ * [explicit API mode](https://kotlinlang.org/docs/whatsnew14.html#explicit-api-mode-for-library-authors)
+ * In this mode, the visibility modifier should be defined explicitly even if it is public.
+ * Hence, the rule ignores the visibility modifiers in explicit API mode.
+ *
+ * &lt;noncompliant&gt;
+ * public interface Foo { // public per default
+ *
+ *     public fun bar() // public per default
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * interface Foo {
+ *
+ *     fun bar()
+ * }
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L43">class RedundantVisibilityModifier(config: Config) : Rule(</span>
+<span class="fc" id="L44">    config,</span>
+<span class="fc" id="L45">    &quot;Redundant visibility modifiers detected, which can be safely removed.&quot;</span>
+) {
+<span class="fc" id="L47">    private val classVisitor = ClassVisitor()</span>
+<span class="fc" id="L48">    private val childrenVisitor = ChildrenVisitor()</span>
+
+<span class="fc bfc" id="L50" title="All 4 branches covered.">    private fun KtModifierListOwner.isExplicitlyPublicNotOverridden() = isExplicitlyPublic() &amp;&amp; !isOverride()</span>
+
+<span class="fc" id="L52">    private fun KtModifierListOwner.isExplicitlyPublic() = this.hasModifier(KtTokens.PUBLIC_KEYWORD)</span>
+
+    /**
+     * Explicit API mode was added in Kotlin 1.4
+     * It prevents libraries' authors from making APIs public unintentionally.
+     * In this mode, the visibility modifier should be defined explicitly even if it is public.
+     * See: https://kotlinlang.org/docs/whatsnew14.html#explicit-api-mode-for-library-authors
+     */
+    private fun isExplicitApiModeActive(): Boolean {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        val resources = compilerResources ?: return false</span>
+<span class="fc" id="L62">        val flag = resources.languageVersionSettings.getFlag(AnalysisFlags.explicitApiMode)</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        return flag != ExplicitApiMode.DISABLED</span>
+    }
+
+    override fun visitKtFile(file: KtFile) {
+<span class="fc" id="L67">        super.visitKtFile(file)</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (!isExplicitApiModeActive()) {</span>
+<span class="fc" id="L69">            file.declarations.forEach {</span>
+<span class="fc" id="L70">                it.accept(classVisitor)</span>
+<span class="fc" id="L71">                it.acceptChildren(childrenVisitor)</span>
+<span class="fc" id="L72">            }</span>
+        }
+<span class="fc" id="L74">    }</span>
+
+    override fun visitDeclaration(declaration: KtDeclaration) {
+<span class="fc" id="L77">        super.visitDeclaration(declaration)</span>
+        if (
+<span class="fc bfc" id="L79" title="All 2 branches covered.">            declaration.isInternal() &amp;&amp;</span>
+<span class="pc bpc" id="L80" title="5 of 10 branches missed.">            declaration.containingClassOrObject?.let { it.isLocal || it.isPrivate() } == true</span>
+        ) {
+<span class="fc" id="L82">            report(</span>
+<span class="fc" id="L83">                CodeSmell(</span>
+<span class="fc" id="L84">                    Entity.from(declaration),</span>
+<span class="fc" id="L85">                    &quot;The `internal` modifier on ${declaration.name} is redundant and should be removed.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L89">    }</span>
+
+<span class="fc" id="L91">    private inner class ClassVisitor : DetektVisitor() {</span>
+        override fun visitClass(klass: KtClass) {
+<span class="fc" id="L93">            super.visitClass(klass)</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">            if (klass.isExplicitlyPublic()) {</span>
+<span class="fc" id="L95">                report(</span>
+<span class="fc" id="L96">                    CodeSmell(</span>
+<span class="fc" id="L97">                        Entity.atName(klass),</span>
+<span class="fc" id="L98">                        message = &quot;${klass.name} is explicitly marked as public. &quot; +</span>
+                            &quot;Public is the default visibility for classes. The public modifier is redundant.&quot;
+                    )
+                )
+            }
+<span class="fc" id="L103">        }</span>
+    }
+
+<span class="fc" id="L106">    private inner class ChildrenVisitor : DetektVisitor() {</span>
+        override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc" id="L108">            super.visitNamedFunction(function)</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">            if (function.isExplicitlyPublicNotOverridden()) {</span>
+<span class="fc" id="L110">                report(</span>
+<span class="fc" id="L111">                    CodeSmell(</span>
+<span class="fc" id="L112">                        Entity.atName(function),</span>
+<span class="fc" id="L113">                        message = &quot;${function.name} is explicitly marked as public. &quot; +</span>
+                            &quot;Functions are public by default so this modifier is redundant.&quot;
+                    )
+                )
+            }
+<span class="fc" id="L118">        }</span>
+
+        override fun visitProperty(property: KtProperty) {
+<span class="fc" id="L121">            super.visitProperty(property)</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            if (property.isExplicitlyPublicNotOverridden()) {</span>
+<span class="fc" id="L123">                report(</span>
+<span class="fc" id="L124">                    CodeSmell(</span>
+<span class="fc" id="L125">                        Entity.atName(property),</span>
+<span class="fc" id="L126">                        message = &quot;${property.name} is explicitly marked as public. &quot; +</span>
+                            &quot;Properties are public by default so this modifier is redundant.&quot;
+                    )
+                )
+            }
+<span class="fc" id="L131">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

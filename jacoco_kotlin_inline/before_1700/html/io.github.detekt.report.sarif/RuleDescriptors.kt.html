@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RuleDescriptors.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.report.sarif</a> &gt; <span class="el_source">RuleDescriptors.kt</span></div><h1>RuleDescriptors.kt</h1><pre class="source lang-java linenums">package io.github.detekt.report.sarif
+
+import io.github.detekt.sarif4k.MultiformatMessageString
+import io.github.detekt.sarif4k.ReportingConfiguration
+import io.github.detekt.sarif4k.ReportingDescriptor
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import io.gitlab.arturbosch.detekt.api.RuleSetProvider
+import io.gitlab.arturbosch.detekt.api.Severity
+import java.util.ServiceLoader
+
+/**
+ * Given the existing config, return a list of [ReportingDescriptor] for the rules.
+ */
+internal fun toReportingDescriptors(config: Config): List&lt;ReportingDescriptor&gt; =
+<span class="fc" id="L17">    ServiceLoader.load(RuleSetProvider::class.java, SarifOutputReport::class.java.classLoader)</span>
+<span class="fc" id="L18">        .map { it.instance() }</span>
+<span class="fc" id="L19">        .flatMap { ruleSet -&gt;</span>
+<span class="fc" id="L20">            val ruleSetConfig = config.subConfig(ruleSet.id.value)</span>
+<span class="fc" id="L21">            ruleSet.rules.map { (id, provider) -&gt;</span>
+<span class="fc" id="L22">                val rule = provider(ruleSetConfig.subConfig(id.value))</span>
+<span class="fc" id="L23">                rule.toDescriptor(ruleSet.id)</span>
+<span class="fc" id="L24">            }</span>
+<span class="fc" id="L25">        }</span>
+
+private fun Rule.toDescriptor(ruleSetId: RuleSet.Id): ReportingDescriptor {
+<span class="fc" id="L28">    val formattedRuleSetId = ruleSetId.value.lowercase()</span>
+<span class="fc" id="L29">    val formattedRuleName = ruleName.value.lowercase()</span>
+
+<span class="fc" id="L31">    return ReportingDescriptor(</span>
+<span class="fc" id="L32">        id = &quot;detekt.$ruleSetId.$ruleName&quot;,</span>
+<span class="fc" id="L33">        name = ruleName.value,</span>
+<span class="fc" id="L34">        shortDescription = MultiformatMessageString(text = description),</span>
+<span class="fc" id="L35">        helpURI = &quot;https://detekt.dev/$formattedRuleSetId.html#$formattedRuleName&quot;,</span>
+<span class="fc" id="L36">        defaultConfiguration = ReportingConfiguration(</span>
+<span class="fc" id="L37">            level = computeSeverity().toResultLevel()</span>
+        )
+    )
+}
+
+private fun Rule.computeSeverity(): Severity {
+<span class="pc bpc" id="L43" title="1 of 4 branches missed.">    val configValue: String = config.valueOrNull(Config.SEVERITY_KEY)</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        ?: config.parent?.valueOrNull(Config.SEVERITY_KEY)</span>
+<span class="fc" id="L45">        ?: return Severity.Error</span>
+<span class="fc" id="L46">    return parseToSeverity(configValue)</span>
+}
+
+internal fun parseToSeverity(severity: String): Severity {
+<span class="fc" id="L50">    val lowercase = severity.lowercase()</span>
+<span class="pc bpc" id="L51" title="2 of 6 branches missed.">    return Severity.entries.find { it.name.lowercase() == lowercase }</span>
+<span class="nc" id="L52">        ?: error(&quot;$severity is not a valid Severity. Allowed values are ${Severity.entries}&quot;)</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

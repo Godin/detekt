@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExplicitCollectionElementAccessMethod.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">ExplicitCollectionElementAccessMethod.kt</span></div><h1>ExplicitCollectionElementAccessMethod.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.descriptors.ClassDescriptor
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.load.java.isFromJava
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelector
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
+import org.jetbrains.kotlin.types.error.ErrorType
+import org.jetbrains.kotlin.types.typeUtil.supertypes
+
+/**
+ * In Kotlin functions `get` or `set` can be replaced with the shorter operator — `[]`,
+ * see [Indexed access operator](https://kotlinlang.org/docs/operator-overloading.html#indexed-access-operator).
+ * Prefer the usage of the indexed access operator `[]` for map or list element access or insert methods.
+ *
+ * &lt;noncompliant&gt;
+ *  val map = mutableMapOf&lt;String, String&gt;()
+ *  map.put(&quot;key&quot;, &quot;value&quot;)
+ *  val value = map.get(&quot;key&quot;)
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ *  val map = mutableMapOf&lt;String, String&gt;()
+ *  map[&quot;key&quot;] = &quot;value&quot;
+ *  val value = map[&quot;key&quot;]
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L39">class ExplicitCollectionElementAccessMethod(config: Config) : Rule(</span>
+<span class="fc" id="L40">    config,</span>
+<span class="fc" id="L41">    &quot;Prefer usage of the indexed access operator [] for map element access or insert methods.&quot;</span>
+) {
+
+    override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
+<span class="fc" id="L45">        super.visitDotQualifiedExpression(expression)</span>
+<span class="fc bfc" id="L46" title="All 4 branches covered.">        val call = expression.selectorExpression as? KtCallExpression ?: return</span>
+<span class="fc bfc" id="L47" title="All 4 branches covered.">        if (isIndexGetterRecommended(call) || isIndexSetterRecommended(call)) {</span>
+<span class="fc" id="L48">            report(CodeSmell(Entity.from(expression), description))</span>
+        }
+<span class="fc" id="L50">    }</span>
+
+    private fun isIndexGetterRecommended(expression: KtCallExpression): Boolean {
+<span class="pc bpc" id="L53" title="1 of 6 branches missed.">        val getter = if (expression.calleeExpression?.text == &quot;get&quot;) {</span>
+<span class="fc" id="L54">            expression.getFunctionDescriptor()</span>
+        } else {
+<span class="fc" id="L56">            null</span>
+<span class="fc" id="L57">        } ?: return false</span>
+
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (expression.valueArguments.any { it.isSpread }) return false</span>
+
+<span class="fc bfc" id="L61" title="All 4 branches covered.">        return canReplace(getter) &amp;&amp; shouldReplace(getter)</span>
+    }
+
+    private fun isIndexSetterRecommended(expression: KtCallExpression): Boolean =
+<span class="pc bpc" id="L65" title="1 of 4 branches missed.">        when (expression.calleeExpression?.text) {</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">            &quot;set&quot; -&gt; {</span>
+<span class="fc" id="L67">                val setter = expression.getFunctionDescriptor()</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">                if (setter == null) {</span>
+<span class="nc" id="L69">                    false</span>
+                } else {
+<span class="fc bfc" id="L71" title="All 4 branches covered.">                    canReplace(setter) &amp;&amp; shouldReplace(setter)</span>
+                }
+            }
+            // `put` isn't an operator function, but can be replaced with indexer when the caller is Map.
+<span class="fc bfc" id="L75" title="All 2 branches covered.">            &quot;put&quot; -&gt; isCallerMap(expression)</span>
+<span class="fc" id="L76">            else -&gt; false</span>
+        } &amp;&amp;
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            unusedReturnValue(expression)</span>
+
+    private fun KtCallExpression.getFunctionDescriptor(): FunctionDescriptor? =
+<span class="fc bfc" id="L81" title="All 4 branches covered.">        getResolvedCall(bindingContext)?.resultingDescriptor as? FunctionDescriptor</span>
+
+    private fun canReplace(function: FunctionDescriptor): Boolean {
+        // Can't use index operator when insufficient information is available to infer type variable.
+        // For now, this is an incomplete check and doesn't report edge cases (e.g. inference using return type).
+<span class="fc" id="L86">        val genericParameterTypeNames = function.valueParameters.map { it.original.type.toString() }.toSet()</span>
+<span class="fc" id="L87">        val typeParameterNames = function.typeParameters.map { it.name.asString() }</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (!genericParameterTypeNames.containsAll(typeParameterNames)) return false</span>
+
+<span class="fc" id="L90">        return function.isOperator</span>
+    }
+
+    private fun shouldReplace(function: FunctionDescriptor): Boolean {
+        // The intent of kotlin operation functions is to support indexed accessed, so should always be replaced.
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (!function.isFromJava) return true</span>
+
+        // It does not always make sense for all Java get/set functions to be replaced by index accessors.
+        // Only recommend known collection types.
+<span class="pc bpc" id="L99" title="2 of 4 branches missed.">        val javaClass = function.containingDeclaration as? ClassDescriptor ?: return false</span>
+<span class="fc" id="L100">        return javaClass.fqNameSafe.asString() in setOf(</span>
+<span class="fc" id="L101">            &quot;java.util.ArrayList&quot;,</span>
+<span class="fc" id="L102">            &quot;java.util.HashMap&quot;,</span>
+<span class="fc" id="L103">            &quot;java.util.LinkedHashMap&quot;</span>
+        )
+    }
+
+    private fun isCallerMap(expression: KtCallExpression): Boolean {
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        val caller = expression.getQualifiedExpressionForSelector()?.receiverExpression</span>
+<span class="pc bpc" id="L109" title="2 of 4 branches missed.">        val type = caller.getResolvedCall(bindingContext)?.resultingDescriptor?.returnType</span>
+<span class="pc bpc" id="L110" title="1 of 4 branches missed.">        if (type == null || type is ErrorType) return false // There is no caller or it can't be resolved.</span>
+
+<span class="fc" id="L112">        val mapName = &quot;kotlin.collections.Map&quot;</span>
+<span class="pc bpc" id="L113" title="2 of 4 branches missed.">        return type.fqNameOrNull()?.asString() == mapName ||</span>
+<span class="pc bpc" id="L114" title="2 of 4 branches missed.">            type.supertypes().any { it.fqNameOrNull()?.asString() == mapName }</span>
+    }
+
+    private fun unusedReturnValue(expression: KtCallExpression): Boolean =
+<span class="fc" id="L118">        expression.parent.parent is KtBlockExpression</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

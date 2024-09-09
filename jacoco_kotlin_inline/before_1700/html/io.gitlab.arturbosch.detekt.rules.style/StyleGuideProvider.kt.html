@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StyleGuideProvider.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">StyleGuideProvider.kt</span></div><h1>StyleGuideProvider.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.RuleSet
+import io.gitlab.arturbosch.detekt.api.internal.DefaultRuleSetProvider
+import io.gitlab.arturbosch.detekt.rules.style.movelambdaout.UnnecessaryBracesAroundTrailingLambda
+import io.gitlab.arturbosch.detekt.rules.style.optional.MandatoryBracesLoops
+import io.gitlab.arturbosch.detekt.rules.style.optional.OptionalUnit
+import io.gitlab.arturbosch.detekt.rules.style.optional.PreferToOverPairSyntax
+
+/**
+ * The Style ruleset provides rules that assert the style of the code.
+ * This will help keep code in line with the given
+ * code style guidelines.
+ */
+<span class="fc" id="L16">@ActiveByDefault(since = &quot;1.0.0&quot;)</span>
+class StyleGuideProvider : DefaultRuleSetProvider {
+
+<span class="fc" id="L19">    override val ruleSetId = RuleSet.Id(&quot;style&quot;)</span>
+
+    @Suppress(&quot;LongMethod&quot;)
+<span class="fc" id="L22">    override fun instance(): RuleSet = RuleSet(</span>
+<span class="fc" id="L23">        ruleSetId,</span>
+<span class="fc" id="L24">        listOf(</span>
+<span class="fc" id="L25">            ::CanBeNonNullable,</span>
+<span class="fc" id="L26">            ::CascadingCallWrapping,</span>
+<span class="fc" id="L27">            ::ClassOrdering,</span>
+<span class="fc" id="L28">            ::CollapsibleIfStatements,</span>
+<span class="fc" id="L29">            ::DestructuringDeclarationWithTooManyEntries,</span>
+<span class="fc" id="L30">            ::ReturnCount,</span>
+<span class="fc" id="L31">            ::ThrowsCount,</span>
+<span class="fc" id="L32">            ::TrimMultilineRawString,</span>
+<span class="fc" id="L33">            ::NewLineAtEndOfFile,</span>
+<span class="fc" id="L34">            ::WildcardImport,</span>
+<span class="fc" id="L35">            ::MaxLineLength,</span>
+<span class="fc" id="L36">            ::TrailingWhitespace,</span>
+<span class="fc" id="L37">            ::NoTabs,</span>
+<span class="fc" id="L38">            ::EqualsOnSignatureLine,</span>
+<span class="fc" id="L39">            ::EqualsNullCall,</span>
+<span class="fc" id="L40">            ::ForbiddenAnnotation,</span>
+<span class="fc" id="L41">            ::ForbiddenComment,</span>
+<span class="fc" id="L42">            ::ForbiddenImport,</span>
+<span class="fc" id="L43">            ::ForbiddenMethodCall,</span>
+<span class="fc" id="L44">            ::ForbiddenNamedParam,</span>
+<span class="fc" id="L45">            ::ForbiddenSuppress,</span>
+<span class="fc" id="L46">            ::FunctionOnlyReturningConstant,</span>
+<span class="fc" id="L47">            ::SpacingAfterPackageDeclaration,</span>
+<span class="fc" id="L48">            ::LoopWithTooManyJumpStatements,</span>
+<span class="fc" id="L49">            ::SafeCast,</span>
+<span class="fc" id="L50">            ::AbstractClassCanBeConcreteClass,</span>
+<span class="fc" id="L51">            ::AbstractClassCanBeInterface,</span>
+<span class="fc" id="L52">            ::UnnecessaryAnnotationUseSiteTarget,</span>
+<span class="fc" id="L53">            ::UnnecessaryParentheses,</span>
+<span class="fc" id="L54">            ::UnnecessaryInheritance,</span>
+<span class="fc" id="L55">            ::UnnecessaryInnerClass,</span>
+<span class="fc" id="L56">            ::UtilityClassWithPublicConstructor,</span>
+<span class="fc" id="L57">            ::ObjectLiteralToLambda,</span>
+<span class="fc" id="L58">            ::OptionalAbstractKeyword,</span>
+<span class="fc" id="L59">            ::OptionalUnit,</span>
+<span class="fc" id="L60">            ::ProtectedMemberInFinalClass,</span>
+<span class="fc" id="L61">            ::SerialVersionUIDInSerializableClass,</span>
+<span class="fc" id="L62">            ::MagicNumber,</span>
+<span class="fc" id="L63">            ::ModifierOrder,</span>
+<span class="fc" id="L64">            ::DataClassContainsFunctions,</span>
+<span class="fc" id="L65">            ::DataClassShouldBeImmutable,</span>
+<span class="fc" id="L66">            ::UseDataClass,</span>
+<span class="fc" id="L67">            ::UnusedImport,</span>
+<span class="fc" id="L68">            ::UnusedParameter,</span>
+<span class="fc" id="L69">            ::UnusedPrivateClass,</span>
+<span class="fc" id="L70">            ::UnusedPrivateFunction,</span>
+<span class="fc" id="L71">            ::UnusedPrivateProperty,</span>
+<span class="fc" id="L72">            ::UnusedVariable,</span>
+<span class="fc" id="L73">            ::ExpressionBodySyntax,</span>
+<span class="fc" id="L74">            ::NestedClassesVisibility,</span>
+<span class="fc" id="L75">            ::RedundantVisibilityModifier,</span>
+<span class="fc" id="L76">            ::RangeUntilInsteadOfRangeTo,</span>
+<span class="fc" id="L77">            ::UnnecessaryApply,</span>
+<span class="fc" id="L78">            ::UnnecessaryAny,</span>
+<span class="fc" id="L79">            ::UnnecessaryBracesAroundTrailingLambda,</span>
+<span class="fc" id="L80">            ::UnnecessaryFilter,</span>
+<span class="fc" id="L81">            ::UnnecessaryLet,</span>
+<span class="fc" id="L82">            ::MayBeConstant,</span>
+<span class="fc" id="L83">            ::PreferToOverPairSyntax,</span>
+<span class="fc" id="L84">            ::BracesOnIfStatements,</span>
+<span class="fc" id="L85">            ::BracesOnWhenStatements,</span>
+<span class="fc" id="L86">            ::MandatoryBracesLoops,</span>
+<span class="fc" id="L87">            ::NullableBooleanCheck,</span>
+<span class="fc" id="L88">            ::VarCouldBeVal,</span>
+<span class="fc" id="L89">            ::ForbiddenVoid,</span>
+<span class="fc" id="L90">            ::ExplicitItLambdaParameter,</span>
+<span class="fc" id="L91">            ::ExplicitCollectionElementAccessMethod,</span>
+<span class="fc" id="L92">            ::UselessCallOnNotNull,</span>
+<span class="fc" id="L93">            ::UnderscoresInNumericLiterals,</span>
+<span class="fc" id="L94">            ::UseRequire,</span>
+<span class="fc" id="L95">            ::UseCheckOrError,</span>
+<span class="fc" id="L96">            ::UseIfInsteadOfWhen,</span>
+<span class="fc" id="L97">            ::RedundantConstructorKeyword,</span>
+<span class="fc" id="L98">            ::RedundantExplicitType,</span>
+<span class="fc" id="L99">            ::UseArrayLiteralsInAnnotations,</span>
+<span class="fc" id="L100">            ::UseEmptyCounterpart,</span>
+<span class="fc" id="L101">            ::UseCheckNotNull,</span>
+<span class="fc" id="L102">            ::UseRequireNotNull,</span>
+<span class="fc" id="L103">            ::RedundantHigherOrderMapUsage,</span>
+<span class="fc" id="L104">            ::UseIfEmptyOrIfBlank,</span>
+<span class="fc" id="L105">            ::MultilineLambdaItParameter,</span>
+<span class="fc" id="L106">            ::MultilineRawStringIndentation,</span>
+<span class="fc" id="L107">            ::StringShouldBeRawString,</span>
+<span class="fc" id="L108">            ::UseIsNullOrEmpty,</span>
+<span class="fc" id="L109">            ::UseOrEmpty,</span>
+<span class="fc" id="L110">            ::UseAnyOrNoneInsteadOfFind,</span>
+<span class="fc" id="L111">            ::UnnecessaryBackticks,</span>
+<span class="fc" id="L112">            ::MaxChainedCallsOnSameLine,</span>
+<span class="fc" id="L113">            ::AlsoCouldBeApply,</span>
+<span class="fc" id="L114">            ::UseSumOfInsteadOfFlatMapSize,</span>
+<span class="fc" id="L115">            ::DoubleNegativeLambda,</span>
+<span class="fc" id="L116">            ::UseLet,</span>
+<span class="fc" id="L117">            ::DoubleNegativeExpression,</span>
+        )
+<span class="fc" id="L119">    )</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

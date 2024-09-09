@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObjectExtendsThrowable.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.exceptions</a> &gt; <span class="el_source">ObjectExtendsThrowable.kt</span></div><h1>ObjectExtendsThrowable.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.exceptions
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.types.typeUtil.isNotNullThrowable
+import org.jetbrains.kotlin.types.typeUtil.supertypes
+
+/**
+ * This rule reports all `objects` including `companion objects` that extend any type of
+ * `Throwable`. Throwable instances are not intended for reuse as they are stateful and contain
+ * mutable information about a specific exception or error. Hence, global singleton `Throwables`
+ * should be avoided.
+ *
+ * See https://kotlinlang.org/docs/object-declarations.html#object-declarations-overview
+ * See https://kotlinlang.org/docs/object-declarations.html#companion-objects
+ *
+ * &lt;noncompliant&gt;
+ * object InvalidCredentialsException : Throwable()
+ *
+ * object BanException : Exception()
+ *
+ * object AuthException : RuntimeException()
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * class InvalidCredentialsException : Throwable()
+ *
+ * class BanException : Exception()
+ *
+ * class AuthException : RuntimeException()
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L40">class ObjectExtendsThrowable(config: Config) : Rule(</span>
+<span class="fc" id="L41">    config,</span>
+<span class="fc" id="L42">    &quot;An `object` should not extend and type of Throwable. Throwables are stateful and should be instantiated &quot; +</span>
+        &quot;only when needed for when a specific error occurs. An `object`, being a singleton, that extends any &quot; +
+        &quot;type of Throwable consequently introduces a global singleton exception whose instance may be &quot; +
+        &quot;inadvertently reused from multiple places, thus introducing shared mutable state.&quot;
+) {
+
+    override fun visitObjectDeclaration(declaration: KtObjectDeclaration) {
+<span class="fc" id="L49">        super.visitObjectDeclaration(declaration)</span>
+<span class="fc bfc" id="L50" title="All 4 branches covered.">        if (!declaration.isObjectLiteral() &amp;&amp; declaration.isSubtypeOfThrowable()) {</span>
+<span class="fc" id="L51">            report(</span>
+<span class="fc" id="L52">                CodeSmell(</span>
+<span class="fc" id="L53">                    entity = Entity.from(element = declaration),</span>
+<span class="fc" id="L54">                    message = &quot;${declaration.nameAsSafeName} should be a class instead of an &quot; +</span>
+                        &quot;object because it is a subtype of Throwable.&quot;
+                )
+            )
+        }
+<span class="fc" id="L59">    }</span>
+
+    private fun KtObjectDeclaration.isSubtypeOfThrowable(): Boolean =
+<span class="fc" id="L62">        bindingContext[BindingContext.CLASS, this]</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">            ?.defaultType</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">            ?.supertypes()</span>
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">            .orEmpty()</span>
+<span class="fc" id="L66">            .any { it.isNotNullThrowable() }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ElseCaseInsteadOfExhaustiveWhen.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">ElseCaseInsteadOfExhaustiveWhen.kt</span></div><h1>ElseCaseInsteadOfExhaustiveWhen.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.cfg.WhenChecker
+import org.jetbrains.kotlin.psi.KtWhenExpression
+import org.jetbrains.kotlin.resolve.calls.util.getType
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.typeUtil.isBooleanOrNullableBoolean
+
+/**
+ * This rule reports `when` expressions that contain an `else` case even though they have an exhaustive set of cases.
+ *
+ * This occurs when the subject of the `when` expression is either an enum class, sealed class or of type boolean.
+ * Using `else` cases for these expressions can lead to unintended behavior when adding new enum types, sealed subtypes
+ * or changing the nullability of a boolean, since this will be implicitly handled by the `else` case.
+ *
+ * &lt;noncompliant&gt;
+ * enum class Color {
+ *     RED,
+ *     GREEN,
+ *     BLUE
+ * }
+ *
+ * when(c) {
+ *     Color.RED -&gt; {}
+ *     Color.GREEN -&gt; {}
+ *     else -&gt; {}
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * enum class Color {
+ *     RED,
+ *     GREEN,
+ *     BLUE
+ * }
+ *
+ * when(c) {
+ *     Color.RED -&gt; {}
+ *     Color.GREEN -&gt; {}
+ *     Color.BLUE -&gt; {}
+ * }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+<span class="fc" id="L53">class ElseCaseInsteadOfExhaustiveWhen(config: Config) : Rule(</span>
+<span class="fc" id="L54">    config,</span>
+<span class="fc" id="L55">    &quot;A `when` expression that has an exhaustive set of cases should not contain an `else` case.&quot;</span>
+) {
+
+    @Configuration(
+        &quot;List of fully qualified types which should be ignored for when expressions with a subject. &quot; +
+            &quot;Example `kotlinx.serialization.json.JsonObject`&quot;
+    )
+<span class="fc" id="L62">    private val ignoredSubjectTypes: List&lt;String&gt; by config(emptyList())</span>
+
+    override fun visitWhenExpression(whenExpression: KtWhenExpression) {
+<span class="fc" id="L65">        super.visitWhenExpression(whenExpression)</span>
+
+<span class="fc" id="L67">        checkForElseCaseInsteadOfExhaustiveWhenExpression(whenExpression)</span>
+<span class="fc" id="L68">    }</span>
+
+    private fun checkForElseCaseInsteadOfExhaustiveWhenExpression(whenExpression: KtWhenExpression) {
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        val subjectExpression = whenExpression.subjectExpression ?: return</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (whenExpression.elseExpression == null) return</span>
+
+<span class="fc" id="L74">        val subjectType = subjectExpression.getType(bindingContext)</span>
+<span class="pc bpc" id="L75" title="2 of 6 branches missed.">        if (ignoredSubjectTypes.contains(subjectType?.fqNameOrNull()?.toString())) {</span>
+<span class="fc" id="L76">            return</span>
+        }
+
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        val isEnumSubject = WhenChecker.getClassDescriptorOfTypeIfEnum(subjectType) != null</span>
+<span class="fc" id="L80">        val isSealedSubject = isNonExpectedSealedClass(subjectType)</span>
+<span class="pc bpc" id="L81" title="1 of 4 branches missed.">        val isBooleanSubject = subjectType?.isBooleanOrNullableBoolean() == true</span>
+
+<span class="fc bfc" id="L83" title="All 6 branches covered.">        if (isEnumSubject || isSealedSubject || isBooleanSubject) {</span>
+<span class="fc" id="L84">            val subjectTypeName = when {</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">                isEnumSubject -&gt; &quot;enum class&quot;</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">                isSealedSubject -&gt; &quot;sealed class&quot;</span>
+<span class="fc" id="L87">                else -&gt; &quot;boolean&quot;</span>
+            }
+<span class="fc" id="L89">            val message = &quot;When expression with $subjectTypeName subject should not contain an `else` case.&quot;</span>
+<span class="fc" id="L90">            report(CodeSmell(Entity.from(whenExpression), message))</span>
+        }
+<span class="fc" id="L92">    }</span>
+
+    /**
+     * `when` expressions on `expect` sealed classes in the common code of multiplatform projects still require an
+     * `else` branch. This happens because subclasses of `actual` platform implementations aren't known in the common
+     *  code.
+     */
+    private fun isNonExpectedSealedClass(type: KotlinType?): Boolean {
+<span class="fc" id="L100">        val sealedClassDescriptor = WhenChecker.getClassDescriptorOfTypeIfSealed(type)</span>
+<span class="fc bfc" id="L101" title="All 4 branches covered.">        return sealedClassDescriptor != null &amp;&amp; !sealedClassDescriptor.isExpect</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

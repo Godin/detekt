@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Traversing.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.documentation.internal</a> &gt; <span class="el_source">Traversing.kt</span></div><h1>Traversing.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.documentation.internal
+
+import io.gitlab.arturbosch.detekt.rules.isProtected
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.psi.psiUtil.isPublic
+
+<span class="fc" id="L8">fun KtNamedDeclaration.isPublicInherited(): Boolean = isPublicInherited(false)</span>
+
+fun KtNamedDeclaration.isPublicInherited(considerProtectedAsPublic: Boolean): Boolean {
+<span class="fc" id="L11">    var classOrObject = containingClassOrObject</span>
+<span class="fc bfc" id="L12" title="All 2 branches covered.">    while (classOrObject != null) {</span>
+<span class="pc bpc" id="L13" title="3 of 6 branches missed.">        if (!classOrObject.isPublic &amp;&amp; !(considerProtectedAsPublic &amp;&amp; classOrObject.isProtected())) {</span>
+<span class="fc" id="L14">            return false</span>
+        }
+<span class="fc" id="L16">        classOrObject = classOrObject.containingClassOrObject</span>
+    }
+<span class="fc" id="L18">    return true</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

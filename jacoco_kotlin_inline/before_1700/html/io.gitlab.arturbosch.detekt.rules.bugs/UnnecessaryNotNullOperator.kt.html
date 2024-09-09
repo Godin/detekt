@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnnecessaryNotNullOperator.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">UnnecessaryNotNullOperator.kt</span></div><h1>UnnecessaryNotNullOperator.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.diagnostics.Errors
+import org.jetbrains.kotlin.psi.KtUnaryExpression
+
+/**
+ * Reports unnecessary not-null operator usage (!!) that can be removed by the user.
+ *
+ * &lt;noncompliant&gt;
+ * val a = 1
+ * val b = a!!
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val a = 1
+ * val b = a
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.16.0&quot;)
+<span class="fc" id="L27">class UnnecessaryNotNullOperator(config: Config) : Rule(</span>
+<span class="fc" id="L28">    config,</span>
+<span class="fc" id="L29">    &quot;Unnecessary not-null unary operator (!!) detected.&quot;</span>
+) {
+
+    override fun visitUnaryExpression(expression: KtUnaryExpression) {
+<span class="fc" id="L33">        super.visitUnaryExpression(expression)</span>
+
+<span class="fc" id="L35">        val compilerReports = bindingContext.diagnostics.forElement(expression.operationReference)</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        if (compilerReports.any { it.factory == Errors.UNNECESSARY_NOT_NULL_ASSERTION }) {</span>
+<span class="fc" id="L37">            report(</span>
+<span class="fc" id="L38">                CodeSmell(</span>
+<span class="fc" id="L39">                    Entity.from(expression),</span>
+<span class="fc" id="L40">                    &quot;${expression.text} contains an unnecessary &quot; +</span>
+                        &quot;not-null (!!) operators&quot;
+                )
+            )
+        }
+<span class="fc" id="L45">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

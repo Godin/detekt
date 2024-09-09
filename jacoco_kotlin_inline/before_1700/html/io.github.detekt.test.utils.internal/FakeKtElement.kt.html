@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FakeKtElement.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.test.utils.internal</a> &gt; <span class="el_source">FakeKtElement.kt</span></div><h1>FakeKtElement.kt</h1><pre class="source lang-java linenums">package io.github.detekt.test.utils.internal
+
+import org.jetbrains.kotlin.com.intellij.lang.ASTNode
+import org.jetbrains.kotlin.com.intellij.lang.Language
+import org.jetbrains.kotlin.com.intellij.navigation.ItemPresentation
+import org.jetbrains.kotlin.com.intellij.openapi.project.Project
+import org.jetbrains.kotlin.com.intellij.openapi.util.Key
+import org.jetbrains.kotlin.com.intellij.openapi.util.TextRange
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.com.intellij.psi.PsiElementVisitor
+import org.jetbrains.kotlin.com.intellij.psi.PsiFile
+import org.jetbrains.kotlin.com.intellij.psi.PsiManager
+import org.jetbrains.kotlin.com.intellij.psi.PsiReference
+import org.jetbrains.kotlin.com.intellij.psi.ResolveState
+import org.jetbrains.kotlin.com.intellij.psi.scope.PsiScopeProcessor
+import org.jetbrains.kotlin.com.intellij.psi.search.GlobalSearchScope
+import org.jetbrains.kotlin.com.intellij.psi.search.SearchScope
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtVisitor
+import javax.swing.Icon
+
+<span class="fc" id="L23">class FakeKtElement(private val psiFile: PsiFile = FakePsiFile(&quot;&quot;)) : KtElement {</span>
+
+    override fun &lt;R, D&gt; accept(visitor: KtVisitor&lt;R, D&gt;, data: D): R {
+<span class="nc" id="L26">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun accept(p0: PsiElementVisitor) {
+        // no-op
+<span class="nc" id="L31">    }</span>
+
+    override fun &lt;D&gt; acceptChildren(visitor: KtVisitor&lt;Void, D&gt;, data: D) {
+        // no-op
+<span class="nc" id="L35">    }</span>
+
+    override fun acceptChildren(p0: PsiElementVisitor) {
+        // no-op
+<span class="nc" id="L39">    }</span>
+
+    override fun add(p0: PsiElement): PsiElement {
+<span class="nc" id="L42">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun addAfter(p0: PsiElement, p1: PsiElement?): PsiElement {
+<span class="nc" id="L46">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun addBefore(p0: PsiElement, p1: PsiElement?): PsiElement {
+<span class="nc" id="L50">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun addRange(p0: PsiElement?, p1: PsiElement?): PsiElement {
+<span class="nc" id="L54">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun addRangeAfter(p0: PsiElement?, p1: PsiElement?, p2: PsiElement?): PsiElement {
+<span class="nc" id="L58">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun addRangeBefore(p0: PsiElement, p1: PsiElement, p2: PsiElement?): PsiElement {
+<span class="nc" id="L62">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+<span class="nc" id="L65">    override fun canNavigate(): Boolean = false</span>
+
+<span class="nc" id="L67">    override fun canNavigateToSource(): Boolean = false</span>
+
+    @Deprecated(&quot;Deprecated in PsiElement interface&quot;)
+    override fun checkAdd(p0: PsiElement) {
+        // no-op
+<span class="nc" id="L72">    }</span>
+
+    @Deprecated(&quot;Deprecated in PsiElement interface&quot;)
+    override fun checkDelete() {
+        // no-op
+<span class="nc" id="L77">    }</span>
+
+    override fun copy(): PsiElement {
+<span class="nc" id="L80">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun delete() {
+        // no-op
+<span class="nc" id="L85">    }</span>
+
+    override fun deleteChildRange(p0: PsiElement?, p1: PsiElement?) {
+        // no-op
+<span class="nc" id="L89">    }</span>
+
+    override fun findElementAt(p0: Int): PsiElement? {
+<span class="nc" id="L92">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun findReferenceAt(p0: Int): PsiReference? {
+<span class="nc" id="L96">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getChildren(): Array&lt;PsiElement&gt; {
+<span class="nc" id="L100">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+<span class="fc" id="L103">    override fun getContainingFile(): PsiFile = psiFile</span>
+
+    override fun getContainingKtFile(): KtFile {
+<span class="nc" id="L106">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getContext(): PsiElement? {
+<span class="nc" id="L110">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun &lt;T : Any?&gt; getCopyableUserData(p0: Key&lt;T&gt;): T? {
+<span class="nc" id="L114">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getFirstChild(): PsiElement {
+<span class="nc" id="L118">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getIcon(p0: Int): Icon {
+<span class="nc" id="L122">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getLanguage(): Language {
+<span class="nc" id="L126">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getLastChild(): PsiElement {
+<span class="nc" id="L130">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getManager(): PsiManager {
+<span class="nc" id="L134">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+<span class="nc" id="L137">    override fun getName(): String? = null</span>
+
+    override fun getNavigationElement(): PsiElement {
+<span class="nc" id="L140">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getNextSibling(): PsiElement {
+<span class="nc" id="L144">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getNode(): ASTNode {
+<span class="nc" id="L148">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getOriginalElement(): PsiElement {
+<span class="nc" id="L152">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getParent(): PsiElement {
+<span class="nc" id="L156">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getPresentation(): ItemPresentation? {
+<span class="nc" id="L160">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getPrevSibling(): PsiElement {
+<span class="nc" id="L164">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getProject(): Project {
+<span class="nc" id="L168">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getPsiOrParent(): KtElement {
+<span class="nc" id="L172">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    @Deprecated(&quot;Don't use getReference() on KtElement for the choice is unpredictable&quot;)
+    override fun getReference(): PsiReference? {
+<span class="nc" id="L177">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getReferences(): Array&lt;PsiReference&gt; {
+<span class="nc" id="L181">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getResolveScope(): GlobalSearchScope {
+<span class="nc" id="L185">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+<span class="nc" id="L188">    override fun getStartOffsetInParent(): Int = 0</span>
+
+<span class="nc" id="L190">    override fun getText(): String = &quot;&quot;</span>
+
+<span class="nc" id="L192">    override fun getTextLength(): Int = 0</span>
+
+<span class="nc" id="L194">    override fun getTextOffset(): Int = 0</span>
+
+    override fun getTextRange(): TextRange {
+<span class="nc" id="L197">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun getUseScope(): SearchScope {
+<span class="nc" id="L201">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+    override fun &lt;T : Any?&gt; getUserData(p0: Key&lt;T&gt;): T? {
+<span class="nc" id="L205">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+<span class="nc" id="L208">    override fun isEquivalentTo(p0: PsiElement?): Boolean = false</span>
+
+<span class="nc" id="L210">    override fun isPhysical(): Boolean = false</span>
+
+<span class="nc" id="L212">    override fun isValid(): Boolean = false</span>
+
+<span class="nc" id="L214">    override fun isWritable(): Boolean = false</span>
+
+    override fun navigate(p0: Boolean) {
+        // no-op
+<span class="nc" id="L218">    }</span>
+
+    override fun processDeclarations(
+        p0: PsiScopeProcessor,
+        p1: ResolveState,
+        p2: PsiElement?,
+        p3: PsiElement
+<span class="nc" id="L225">    ): Boolean = false</span>
+
+    override fun &lt;T : Any?&gt; putCopyableUserData(p0: Key&lt;T&gt;, p1: T?) {
+        // no-op
+<span class="nc" id="L229">    }</span>
+
+    override fun &lt;T : Any?&gt; putUserData(p0: Key&lt;T&gt;, p1: T?) {
+        // no-op
+<span class="nc" id="L233">    }</span>
+
+    override fun replace(p0: PsiElement): PsiElement {
+<span class="nc" id="L236">        error(&quot;Fake not implemented yet&quot;)</span>
+    }
+
+<span class="nc" id="L239">    override fun textContains(p0: Char): Boolean = false</span>
+
+<span class="nc" id="L241">    override fun textMatches(p0: CharSequence): Boolean = false</span>
+
+<span class="nc" id="L243">    override fun textMatches(p0: PsiElement): Boolean = false</span>
+
+<span class="nc" id="L245">    override fun textToCharArray(): CharArray = &quot;&quot;.toCharArray()</span>
+
+<span class="fc" id="L247">    override fun toString() = &quot;FakeKtElement&quot;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

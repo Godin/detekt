@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringShouldBeRawString.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">StringShouldBeRawString.kt</span></div><h1>StringShouldBeRawString.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtParenthesizedExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfTypesAndPredicate
+import org.jetbrains.kotlin.psi.psiUtil.parents
+import org.jetbrains.kotlin.psi2ir.deparenthesize
+
+/**
+ * This rule reports when the string can be converted to Kotlin raw string.
+ * Usage of a raw string is preferred as that avoids the need for escaping strings escape characters like \n, \t, &quot;.
+ * Raw string also allows us to represent multiline string without the need of \n.
+ * Also, see [Kotlin coding convention](https://kotlinlang.org/docs/coding-conventions.html#strings)  for
+ * recommendation on using multiline strings
+ *
+ * &lt;noncompliant&gt;
+ * val windowJson = &quot;{\n&quot; +
+ *                  &quot;  \&quot;window\&quot;: {\n&quot; +
+ *                  &quot;    \&quot;title\&quot;: \&quot;Sample Quantum With AI and ML Widget\&quot;,\n&quot; +
+ *                  &quot;    \&quot;name\&quot;: \&quot;main_window\&quot;,\n&quot; +
+ *                  &quot;    \&quot;width\&quot;: 500,\n&quot; +
+ *                  &quot;    \&quot;height\&quot;: 500\n&quot; +
+ *                  &quot;  }\n&quot; +
+ *                  &quot;}&quot;
+ *
+ * val patRegex = &quot;/^(\\/[^\\/]+){0,2}\\/?\$/gm\n&quot;
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val windowJson = &quot;&quot;&quot;
+ *     {
+ *          &quot;window&quot;: {
+ *              &quot;title&quot;: &quot;Sample Quantum With AI and ML Widget&quot;,
+ *              &quot;name&quot;: &quot;main_window&quot;,
+ *              &quot;width&quot;: 500,
+ *              &quot;height&quot;: 500
+ *          }
+ *     }
+ * &quot;&quot;&quot;.trimIndent()
+ *
+ * val patRegex = &quot;&quot;&quot;/^(\/[^\/]+){0,2}\/?$/gm&quot;&quot;&quot;
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L55">class StringShouldBeRawString(config: Config) : Rule(</span>
+<span class="fc" id="L56">    config,</span>
+<span class="fc" id="L57">    &quot;The string can be converted to raw string.&quot;</span>
+) {
+
+    @Configuration(&quot;maximum escape characters allowed&quot;)
+<span class="pc" id="L61">    private val maxEscapedCharacterCount by config(2)</span>
+
+    @Configuration(&quot;list of characters to ignore&quot;)
+<span class="pc" id="L64">    private val ignoredCharacters by config(emptyList&lt;String&gt;())</span>
+
+    private val KtElement.leftMostElementOfLeftSubtree: KtElement
+        get() {
+<span class="nc bnc" id="L68" title="All 8 branches missed.">            val leftChild = (this as? KtBinaryExpression)?.left?.deparenthesize() ?: return this</span>
+<span class="nc" id="L69">            return leftChild.leftMostElementOfLeftSubtree</span>
+        }
+
+    private val KtElement.rightMostElementOfRightSubtree: KtElement
+        get() {
+<span class="nc bnc" id="L74" title="All 8 branches missed.">            val leftChild = (this as? KtBinaryExpression)?.right?.deparenthesize() ?: return this</span>
+<span class="nc" id="L75">            return leftChild.rightMostElementOfRightSubtree</span>
+        }
+
+    override fun visitStringTemplateExpression(expression: KtStringTemplateExpression) {
+<span class="nc" id="L79">        super.visitStringTemplateExpression(expression)</span>
+
+<span class="nc" id="L81">        val callExpression = expression.getParentOfType&lt;KtCallExpression&gt;(strict = true)</span>
+
+<span class="nc bnc" id="L83" title="All 6 branches missed.">        if (callExpression?.calleeExpression?.text in listOfAllowedMethod) {</span>
+<span class="nc" id="L84">            return</span>
+        }
+
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (expression.text.matches(regexForOnlyQuotes)) {</span>
+<span class="nc" id="L88">            return</span>
+        }
+
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        val expressionParent = expression.parents.firstOrNull { it !is KtParenthesizedExpression }</span>
+<span class="nc" id="L92">        val rootElement = expression.getRootExpression()</span>
+        if (
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            expressionParent !is KtBinaryExpression ||</span>
+<span class="nc bnc" id="L95" title="All 4 branches missed.">            (rootElement != null &amp;&amp; expression.isPivotElementInTheTree(rootElement))</span>
+        ) {
+<span class="nc bnc" id="L97" title="All 4 branches missed.">            val stringSeqToProcess = rootElement?.getStringSequenceExcludingRawString() ?: sequenceOf(&quot;&quot;)</span>
+<span class="nc" id="L98">            val hasNoViolations = stringSeqToProcess.flatMap { stringTemplateExpressionText -&gt;</span>
+<span class="nc" id="L99">                REGEX_FOR_ESCAPE_CHARS.findAll(stringTemplateExpressionText).filter {</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">                    it.value !in ignoredCharacters</span>
+<span class="nc" id="L101">                }</span>
+<span class="nc" id="L102">            }.drop(maxEscapedCharacterCount).none()</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            if (hasNoViolations.not()) {</span>
+<span class="nc" id="L104">                report(</span>
+<span class="nc" id="L105">                    CodeSmell(</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">                        Entity.from(rootElement ?: expression),</span>
+<span class="nc" id="L107">                        &quot;String with escape characters should be converted to raw string&quot;,</span>
+                    )
+                )
+            }
+        }
+<span class="nc" id="L112">    }</span>
+
+    private fun KtStringTemplateExpression.isPivotElementInTheTree(
+        rootElement: KtElement,
+    ): Boolean {
+<span class="nc" id="L117">        val leftMostElementOfLeftSubtree = rootElement.leftMostElementOfLeftSubtree</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        return this == if (leftMostElementOfLeftSubtree is KtStringTemplateExpression) {</span>
+<span class="nc" id="L119">            leftMostElementOfLeftSubtree</span>
+        } else {
+<span class="nc" id="L121">            rootElement.rightMostElementOfRightSubtree</span>
+        }
+    }
+
+    private fun KtElement.getStringSequenceExcludingRawString(): Sequence&lt;String&gt; {
+<span class="nc" id="L126">        fun KtElement.getStringSequence(): Sequence&lt;KtStringTemplateExpression&gt; = sequence {</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            if (this@getStringSequence is KtStringTemplateExpression) {</span>
+<span class="nc" id="L128">                yield(this@getStringSequence)</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            } else if (this@getStringSequence is KtBinaryExpression) {</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                left?.let {</span>
+<span class="nc" id="L131">                    yieldAll(it.deparenthesize().getStringSequence())</span>
+<span class="nc" id="L132">                }</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">                right?.let {</span>
+<span class="nc" id="L134">                    yieldAll(it.deparenthesize().getStringSequence())</span>
+<span class="nc" id="L135">                }</span>
+            }
+<span class="nc" id="L137">        }</span>
+<span class="nc" id="L138">        return this.getStringSequence().filter {</span>
+<span class="nc bnc" id="L139" title="All 4 branches missed.">            (it.text.startsWith(&quot;\&quot;\&quot;\&quot;&quot;) &amp;&amp; it.text.endsWith(&quot;\&quot;\&quot;\&quot;&quot;)).not()</span>
+<span class="nc" id="L140">        }.map {</span>
+<span class="nc" id="L141">            it.text</span>
+        }
+    }
+
+    private fun KtElement.getRootExpression(): KtElement? =
+<span class="nc" id="L146">        this.getParentOfTypesAndPredicate(</span>
+<span class="nc" id="L147">            false,</span>
+<span class="nc" id="L148">            KtBinaryExpression::class.java,</span>
+<span class="nc" id="L149">            KtParenthesizedExpression::class.java,</span>
+<span class="nc" id="L150">            KtStringTemplateExpression::class.java,</span>
+        ) {
+<span class="nc" id="L152">            val parent = (it as KtExpression).parent</span>
+<span class="nc bnc" id="L153" title="All 4 branches missed.">            parent !is KtBinaryExpression &amp;&amp; parent !is KtParenthesizedExpression</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        }?.deparenthesize()</span>
+
+    companion object {
+<span class="fc" id="L157">        private val REGEX_FOR_ESCAPE_CHARS = &quot;&quot;&quot;\\[t&quot;\\n]&quot;&quot;&quot;.toRegex()</span>
+<span class="fc" id="L158">        private val listOfAllowedMethod = listOf(</span>
+<span class="fc" id="L159">            &quot;replaceIndent&quot;,</span>
+<span class="fc" id="L160">            &quot;prependIndent&quot;,</span>
+        )
+<span class="fc" id="L162">        private val regexForOnlyQuotes = &quot;&quot;&quot;&quot;(?:\\&quot;)*&quot;&quot;&quot;&quot;.toRegex()</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

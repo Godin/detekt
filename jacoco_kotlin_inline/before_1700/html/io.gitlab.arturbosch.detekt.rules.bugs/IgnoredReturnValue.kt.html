@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IgnoredReturnValue.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">IgnoredReturnValue.kt</span></div><h1>IgnoredReturnValue.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.github.detekt.psi.FunctionMatcher
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.configWithFallback
+import io.gitlab.arturbosch.detekt.api.simplePatternToRegex
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import io.gitlab.arturbosch.detekt.rules.isCalling
+import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
+import org.jetbrains.kotlin.descriptors.findPackage
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtFunctionLiteral
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtReturnExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelectorOrThis
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+import org.jetbrains.kotlin.resolve.BindingContext.FUNCTION
+import org.jetbrains.kotlin.resolve.bindingContextUtil.getTargetFunctionDescriptor
+import org.jetbrains.kotlin.resolve.bindingContextUtil.isUsedAsExpression
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.typeUtil.isUnit
+
+/**
+ * This rule warns on instances where a function, annotated with either `@CheckReturnValue` or `@CheckResult`,
+ * returns a value but that value is not used in any way. The Kotlin compiler gives no warning for this scenario
+ * normally so that's the rationale behind this rule.
+ *
+ * fun returnsValue() = 42
+ * fun returnsNoValue() {}
+ *
+ * &lt;noncompliant&gt;
+ * returnsValue()
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * if (42 == returnsValue()) {}
+ * val x = returnsValue()
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L53">class IgnoredReturnValue(config: Config) : Rule(</span>
+<span class="fc" id="L54">    config,</span>
+<span class="fc" id="L55">    &quot;This call returns a value which is ignored&quot;</span>
+) {
+
+    @Configuration(&quot;if the rule should check only annotated methods&quot;)
+    @Deprecated(&quot;Use `restrictToConfig` instead&quot;)
+<span class="pc" id="L60">    private val restrictToAnnotatedMethods: Boolean by config(defaultValue = true)</span>
+
+    @Suppress(&quot;DEPRECATION&quot;)
+    @Configuration(&quot;If the rule should check only methods matching to configuration, or all methods&quot;)
+<span class="fc" id="L64">    private val restrictToConfig: Boolean by configWithFallback(::restrictToAnnotatedMethods, defaultValue = true)</span>
+
+    @Configuration(&quot;List of glob patterns to be used as inspection annotation&quot;)
+<span class="fc" id="L67">    private val returnValueAnnotations: List&lt;Regex&gt; by config(</span>
+<span class="fc" id="L68">        listOf(</span>
+<span class="fc" id="L69">            &quot;CheckResult&quot;,</span>
+<span class="fc" id="L70">            &quot;*.CheckResult&quot;,</span>
+<span class="fc" id="L71">            &quot;CheckReturnValue&quot;,</span>
+<span class="fc" id="L72">            &quot;*.CheckReturnValue&quot;</span>
+        )
+    ) {
+<span class="fc" id="L75">        it.map(String::simplePatternToRegex)</span>
+    }
+
+    @Configuration(&quot;Annotations to skip this inspection&quot;)
+<span class="fc" id="L79">    private val ignoreReturnValueAnnotations: List&lt;Regex&gt; by config(</span>
+<span class="fc" id="L80">        listOf(</span>
+<span class="fc" id="L81">            &quot;CanIgnoreReturnValue&quot;,</span>
+<span class="fc" id="L82">            &quot;*.CanIgnoreReturnValue&quot;</span>
+        )
+    ) {
+<span class="fc" id="L85">        it.map(String::simplePatternToRegex)</span>
+    }
+
+    @Configuration(&quot;List of return types that should not be ignored&quot;)
+<span class="fc" id="L89">    private val returnValueTypes: List&lt;Regex&gt; by config(</span>
+<span class="fc" id="L90">        listOf(</span>
+<span class="fc" id="L91">            &quot;kotlin.sequences.Sequence&quot;,</span>
+<span class="fc" id="L92">            &quot;kotlinx.coroutines.flow.*Flow&quot;,</span>
+<span class="fc" id="L93">            &quot;java.util.stream.*Stream&quot;,</span>
+        ),
+<span class="fc" id="L95">    ) { it.map(String::simplePatternToRegex) }</span>
+
+    @Configuration(
+        &quot;List of function signatures which should be ignored by this rule. &quot; +
+            &quot;Specifying fully-qualified function signature with name only (i.e. `java.time.LocalDate.now`) will &quot; +
+            &quot;ignore all function calls matching the name. Specifying fully-qualified function signature with &quot; +
+            &quot;parameters (i.e. `java.time.LocalDate.now(java.time.Clock)`) will ignore only function calls matching &quot; +
+            &quot;the name and parameters exactly.&quot;
+    )
+<span class="fc" id="L104">    private val ignoreFunctionCall: List&lt;FunctionMatcher&gt; by config(emptyList&lt;String&gt;()) {</span>
+<span class="fc" id="L105">        it.map(FunctionMatcher::fromFunctionSignature)</span>
+    }
+
+    @Suppress(&quot;ComplexCondition&quot;)
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L110">        super.visitCallExpression(expression)</span>
+
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        if (isUsedAsExpression(expression)) return</span>
+
+<span class="pc bpc" id="L114" title="2 of 4 branches missed.">        val resultingDescriptor = expression.getResolvedCall(bindingContext)?.resultingDescriptor ?: return</span>
+<span class="pc bpc" id="L115" title="1 of 6 branches missed.">        if (resultingDescriptor.returnType?.isUnit() == true) return</span>
+
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        if (ignoreFunctionCall.any { it.match(resultingDescriptor) }) return</span>
+
+<span class="fc" id="L119">        val annotations = buildList {</span>
+<span class="fc" id="L120">            addAll(resultingDescriptor.annotations)</span>
+<span class="fc" id="L121">            addAll(resultingDescriptor.findPackage().annotations)</span>
+<span class="fc" id="L122">            addAll(resultingDescriptor.containingDeclaration.annotations)</span>
+<span class="fc" id="L123">        }</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        if (annotations.any { it in ignoreReturnValueAnnotations }) return</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        if (restrictToConfig &amp;&amp;</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">            resultingDescriptor.returnType !in returnValueTypes &amp;&amp;</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">            annotations.none { it in returnValueAnnotations }</span>
+        ) {
+<span class="fc" id="L129">            return</span>
+        }
+
+<span class="pc bpc" id="L132" title="2 of 4 branches missed.">        val messageText = expression.calleeExpression?.text ?: expression.text</span>
+<span class="fc" id="L133">        report(</span>
+<span class="fc" id="L134">            CodeSmell(</span>
+<span class="fc" id="L135">                Entity.from(expression),</span>
+<span class="fc" id="L136">                message = &quot;The call $messageText is returning a value that is ignored.&quot;</span>
+            )
+        )
+<span class="fc" id="L139">    }</span>
+
+    private fun isUsedAsExpression(call: KtCallExpression): Boolean {
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        if (!call.isUsedAsExpression(bindingContext)) return false</span>
+
+<span class="fc bfc" id="L144" title="All 4 branches covered.">        val lambda = call.getStrictParentOfType&lt;KtFunctionLiteral&gt;()?.parent as? KtLambdaExpression</span>
+<span class="fc bfc" id="L145" title="All 4 branches covered.">        if (lambda != null &amp;&amp; call.isLambdaResult(lambda)) {</span>
+<span class="pc bpc" id="L146" title="2 of 4 branches missed.">            val parentCall = (lambda.parent as? KtValueArgument)?.getStrictParentOfType&lt;KtCallExpression&gt;()</span>
+<span class="pc bpc" id="L147" title="2 of 4 branches missed.">            val isLambdaResultScopeFunction = parentCall?.isCalling(lambdaResultScopeFunctions, bindingContext) == true</span>
+<span class="pc bpc" id="L148" title="1 of 4 branches missed.">            val isUsedAsExpression = parentCall?.isUsedAsExpression(bindingContext) == true</span>
+<span class="pc bpc" id="L149" title="1 of 4 branches missed.">            if (isLambdaResultScopeFunction &amp;&amp; !isUsedAsExpression) return false</span>
+        }
+
+<span class="fc" id="L152">        return true</span>
+    }
+
+    private fun KtExpression.isLambdaResult(lambda: KtLambdaExpression): Boolean {
+<span class="fc" id="L156">        val statement = getQualifiedExpressionForSelectorOrThis().let {</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">            it.getStrictParentOfType&lt;KtReturnExpression&gt;() ?: it</span>
+        }
+<span class="fc" id="L159">        return when (statement) {</span>
+<span class="fc bfc" id="L160" title="All 2 branches covered.">            is KtReturnExpression -&gt; {</span>
+<span class="fc" id="L161">                val lambdaDescriptor = bindingContext[FUNCTION, lambda.functionLiteral]</span>
+<span class="fc" id="L162">                statement.getTargetFunctionDescriptor(bindingContext) == lambdaDescriptor</span>
+            }
+
+            else -&gt; {
+<span class="pc bpc" id="L166" title="2 of 4 branches missed.">                val lastStatement = lambda.functionLiteral.bodyBlockExpression?.children?.lastOrNull()</span>
+<span class="fc" id="L167">                statement == lastStatement</span>
+            }
+        }
+    }
+
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">    private operator fun List&lt;Regex&gt;.contains(type: KotlinType?) = contains(type?.fqNameOrNull())</span>
+
+<span class="fc" id="L174">    private operator fun List&lt;Regex&gt;.contains(annotation: AnnotationDescriptor) = contains(annotation.fqName)</span>
+
+    private operator fun List&lt;Regex&gt;.contains(fqName: FqName?): Boolean {
+<span class="pc bpc" id="L177" title="2 of 4 branches missed.">        val name = fqName?.asString() ?: return false</span>
+<span class="fc" id="L178">        return any { it.matches(name) }</span>
+    }
+
+    companion object {
+<span class="fc" id="L182">        private val lambdaResultScopeFunctions = listOf(&quot;with&quot;, &quot;run&quot;, &quot;let&quot;).map { FqName(&quot;kotlin.$it&quot;) }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

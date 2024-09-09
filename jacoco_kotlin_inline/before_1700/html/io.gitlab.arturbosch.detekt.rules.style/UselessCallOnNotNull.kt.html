@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UselessCallOnNotNull.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UselessCallOnNotNull.kt</span></div><h1>UselessCallOnNotNull.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
+import org.jetbrains.kotlin.psi.ValueArgument
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getType
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.types.error.ErrorType
+import org.jetbrains.kotlin.types.isNullable
+
+/*
+ * Rule adapted from Kotlin's IntelliJ plugin:
+ * https://github.com/JetBrains/kotlin/blob/f5d0a38629e7d2e7017ee645dc4d4bee60614e93/idea/src/org/jetbrains/kotlin/idea/inspections/collections/UselessCallOnNotNullInspection.kt
+ */
+
+/**
+ * The Kotlin stdlib provides some functions that are designed to operate on references that may be null. These
+ * functions can also be called on non-nullable references or on collections or sequences that are known to be empty -
+ * the calls are redundant in this case and can be removed or should be changed to a call that does not check whether
+ * the value is null or not.
+ *
+ * &lt;noncompliant&gt;
+ * val testList = listOf(&quot;string&quot;).orEmpty()
+ * val testList2 = listOf(&quot;string&quot;).orEmpty().map { _ }
+ * val testList3 = listOfNotNull(&quot;string&quot;)
+ * val testString = &quot;&quot;?.isNullOrBlank()
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val testList = listOf(&quot;string&quot;)
+ * val testList2 = listOf(&quot;string&quot;).map { }
+ * val testList3 = listOf(&quot;string&quot;)
+ * val testString = &quot;&quot;?.isBlank()
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.2.0&quot;)
+<span class="fc" id="L47">class UselessCallOnNotNull(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;This call on a non-null reference may be reduced or removed. &quot; +</span>
+        &quot;Some calls are intended to be called on nullable collection or text types (e.g. `String?`).&quot; +
+        &quot;When this call is used on a reference to a non-null type &quot; +
+        &quot;(e.g. `String`) it is redundant and will have no effect, so it can be removed.&quot;
+) {
+
+    override fun visitQualifiedExpression(expression: KtQualifiedExpression) {
+<span class="fc" id="L56">        super.visitQualifiedExpression(expression)</span>
+
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        val safeExpression = expression as? KtSafeQualifiedExpression</span>
+<span class="fc bfc" id="L59" title="All 4 branches covered.">        val notNullType = expression.receiverExpression.getType(bindingContext)?.isNullable() == false</span>
+<span class="pc bpc" id="L60" title="1 of 4 branches missed.">        if (notNullType || safeExpression != null) {</span>
+<span class="fc" id="L61">            resolveCallForExpression(expression)</span>
+        }
+<span class="fc" id="L63">    }</span>
+
+    private fun resolveCallForExpression(expression: KtQualifiedExpression) {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        val resolvedCall = expression.getResolvedCall(bindingContext) ?: return</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        val fqName = resolvedCall.resultingDescriptor.fqNameOrNull() ?: return</span>
+
+<span class="fc" id="L69">        val conversion = uselessFqNames[fqName]</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (conversion != null) {</span>
+<span class="fc" id="L71">            val shortName = fqName.shortName().asString()</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">            val message = if (conversion.replacementName == null) {</span>
+<span class="fc" id="L73">                &quot;Remove redundant call to $shortName&quot;</span>
+            } else {
+<span class="fc" id="L75">                &quot;Replace $shortName with ${conversion.replacementName}&quot;</span>
+            }
+<span class="fc" id="L77">            report(CodeSmell(Entity.from(expression), message))</span>
+        }
+<span class="fc" id="L79">    }</span>
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L82">        super.visitCallExpression(expression)</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        val resolvedCall = expression.getResolvedCall(bindingContext) ?: return</span>
+
+<span class="fc" id="L85">        val fqName = resolvedCall.resultingDescriptor.fqNameOrNull()</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        if (fqName == listOfNotNull) {</span>
+<span class="fc" id="L87">            val varargs = resolvedCall.valueArguments.entries.single().value.arguments</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            if (varargs.all { it.isNullable() == false }) {</span>
+<span class="fc" id="L89">                report(CodeSmell(Entity.from(expression), &quot;Replace listOfNotNull with listOf&quot;))</span>
+            }
+        }
+<span class="fc" id="L92">    }</span>
+
+    /**
+     * Determines whether this [ValueArgument] is nullable, returning null if its type cannot be
+     * determined.
+     */
+    private fun ValueArgument.isNullable(): Boolean? {
+<span class="pc bpc" id="L99" title="1 of 4 branches missed.">        val wrapperType = getArgumentExpression()?.getType(bindingContext) ?: return null</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        val type = if (getSpreadElement() != null) {</span>
+            // in case of a spread operator (`*list`),
+            // we actually want to get the generic parameter from the collection
+<span class="fc" id="L103">            wrapperType.arguments.first().type</span>
+        } else {
+<span class="fc" id="L105">            wrapperType</span>
+        }
+
+<span class="fc" id="L108">        return type</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">            .takeUnless { it is ErrorType }</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            ?.isNullable()</span>
+    }
+
+<span class="fc" id="L113">    private data class Conversion(val replacementName: String? = null)</span>
+
+    companion object {
+<span class="fc" id="L116">        private val uselessFqNames = mapOf(</span>
+<span class="fc" id="L117">            FqName(&quot;kotlin.collections.orEmpty&quot;) to Conversion(),</span>
+<span class="fc" id="L118">            FqName(&quot;kotlin.sequences.orEmpty&quot;) to Conversion(),</span>
+<span class="fc" id="L119">            FqName(&quot;kotlin.text.orEmpty&quot;) to Conversion(),</span>
+<span class="fc" id="L120">            FqName(&quot;kotlin.text.isNullOrEmpty&quot;) to Conversion(&quot;isEmpty&quot;),</span>
+<span class="fc" id="L121">            FqName(&quot;kotlin.text.isNullOrBlank&quot;) to Conversion(&quot;isBlank&quot;),</span>
+<span class="fc" id="L122">            FqName(&quot;kotlin.collections.isNullOrEmpty&quot;) to Conversion(&quot;isEmpty&quot;)</span>
+        )
+
+<span class="fc" id="L125">        private val listOfNotNull = FqName(&quot;kotlin.collections.listOfNotNull&quot;)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

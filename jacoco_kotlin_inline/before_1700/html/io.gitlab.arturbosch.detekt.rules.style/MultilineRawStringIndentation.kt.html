@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MultilineRawStringIndentation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">MultilineRawStringIndentation.kt</span></div><h1>MultilineRawStringIndentation.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.github.detekt.psi.absolutePath
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Location
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.SourceLocation
+import io.gitlab.arturbosch.detekt.api.TextLocation
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.com.intellij.psi.PsiFile
+import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+
+/**
+ * This rule ensures that raw strings have a consistent indentation.
+ *
+ * The content of a multi line raw string should have the same indentation as the enclosing expression plus the
+ * configured indentSize. The closing triple-quotes (`&quot;&quot;&quot;`)  must have the same indentation as the enclosing expression.
+ *
+ * Warning: Rule `MultilineRawStringIndentation` overlaps with `StringTemplateIndent` from the formatting rule set.
+ *
+ * &lt;noncompliant&gt;
+ * val a = &quot;&quot;&quot;
+ * Hello World!
+ * How are you?
+ * &quot;&quot;&quot;.trimMargin()
+ *
+ * val a = &quot;&quot;&quot;
+ *         Hello World!
+ *         How are you?
+ *         &quot;&quot;&quot;.trimMargin()
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val a = &quot;&quot;&quot;
+ *     Hello World!
+ *     How are you?
+ * &quot;&quot;&quot;.trimMargin()
+ *
+ * val a = &quot;&quot;&quot;
+ *     Hello World!
+ *       How are you?
+ * &quot;&quot;&quot;.trimMargin()
+ * &lt;/compliant&gt;
+ */
+<span class="fc" id="L52">class MultilineRawStringIndentation(config: Config) : Rule(</span>
+<span class="fc" id="L53">    config,</span>
+<span class="fc" id="L54">    &quot;The indentation of the raw String should be consistent&quot;</span>
+) {
+
+    @Configuration(&quot;indentation size&quot;)
+<span class="pc" id="L58">    private val indentSize by config(4)</span>
+
+    @Configuration(&quot;allows to provide a list of multiline string trimming methods&quot;)
+<span class="pc" id="L61">    private val trimmingMethods: List&lt;String&gt; by config(listOf(&quot;trimIndent&quot;, &quot;trimMargin&quot;))</span>
+
+    override fun visitStringTemplateExpression(expression: KtStringTemplateExpression) {
+<span class="nc" id="L64">        super.visitStringTemplateExpression(expression)</span>
+
+<span class="nc bnc" id="L66" title="All 4 branches missed.">        if (!expression.isRawStringWithLineBreak() || !expression.isTrimmed(trimmingMethods)) return</span>
+
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (!expression.isSurroundedByLineBreaks()) {</span>
+<span class="nc" id="L69">            report(</span>
+<span class="nc" id="L70">                CodeSmell(</span>
+<span class="nc" id="L71">                    Entity.from(expression),</span>
+<span class="nc" id="L72">                    &quot;A multiline raw string should start with a break line and should end with another&quot;,</span>
+                )
+            )
+<span class="nc" id="L75">            return</span>
+        }
+
+<span class="nc" id="L78">        val lineAndColumn = DiagnosticUtils.getLineAndColumnInPsiFile(expression.containingFile, expression.textRange)</span>
+<span class="nc" id="L79">        val lineCount = expression.text.lines().count()</span>
+
+<span class="nc" id="L81">        expression.checkIndentation(</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            baseIndent = lineAndColumn.lineContent?.countIndent() ?: return,</span>
+<span class="nc" id="L83">            firstLineNumber = lineAndColumn.line,</span>
+<span class="nc" id="L84">            lastLineNumber = lineAndColumn.line + lineCount - 1</span>
+        )
+<span class="nc" id="L86">    }</span>
+
+    private fun KtStringTemplateExpression.checkIndentation(
+        baseIndent: Int,
+        firstLineNumber: Int,
+        lastLineNumber: Int,
+    ) {
+<span class="nc" id="L93">        checkContent(desiredIndent = baseIndent + indentSize, (firstLineNumber + 1)..(lastLineNumber - 1))</span>
+<span class="nc" id="L94">        checkClosing(baseIndent, lastLineNumber)</span>
+<span class="nc" id="L95">    }</span>
+
+    private fun KtStringTemplateExpression.checkContent(
+        desiredIndent: Int,
+        lineNumberRange: IntRange,
+    ) {
+<span class="nc" id="L101">        data class LineInformation(val lineNumber: Int, val line: String, val currentIndent: Int)</span>
+
+<span class="nc" id="L103">        val indentation = lineNumberRange</span>
+<span class="nc" id="L104">            .map { lineNumber -&gt;</span>
+<span class="nc" id="L105">                val line = containingFile.getLine(lineNumber)</span>
+<span class="nc" id="L106">                LineInformation(lineNumber, line, line.countIndent())</span>
+            }
+
+<span class="nc bnc" id="L109" title="All 4 branches missed.">        if (indentation.isNotEmpty()) {</span>
+<span class="nc" id="L110">            indentation</span>
+<span class="nc bnc" id="L111" title="All 6 branches missed.">                .filter { (_, line, currentIndent) -&gt; line.isNotEmpty() &amp;&amp; currentIndent &lt; desiredIndent }</span>
+<span class="nc" id="L112">                .onEach { (lineNumber, line, currentIndent) -&gt;</span>
+<span class="nc" id="L113">                    val location = containingFile.getLocation(</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">                        SourceLocation(lineNumber, if (line.isBlank()) 1 else currentIndent + 1),</span>
+<span class="nc" id="L115">                        SourceLocation(lineNumber, line.length + 1)</span>
+                    )
+
+<span class="nc" id="L118">                    report(this, location, message(desiredIndent, currentIndent))</span>
+<span class="nc" id="L119">                }</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">                .ifEmpty {</span>
+<span class="nc bnc" id="L121" title="All 4 branches missed.">                    if (indentation.none { (_, _, currentIndent) -&gt; currentIndent == desiredIndent }) {</span>
+<span class="nc" id="L122">                        val location = containingFile.getLocation(</span>
+<span class="nc" id="L123">                            SourceLocation(lineNumberRange.first, desiredIndent + 1),</span>
+<span class="nc" id="L124">                            SourceLocation(lineNumberRange.last, indentation.last().line.length + 1),</span>
+                        )
+
+<span class="nc" id="L127">                        report(</span>
+<span class="nc" id="L128">                            this,</span>
+<span class="nc" id="L129">                            location,</span>
+<span class="nc bnc" id="L130" title="All 6 branches missed.">                            message(desiredIndent, indentation.minOf { (_, _, indent) -&gt; indent }),</span>
+                        )
+                    }
+<span class="nc" id="L133">                }</span>
+        }
+<span class="nc" id="L135">    }</span>
+
+    private fun KtStringTemplateExpression.checkClosing(
+        desiredIndent: Int,
+        lineNumber: Int,
+    ) {
+<span class="nc" id="L141">        val currentIndent = containingFile.getLine(lineNumber).countIndent()</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (currentIndent != desiredIndent) {</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">            val location = if (currentIndent &lt; desiredIndent) {</span>
+<span class="nc" id="L144">                containingFile.getLocation(</span>
+<span class="nc" id="L145">                    SourceLocation(lineNumber, currentIndent + 1),</span>
+<span class="nc" id="L146">                    SourceLocation(lineNumber, currentIndent + &quot;\&quot;\&quot;\&quot;&quot;.length + 1),</span>
+                )
+            } else {
+<span class="nc" id="L149">                containingFile.getLocation(</span>
+<span class="nc" id="L150">                    SourceLocation(lineNumber, desiredIndent + 1),</span>
+<span class="nc" id="L151">                    SourceLocation(lineNumber, currentIndent + 1),</span>
+                )
+            }
+
+<span class="nc" id="L155">            report(this, location, message(desiredIndent, currentIndent))</span>
+        }
+<span class="nc" id="L157">    }</span>
+}
+
+private fun Rule.report(element: KtElement, location: Location, message: String) {
+<span class="nc" id="L161">    report(CodeSmell(Entity.from(element, location), message))</span>
+<span class="nc" id="L162">}</span>
+
+private fun message(desiredIntent: Int, currentIndent: Int): String =
+<span class="nc" id="L165">    &quot;The indentation should be $desiredIntent but it is $currentIndent.&quot;</span>
+
+private fun KtStringTemplateExpression.isSurroundedByLineBreaks(): Boolean {
+<span class="nc" id="L168">    val entries = this.entries</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">    return entries.takeWhile { it.isBlankOrLineBreak() }.any { it.text == &quot;\n&quot; } &amp;&amp;</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        entries.takeLastWhile { it.isBlankOrLineBreak() }.any { it.text == &quot;\n&quot; }</span>
+}
+
+private fun KtStringTemplateEntry.isBlankOrLineBreak(): Boolean {
+<span class="nc bnc" id="L174" title="All 6 branches missed.">    val text = (this as? KtLiteralStringTemplateEntry)?.text ?: return false</span>
+<span class="nc bnc" id="L175" title="All 4 branches missed.">    return text.all { it.isTabChar() } || text == &quot;\n&quot;</span>
+}
+
+<span class="nc bnc" id="L178" title="All 4 branches missed.">private fun Char.isTabChar() = this == ' ' || this == '\t'</span>
+
+<span class="nc" id="L180">private fun String.countIndent() = this.takeWhile { it.isTabChar() }.count()</span>
+
+<span class="nc" id="L182">private fun PsiFile.getLine(line: Int): String = text.lineSequence().drop(line - 1).first()</span>
+
+private fun PsiFile.getLocation(start: SourceLocation, end: SourceLocation): Location {
+<span class="nc" id="L185">    val lines = this.text.lines()</span>
+<span class="nc" id="L186">    var startOffset = 0</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">    for (i in 1..&lt;start.line) {</span>
+<span class="nc" id="L188">        startOffset += lines[i - 1].length + 1</span>
+    }
+<span class="nc" id="L190">    var endOffset = startOffset</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">    for (i in start.line..&lt;end.line) {</span>
+<span class="nc" id="L192">        endOffset += lines[i - 1].length + 1</span>
+    }
+<span class="nc" id="L194">    this.text.lines()</span>
+<span class="nc" id="L195">    return Location(</span>
+<span class="nc" id="L196">        start,</span>
+<span class="nc" id="L197">        end,</span>
+<span class="nc" id="L198">        TextLocation(startOffset + start.column - 1, endOffset + end.column - 1),</span>
+<span class="nc" id="L199">        absolutePath()</span>
+    )
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

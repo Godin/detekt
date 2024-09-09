@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaselineFormat.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.baseline</a> &gt; <span class="el_source">BaselineFormat.kt</span></div><h1>BaselineFormat.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.baseline
+
+import io.github.detekt.tooling.api.Baseline
+import io.github.detekt.tooling.api.BaselineProvider
+import io.github.detekt.tooling.api.FindingsIdList
+import org.xml.sax.SAXParseException
+import java.nio.file.Path
+import javax.xml.XMLConstants
+import javax.xml.parsers.SAXParserFactory
+import javax.xml.stream.XMLStreamException
+import javax.xml.stream.XMLStreamWriter
+import kotlin.io.path.bufferedWriter
+import kotlin.io.path.inputStream
+
+<span class="fc" id="L15">internal class BaselineFormat : BaselineProvider {</span>
+
+    private val XMLStreamException.positions
+<span class="nc" id="L18">        get() = location.lineNumber to location.columnNumber</span>
+
+<span class="fc" id="L20">    class InvalidState(msg: String, error: Throwable) : IllegalStateException(msg, error)</span>
+
+    override fun of(manuallySuppressedIssues: FindingsIdList, currentIssues: FindingsIdList): DefaultBaseline =
+<span class="fc" id="L23">        DefaultBaseline(manuallySuppressedIssues, currentIssues)</span>
+
+    override fun read(sourcePath: Path): DefaultBaseline {
+<span class="fc" id="L26">        try {</span>
+<span class="fc" id="L27">            sourcePath.inputStream().use {</span>
+<span class="fc" id="L28">                val reader = SAXParserFactory.newInstance()</span>
+<span class="fc" id="L29">                    .apply {</span>
+<span class="fc" id="L30">                        setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)</span>
+<span class="fc" id="L31">                    }</span>
+<span class="fc" id="L32">                    .newSAXParser()</span>
+<span class="fc" id="L33">                val handler = BaselineHandler()</span>
+<span class="fc" id="L34">                reader.parse(it, handler)</span>
+<span class="fc" id="L35">                return handler.createBaseline()</span>
+            }
+<span class="fc" id="L37">        } catch (error: SAXParseException) {</span>
+<span class="fc" id="L38">            val (line, column) = error.lineNumber to error.columnNumber</span>
+<span class="fc" id="L39">            throw InvalidState(&quot;Error on position $line:$column while reading the baseline xml file!&quot;, error)</span>
+        }
+    }
+
+    override fun write(targetPath: Path, baseline: Baseline) {
+<span class="fc" id="L44">        try {</span>
+<span class="pc" id="L45">            targetPath.bufferedWriter().addFinalNewLine().use {</span>
+<span class="fc" id="L46">                it.streamXml().prettyPrinter().save(baseline)</span>
+<span class="fc" id="L47">            }</span>
+<span class="nc" id="L48">        } catch (error: XMLStreamException) {</span>
+<span class="nc" id="L49">            val (line, column) = error.positions</span>
+<span class="nc" id="L50">            throw InvalidState(&quot;Error on position $line:$column while writing the baseline xml file!&quot;, error)</span>
+        }
+<span class="fc" id="L52">    }</span>
+
+    private fun XMLStreamWriter.save(baseline: Baseline) {
+<span class="fc" id="L55">        document {</span>
+<span class="fc" id="L56">            tag(SMELL_BASELINE) {</span>
+<span class="fc" id="L57">                tag(MANUALLY_SUPPRESSED_ISSUES) {</span>
+<span class="fc" id="L58">                    baseline.manuallySuppressedIssues.forEach { tag(ID, it) }</span>
+<span class="fc" id="L59">                }</span>
+<span class="fc" id="L60">                tag(CURRENT_ISSUES) {</span>
+<span class="fc" id="L61">                    baseline.currentIssues.forEach { tag(ID, it) }</span>
+<span class="fc" id="L62">                }</span>
+<span class="fc" id="L63">            }</span>
+<span class="fc" id="L64">        }</span>
+<span class="fc" id="L65">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

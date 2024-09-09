@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongParameterList.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.complexity</a> &gt; <span class="el_source">LongParameterList.kt</span></div><h1>LongParameterList.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.complexity
+
+import io.github.detekt.psi.AnnotationExcluder
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import io.gitlab.arturbosch.detekt.api.configWithFallback
+import io.gitlab.arturbosch.detekt.rules.isOverride
+import org.jetbrains.kotlin.psi.KtAnnotated
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtConstructor
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtFunction
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtParameterList
+import org.jetbrains.kotlin.psi.KtPrimaryConstructor
+import org.jetbrains.kotlin.psi.KtSecondaryConstructor
+
+/**
+ * Reports functions and constructors which have more parameters than a certain threshold.
+ */
+@Suppress(&quot;ViolatesTypeResolutionRequirements&quot;)
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+@RequiresTypeResolution
+<span class="fc" id="L29">class LongParameterList(config: Config) : Rule(</span>
+<span class="fc" id="L30">    config,</span>
+<span class="fc" id="L31">    &quot;The more parameters a function has the more complex it is. Long parameter lists are often &quot; +</span>
+        &quot;used to control complex algorithms and violate the Single Responsibility Principle. &quot; +
+        &quot;Prefer functions with short parameter lists.&quot;
+) {
+
+    @Deprecated(&quot;Use `allowedFunctionParameters` and `allowedConstructorParameters` instead&quot;)
+    @Configuration(&quot;number of parameters required to trigger the rule&quot;)
+<span class="pc" id="L38">    private val threshold: Int by config(DEFAULT_ALLOWED_FUNCTION_PARAMETERS)</span>
+
+    @Suppress(&quot;DEPRECATION&quot;)
+    @Configuration(&quot;number of function parameters required to trigger the rule&quot;)
+<span class="fc" id="L42">    private val allowedFunctionParameters: Int by configWithFallback(::threshold, DEFAULT_ALLOWED_FUNCTION_PARAMETERS)</span>
+
+    @Suppress(&quot;DEPRECATION&quot;)
+    @Configuration(&quot;number of constructor parameters required to trigger the rule&quot;)
+    private val allowedConstructorParameters: Int
+<span class="fc" id="L47">        by configWithFallback(::threshold, DEFAULT_ALLOWED_CONSTRUCTOR_PARAMETERS)</span>
+
+    @Configuration(&quot;ignore parameters that have a default value&quot;)
+<span class="fc" id="L50">    private val ignoreDefaultParameters: Boolean by config(false)</span>
+
+    @Configuration(&quot;ignore long constructor parameters list for data classes&quot;)
+<span class="fc" id="L53">    private val ignoreDataClasses: Boolean by config(true)</span>
+
+    @Configuration(
+        &quot;ignore the annotated parameters for the count (e.g. `fun foo(@Value bar: Int)` would not be counted&quot;
+    )
+<span class="fc" id="L58">    private val ignoreAnnotatedParameter: List&lt;Regex&gt; by config(emptyList&lt;String&gt;()) { list -&gt;</span>
+<span class="fc" id="L59">        list.map { it.replace(&quot;.&quot;, &quot;\\.&quot;).replace(&quot;*&quot;, &quot;.*&quot;).toRegex() }</span>
+    }
+
+    private lateinit var annotationExcluder: AnnotationExcluder
+
+    override fun visitKtFile(file: KtFile) {
+<span class="fc" id="L65">        annotationExcluder = AnnotationExcluder(file, ignoreAnnotatedParameter, bindingContext)</span>
+<span class="fc" id="L66">        super.visitKtFile(file)</span>
+<span class="fc" id="L67">    }</span>
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+<span class="fc" id="L70">        checkLongParameterList(function, allowedFunctionParameters, &quot;function ${function.nameAsSafeName}&quot;)</span>
+<span class="fc" id="L71">    }</span>
+
+    override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor) {
+<span class="fc" id="L74">        validateConstructor(constructor)</span>
+<span class="fc" id="L75">    }</span>
+
+    override fun visitSecondaryConstructor(constructor: KtSecondaryConstructor) {
+<span class="fc" id="L78">        validateConstructor(constructor)</span>
+<span class="fc" id="L79">    }</span>
+
+<span class="fc" id="L81">    private fun KtAnnotated.isIgnored(): Boolean = annotationExcluder.shouldExclude(annotationEntries)</span>
+
+    private fun validateConstructor(constructor: KtConstructor&lt;*&gt;) {
+<span class="fc" id="L84">        val owner = constructor.getContainingClassOrObject()</span>
+<span class="pc bpc" id="L85" title="1 of 4 branches missed.">        if (owner is KtClass &amp;&amp; owner.isDataClassOrIgnored()) {</span>
+<span class="fc" id="L86">            return</span>
+        }
+<span class="fc" id="L88">        checkLongParameterList(constructor, allowedConstructorParameters, &quot;constructor&quot;)</span>
+<span class="fc" id="L89">    }</span>
+
+<span class="pc bpc" id="L91" title="1 of 4 branches missed.">    private fun KtClass.isDataClassOrIgnored() = ignoreDataClasses &amp;&amp; isData()</span>
+
+    private fun checkLongParameterList(function: KtFunction, maximumAllowedParameter: Int, identifier: String) {
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (function.isOverride()) return</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        val parameterList = function.valueParameterList ?: return</span>
+<span class="fc" id="L96">        val parameterNumber = parameterList.parameterCount()</span>
+
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (parameterNumber &gt; maximumAllowedParameter) {</span>
+<span class="fc" id="L99">            val parameterPrint = function.valueParameters.joinToString(separator = &quot;, &quot;) {</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">                it.nameAsSafeName.identifier + &quot;: &quot; + it.typeReference?.text</span>
+            }
+
+<span class="fc" id="L103">            report(</span>
+<span class="fc" id="L104">                ThresholdedCodeSmell(</span>
+<span class="fc" id="L105">                    Entity.from(parameterList),</span>
+<span class="fc" id="L106">                    Metric(parameterNumber, maximumAllowedParameter),</span>
+<span class="fc" id="L107">                    &quot;The $identifier($parameterPrint) has too many parameters. &quot; +</span>
+<span class="fc" id="L108">                        &quot;The current maximum allowed parameters are $maximumAllowedParameter.&quot;</span>
+                )
+            )
+        }
+<span class="fc" id="L112">    }</span>
+
+    private fun KtParameterList.parameterCount(): Int {
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        val preFilteredParameters = parameters.filter { !it.isIgnored() }</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        return if (ignoreDefaultParameters) {</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">            preFilteredParameters.count { !it.hasDefaultValue() }</span>
+        } else {
+<span class="fc" id="L119">            preFilteredParameters.size</span>
+        }
+    }
+
+    companion object {
+        private const val DEFAULT_ALLOWED_FUNCTION_PARAMETERS = 5
+        private const val DEFAULT_ALLOWED_CONSTRUCTOR_PARAMETERS = 6
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BindingContextUtils.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.github.detekt.parser</a> &gt; <span class="el_source">BindingContextUtils.kt</span></div><h1>BindingContextUtils.kt</h1><pre class="source lang-java linenums">package io.github.detekt.parser
+
+import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.common.messages.PlainTextMessageRenderer
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
+import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
+import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.resolve.BindingContext
+
+fun generateBindingContext(
+    environment: KotlinCoreEnvironment,
+    files: List&lt;KtFile&gt;,
+    debugPrinter: (() -&gt; String) -&gt; Unit,
+    warningPrinter: (String) -&gt; Unit,
+): BindingContext {
+<span class="nc" id="L21">    val messageCollector = DetektMessageCollector(</span>
+<span class="nc" id="L22">        minSeverity = CompilerMessageSeverity.ERROR,</span>
+<span class="nc" id="L23">        debugPrinter = debugPrinter,</span>
+<span class="nc" id="L24">        warningPrinter = warningPrinter,</span>
+    )
+
+<span class="nc" id="L27">    val analyzer = AnalyzerWithCompilerReport(</span>
+<span class="nc" id="L28">        messageCollector,</span>
+<span class="nc" id="L29">        environment.configuration.languageVersionSettings,</span>
+<span class="nc" id="L30">        false,</span>
+    )
+<span class="nc" id="L32">    analyzer.analyzeAndReport(files) {</span>
+<span class="nc" id="L33">        TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(</span>
+<span class="nc" id="L34">            environment.project,</span>
+<span class="nc" id="L35">            files,</span>
+<span class="nc" id="L36">            NoScopeRecordCliBindingTrace(environment.project),</span>
+<span class="nc" id="L37">            environment.configuration,</span>
+<span class="nc" id="L38">            environment::createPackagePartProvider</span>
+<span class="nc" id="L39">        )</span>
+    }
+
+<span class="nc" id="L42">    messageCollector.printIssuesCountIfAny()</span>
+
+<span class="nc" id="L44">    return analyzer.analysisResult.bindingContext</span>
+}
+
+<span class="fc" id="L47">internal class DetektMessageCollector(</span>
+<span class="fc" id="L48">    private val minSeverity: CompilerMessageSeverity,</span>
+<span class="fc" id="L49">    private val debugPrinter: (() -&gt; String) -&gt; Unit,</span>
+<span class="fc" id="L50">    private val warningPrinter: (String) -&gt; Unit,</span>
+<span class="fc" id="L51">) : MessageCollector by MessageCollector.NONE {</span>
+    private var messages = 0
+
+    override fun report(severity: CompilerMessageSeverity, message: String, location: CompilerMessageSourceLocation?) {
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if (severity.ordinal &lt;= minSeverity.ordinal) {</span>
+<span class="fc" id="L56">            debugPrinter { DetektMessageRenderer.render(severity, message, location) }</span>
+<span class="fc" id="L57">            messages++</span>
+        }
+<span class="fc" id="L59">    }</span>
+
+    fun printIssuesCountIfAny() {
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (messages &gt; 0) {</span>
+<span class="fc" id="L63">            warningPrinter(</span>
+<span class="fc" id="L64">                &quot;There were $messages compiler errors found during analysis. This affects accuracy of reporting.\n&quot; +</span>
+                    &quot;Run detekt CLI with --debug or set `detekt { debug = true }` in Gradle to see the error messages.&quot;
+            )
+        }
+<span class="fc" id="L68">    }</span>
+}
+
+private object DetektMessageRenderer : PlainTextMessageRenderer() {
+<span class="nc" id="L72">    override fun getName() = &quot;detekt message renderer&quot;</span>
+<span class="nc" id="L73">    override fun getPath(location: CompilerMessageSourceLocation) = location.path</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

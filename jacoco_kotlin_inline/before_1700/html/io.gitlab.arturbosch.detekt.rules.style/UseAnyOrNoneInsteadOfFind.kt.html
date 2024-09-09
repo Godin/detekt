@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UseAnyOrNoneInsteadOfFind.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UseAnyOrNoneInsteadOfFind.kt</span></div><h1>UseAnyOrNoneInsteadOfFind.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.rules.isCalling
+import io.gitlab.arturbosch.detekt.rules.isNonNullCheck
+import io.gitlab.arturbosch.detekt.rules.isNullCheck
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
+
+/**
+ * Turn on this rule to flag `find` calls for null check that can be replaced with a `any` or `none` call.
+ *
+ * &lt;noncompliant&gt;
+ * listOf(1, 2, 3).find { it == 4 } != null
+ * listOf(1, 2, 3).find { it == 4 } == null
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * listOf(1, 2, 3).any { it == 4 }
+ * listOf(1, 2, 3).none { it == 4 }
+ * &lt;/compliant&gt;
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L33">class UseAnyOrNoneInsteadOfFind(config: Config) : Rule(</span>
+<span class="fc" id="L34">    config,</span>
+<span class="fc" id="L35">    &quot;Use `any` or `none` instead of `find` and `null` checks.&quot;</span>
+) {
+
+    @Suppress(&quot;ReturnCount&quot;)
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="fc" id="L40">        super.visitCallExpression(expression)</span>
+
+<span class="pc bpc" id="L42" title="2 of 4 branches missed.">        val functionName = expression.calleeExpression?.text ?: return</span>
+<span class="pc bpc" id="L43" title="1 of 2 branches missed.">        val qualifiedOrThis = expression.getStrictParentOfType&lt;KtQualifiedExpression&gt;() ?: expression</span>
+<span class="pc bpc" id="L44" title="5 of 6 branches missed.">        val binary = qualifiedOrThis.getStrictParentOfType&lt;KtBinaryExpression&gt;()?.takeIf {</span>
+<span class="nc bnc" id="L45" title="All 4 branches missed.">            it.left == qualifiedOrThis || it.right == qualifiedOrThis</span>
+<span class="fc" id="L46">        } ?: return</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (!expression.isCalling(functionFqNames, bindingContext)) return</span>
+<span class="nc" id="L48">        val replacement = when {</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">            binary.isNonNullCheck() -&gt; &quot;any&quot;</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">            binary.isNullCheck() -&gt; &quot;none&quot;</span>
+<span class="nc" id="L51">            else -&gt; return</span>
+        }
+<span class="nc" id="L53">        val message = &quot;Use '$replacement' instead of '$functionName'&quot;</span>
+<span class="nc" id="L54">        report(CodeSmell(Entity.from(expression), message))</span>
+<span class="nc" id="L55">    }</span>
+
+    companion object {
+<span class="fc" id="L58">        private val functionNames = listOf(&quot;find&quot;, &quot;firstOrNull&quot;, &quot;lastOrNull&quot;)</span>
+        private val functionFqNames =
+<span class="fc" id="L60">            listOf(&quot;kotlin.collections&quot;, &quot;kotlin.sequences&quot;, &quot;kotlin.text&quot;).flatMap { packageName -&gt;</span>
+<span class="fc" id="L61">                functionNames.map { functionName -&gt; FqName(&quot;$packageName.$functionName&quot;) }</span>
+            }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

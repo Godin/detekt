@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnusedUnaryOperator.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">UnusedUnaryOperator.kt</span></div><h1>UnusedUnaryOperator.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.com.intellij.psi.PsiComment
+import org.jetbrains.kotlin.com.intellij.psi.PsiWhiteSpace
+import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtPrefixExpression
+import org.jetbrains.kotlin.psi.psiUtil.leaves
+import org.jetbrains.kotlin.psi.psiUtil.parents
+import org.jetbrains.kotlin.resolve.bindingContextUtil.isUsedAsExpression
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+
+/**
+ * Detects unused unary operators.
+ *
+ * &lt;noncompliant&gt;
+ * val x = 1 + 2
+ *     + 3 + 4
+ * println(x) // 3
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * val x = 1 + 2 + 3 + 4
+ * println(x) // 10
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L39">class UnusedUnaryOperator(config: Config) : Rule(</span>
+<span class="fc" id="L40">    config,</span>
+<span class="fc" id="L41">    &quot;This unary operator is unused.&quot;</span>
+) {
+
+    @Suppress(&quot;ReturnCount&quot;)
+    override fun visitPrefixExpression(expression: KtPrefixExpression) {
+<span class="nc" id="L46">        super.visitPrefixExpression(expression)</span>
+
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if (expression.baseExpression == null) return</span>
+<span class="nc" id="L49">        val operationToken = expression.operationToken</span>
+<span class="nc bnc" id="L50" title="All 4 branches missed.">        if (operationToken != KtTokens.PLUS &amp;&amp; operationToken != KtTokens.MINUS) return</span>
+
+<span class="nc" id="L52">        if (expression.node.leaves(forward = false)</span>
+<span class="nc bnc" id="L53" title="All 4 branches missed.">                .takeWhile { it is PsiWhiteSpace || it is PsiComment }</span>
+<span class="nc bnc" id="L54" title="All 6 branches missed.">                .none { it is PsiWhiteSpace &amp;&amp; it.textContains('\n') }</span>
+        ) {
+<span class="nc" id="L56">            return</span>
+        }
+
+<span class="nc" id="L59">        val parentOrSelf = expression.parentBinaryExpressionOrThis()</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (parentOrSelf.isUsedAsExpression(bindingContext)) return</span>
+
+<span class="nc bnc" id="L62" title="All 4 branches missed.">        val operatorDescriptor = expression.operationReference.getResolvedCall(bindingContext)</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">            ?.resultingDescriptor as? DeclarationDescriptor ?: return</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (!KotlinBuiltIns.isUnderKotlinPackage(operatorDescriptor)) return</span>
+
+<span class="nc" id="L66">        val message = &quot;This '${parentOrSelf.text}' is not used&quot;</span>
+<span class="nc" id="L67">        report(CodeSmell(Entity.from(expression), message))</span>
+<span class="nc" id="L68">    }</span>
+
+    private fun KtExpression.parentBinaryExpressionOrThis(): KtExpression =
+<span class="nc bnc" id="L71" title="All 4 branches missed.">        parents.takeWhile { it is KtBinaryExpression }.lastOrNull() as? KtBinaryExpression ?: this</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

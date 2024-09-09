@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExplicitGarbageCollectionCall.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.bugs</a> &gt; <span class="el_source">ExplicitGarbageCollectionCall.kt</span></div><h1>ExplicitGarbageCollectionCall.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.bugs
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtSimpleNameExpression
+import org.jetbrains.kotlin.psi.psiUtil.getCallNameExpression
+import org.jetbrains.kotlin.psi.psiUtil.getReceiverExpression
+
+/**
+ * Reports all calls to explicitly trigger the Garbage Collector.
+ * Code should work independently of the garbage collector and should not require the GC to be triggered in certain
+ * points in time.
+ *
+ * &lt;noncompliant&gt;
+ * System.gc()
+ * Runtime.getRuntime().gc()
+ * System.runFinalization()
+ * &lt;/noncompliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.0.0&quot;)
+<span class="fc" id="L25">class ExplicitGarbageCollectionCall(config: Config) : Rule(</span>
+<span class="fc" id="L26">    config,</span>
+<span class="fc" id="L27">    &quot;Don't try to be smarter than the JVM. Your code should work independently whether the garbage &quot; +</span>
+        &quot;collector is disabled or not. If you face memory issues, &quot; +
+        &quot;try tuning the JVM options instead of relying on code itself.&quot;
+) {
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">        expression.getCallNameExpression()?.let {</span>
+<span class="fc" id="L34">            matchesGCCall(expression, it)</span>
+<span class="fc" id="L35">        }</span>
+<span class="fc" id="L36">    }</span>
+
+    private fun matchesGCCall(expression: KtCallExpression, it: KtSimpleNameExpression) {
+<span class="pc bpc" id="L39" title="2 of 4 branches missed.">        if (it.textMatches(&quot;gc&quot;) || it.textMatches(&quot;runFinalization&quot;)) {</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">            it.getReceiverExpression()?.let {</span>
+<span class="nc" id="L41">                when (it.text) {</span>
+<span class="nc bnc" id="L42" title="All 4 branches missed.">                    &quot;System&quot;, &quot;Runtime.getRuntime()&quot; -&gt; report(</span>
+<span class="nc" id="L43">                        CodeSmell(</span>
+<span class="nc" id="L44">                            Entity.from(expression),</span>
+<span class="nc" id="L45">                            &quot;An explicit call to the Garbage Collector as in ${it.text} should not be made.&quot;</span>
+                        )
+                    )
+                }
+<span class="nc" id="L49">            }</span>
+        }
+<span class="fc" id="L51">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

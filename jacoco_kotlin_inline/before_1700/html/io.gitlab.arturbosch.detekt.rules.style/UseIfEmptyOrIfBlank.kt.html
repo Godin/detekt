@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UseIfEmptyOrIfBlank.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">UseIfEmptyOrIfBlank.kt</span></div><h1>UseIfEmptyOrIfBlank.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.api.Rule
+import org.jetbrains.kotlin.KtNodeTypes
+import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtPrefixExpression
+import org.jetbrains.kotlin.psi.KtThisExpression
+import org.jetbrains.kotlin.psi.psiUtil.blockExpressionsOrSingle
+import org.jetbrains.kotlin.psi.psiUtil.getPossiblyQualifiedCallExpression
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+
+/**
+ * This rule detects `isEmpty` or `isBlank` calls to assign a default value. They can be replaced with `ifEmpty` or
+ * `ifBlank` calls.
+ *
+ * &lt;noncompliant&gt;
+ * fun test(list: List&lt;Int&gt;, s: String) {
+ *     val a = if (list.isEmpty()) listOf(1) else list
+ *     val b = if (list.isNotEmpty()) list else listOf(2)
+ *     val c = if (s.isBlank()) &quot;foo&quot; else s
+ *     val d = if (s.isNotBlank()) s else &quot;bar&quot;
+ * }
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * fun test(list: List&lt;Int&gt;, s: String) {
+ *     val a = list.ifEmpty { listOf(1) }
+ *     val b = list.ifEmpty { listOf(2) }
+ *     val c = s.ifBlank { &quot;foo&quot; }
+ *     val d = s.ifBlank { &quot;bar&quot; }
+ * }
+ * &lt;/compliant&gt;
+ *
+ */
+@RequiresTypeResolution
+<span class="fc" id="L47">class UseIfEmptyOrIfBlank(config: Config) : Rule(</span>
+<span class="fc" id="L48">    config,</span>
+<span class="fc" id="L49">    &quot;Use `ifEmpty` or `ifBlank` instead of `isEmpty` or `isBlank` to assign a default value.&quot;</span>
+) {
+
+    @Suppress(&quot;ReturnCount&quot;, &quot;CyclomaticComplexMethod&quot;)
+    override fun visitIfExpression(expression: KtIfExpression) {
+<span class="nc" id="L54">        super.visitIfExpression(expression)</span>
+
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (expression.parent.node.elementType == KtNodeTypes.ELSE) return</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        val thenExpression = expression.then ?: return</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        val elseExpression = expression.`else` ?: return</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (elseExpression is KtIfExpression) return</span>
+
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        val (condition, isNegatedCondition) = expression.condition() ?: return</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        val conditionCallExpression = condition.getPossiblyQualifiedCallExpression() ?: return</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        val conditionCalleeExpression = conditionCallExpression.calleeExpression ?: return</span>
+<span class="nc" id="L64">        val conditionCalleeExpressionText = conditionCalleeExpression.text</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (conditionCalleeExpressionText !in conditionFunctionShortNames) return</span>
+
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        val replacement = conditionCallExpression.replacement() ?: return</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        val selfBranch = if (isNegatedCondition xor replacement.negativeCondition) thenExpression else elseExpression</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        val selfValueExpression = selfBranch.blockExpressionsOrSingle().singleOrNull() ?: return</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (condition is KtDotQualifiedExpression) {</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">            if (selfValueExpression.text != condition.receiverExpression.text) return</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        } else if (selfValueExpression !is KtThisExpression) {</span>
+<span class="nc" id="L73">            return</span>
+        }
+
+<span class="nc" id="L76">        val message =</span>
+<span class="nc" id="L77">            &quot;This '$conditionCalleeExpressionText' call can be replaced with '${replacement.replacementFunctionName}'&quot;</span>
+<span class="nc" id="L78">        report(CodeSmell(Entity.from(conditionCalleeExpression), message))</span>
+<span class="nc" id="L79">    }</span>
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun KtIfExpression.condition(): Pair&lt;KtExpression, Boolean&gt;? {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        val condition = this.condition ?: return null</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        return if (condition is KtPrefixExpression) {</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (condition.operationToken != KtTokens.EXCL) return null</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">            val baseExpression = condition.baseExpression ?: return null</span>
+<span class="nc" id="L87">            baseExpression to true</span>
+        } else {
+<span class="nc" id="L89">            condition to false</span>
+        }
+    }
+
+    @Suppress(&quot;ReturnCount&quot;)
+    private fun KtCallExpression.replacement(): Replacement? {
+<span class="nc bnc" id="L95" title="All 4 branches missed.">        val descriptor = getResolvedCall(bindingContext)?.resultingDescriptor ?: return null</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        val receiverParameter = descriptor.dispatchReceiverParameter ?: descriptor.extensionReceiverParameter</span>
+<span class="nc bnc" id="L97" title="All 4 branches missed.">        val receiverType = receiverParameter?.type ?: return null</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (KotlinBuiltIns.isArrayOrPrimitiveArray(receiverType)) return null</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        val conditionCallFqName = descriptor.fqNameOrNull() ?: return null</span>
+<span class="nc" id="L100">        return replacements[conditionCallFqName]</span>
+    }
+
+<span class="fc" id="L103">    private data class Replacement(</span>
+<span class="fc" id="L104">        val conditionFunctionFqName: FqName,</span>
+<span class="pc" id="L105">        val replacementFunctionName: String,</span>
+<span class="pc" id="L106">        val negativeCondition: Boolean = false</span>
+<span class="fc" id="L107">    )</span>
+
+    companion object {
+        private const val IF_BLANK = &quot;ifBlank&quot;
+
+        private const val IF_EMPTY = &quot;ifEmpty&quot;
+
+<span class="fc" id="L114">        private val replacements = listOf(</span>
+<span class="fc" id="L115">            Replacement(FqName(&quot;kotlin.text.isBlank&quot;), IF_BLANK),</span>
+<span class="fc" id="L116">            Replacement(FqName(&quot;kotlin.text.isEmpty&quot;), IF_EMPTY),</span>
+<span class="fc" id="L117">            Replacement(FqName(&quot;kotlin.collections.List.isEmpty&quot;), IF_EMPTY),</span>
+<span class="fc" id="L118">            Replacement(FqName(&quot;kotlin.collections.Set.isEmpty&quot;), IF_EMPTY),</span>
+<span class="fc" id="L119">            Replacement(FqName(&quot;kotlin.collections.Map.isEmpty&quot;), IF_EMPTY),</span>
+<span class="fc" id="L120">            Replacement(FqName(&quot;kotlin.collections.Collection.isEmpty&quot;), IF_EMPTY),</span>
+<span class="fc" id="L121">            Replacement(FqName(&quot;kotlin.text.isNotBlank&quot;), IF_BLANK, negativeCondition = true),</span>
+<span class="fc" id="L122">            Replacement(FqName(&quot;kotlin.text.isNotEmpty&quot;), IF_EMPTY, negativeCondition = true),</span>
+<span class="fc" id="L123">            Replacement(FqName(&quot;kotlin.collections.isNotEmpty&quot;), IF_EMPTY, negativeCondition = true),</span>
+<span class="fc" id="L124">            Replacement(FqName(&quot;kotlin.String.isEmpty&quot;), IF_EMPTY)</span>
+<span class="fc" id="L125">        ).associateBy { it.conditionFunctionFqName }</span>
+
+<span class="fc" id="L127">        private val conditionFunctionShortNames = replacements.keys.map { it.shortName().asString() }.toSet()</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

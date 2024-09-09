@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportPath.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.cli</a> &gt; <span class="el_source">ReportPath.kt</span></div><h1>ReportPath.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.cli
+
+import java.nio.file.Path
+import kotlin.io.path.Path
+
+<span class="fc" id="L6">data class ReportPath(val kind: String, val path: Path) {</span>
+
+    companion object {
+        private const val NUM_OF_PARTS_UNIX = 2
+        private const val NUM_OF_PARTS_WINDOWS = 3
+        private const val REPORT_PATH_SEPARATOR = &quot;:&quot;
+
+        fun from(input: String): ReportPath {
+<span class="fc" id="L14">            val parts = input.split(REPORT_PATH_SEPARATOR)</span>
+
+<span class="pc bpc" id="L16" title="1 of 3 branches missed.">            val path = when (val partsSize = parts.size) {</span>
+<span class="fc" id="L17">                NUM_OF_PARTS_UNIX -&gt; parts[1]</span>
+<span class="nc" id="L18">                NUM_OF_PARTS_WINDOWS -&gt; parts.slice(1..&lt;partsSize).joinToString(REPORT_PATH_SEPARATOR)</span>
+<span class="fc" id="L19">                else -&gt; error(</span>
+<span class="fc" id="L20">                    &quot;Input '$input' must consist of two parts for Unix OSs or three for Windows (report-id:path).&quot;</span>
+                )
+            }
+
+<span class="fc" id="L24">            val kind = parts[0]</span>
+<span class="fc bfc" id="L25" title="All 4 branches covered.">            require(kind.isNotEmpty()) { &quot;The kind of report must not be empty (path - $path)&quot; }</span>
+<span class="fc bfc" id="L26" title="All 4 branches covered.">            require(path.isNotEmpty()) { &quot;The path of the report must not be empty (kind - $kind)&quot; }</span>
+<span class="fc" id="L27">            return ReportPath(kind, Path(path))</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

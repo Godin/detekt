@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Reporting.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.core.reporting</a> &gt; <span class="el_source">Reporting.kt</span></div><h1>Reporting.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.core.reporting
+
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Detektion
+import io.gitlab.arturbosch.detekt.api.Issue
+import io.gitlab.arturbosch.detekt.api.Location
+import io.gitlab.arturbosch.detekt.api.OutputReport
+import io.gitlab.arturbosch.detekt.api.internal.BuiltInOutputReport
+
+internal fun defaultReportMapping(report: OutputReport) =
+<span class="fc bfc" id="L11" title="All 2 branches covered.">    if (report is BuiltInOutputReport) report.ending else report.id</span>
+
+internal fun printIssues(issues: Map&lt;String, List&lt;Issue&gt;&gt;): String =
+<span class="fc" id="L14">    buildString {</span>
+<span class="fc" id="L15">        issues.forEach { (key, issues) -&gt;</span>
+<span class="fc" id="L16">            append(key)</span>
+<span class="fc" id="L17">            append(&quot;\n&quot;)</span>
+<span class="fc" id="L18">            issues.forEach {</span>
+<span class="fc" id="L19">                append(&quot;\t&quot;)</span>
+<span class="fc" id="L20">                append(it.detailed().yellow())</span>
+<span class="fc" id="L21">                append(&quot;\n&quot;)</span>
+<span class="fc" id="L22">            }</span>
+<span class="fc" id="L23">        }</span>
+<span class="fc" id="L24">    }</span>
+
+const val BUILD = &quot;build&quot;
+const val EXCLUDE_CORRECTABLE = &quot;excludeCorrectable&quot;
+
+const val DETEKT_OUTPUT_REPORT_PATHS_KEY = &quot;detekt.output.report.paths.key&quot;
+
+private const val REPORT_MESSAGE_SIZE_LIMIT = 80
+<span class="fc" id="L32">private val messageReplacementRegex = Regex(&quot;\\s+&quot;)</span>
+
+<span class="fc" id="L34">fun Config.excludeCorrectable(): Boolean = subConfig(BUILD).valueOrDefault(EXCLUDE_CORRECTABLE, false)</span>
+
+<span class="fc" id="L36">fun Detektion.filterEmptyIssues(config: Config): List&lt;Issue&gt; = this.filterAutoCorrectedIssues(config)</span>
+
+fun Detektion.filterAutoCorrectedIssues(config: Config): List&lt;Issue&gt; {
+<span class="fc bfc" id="L39" title="All 2 branches covered.">    if (!config.excludeCorrectable()) {</span>
+<span class="fc" id="L40">        return issues</span>
+    }
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">    return issues.filter { issue -&gt; !issue.autoCorrectEnabled }</span>
+}
+
+private fun Issue.truncatedMessage(): String {
+<span class="fc" id="L46">    val message = message</span>
+<span class="fc" id="L47">        .replace(messageReplacementRegex, &quot; &quot;)</span>
+<span class="fc" id="L48">        .trim()</span>
+<span class="fc" id="L49">    return when {</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        message.length &gt; REPORT_MESSAGE_SIZE_LIMIT -&gt; &quot;${message.take(REPORT_MESSAGE_SIZE_LIMIT)}(...)&quot;</span>
+<span class="fc" id="L51">        else -&gt; message</span>
+    }
+}
+
+<span class="fc" id="L55">private fun Issue.detailed(): String = &quot;${ruleInstance.id} - [${truncatedMessage()}] at ${location.compact()}&quot;</span>
+
+<span class="fc" id="L57">internal fun Location.compact(): String = &quot;$path:$source&quot;</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArgumentConverters.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.cli</a> &gt; <span class="el_source">ArgumentConverters.kt</span></div><h1>ArgumentConverters.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.cli
+
+import com.beust.jcommander.IStringConverter
+import com.beust.jcommander.IValueValidator
+import com.beust.jcommander.ParameterException
+import com.beust.jcommander.converters.IParameterSplitter
+import org.jetbrains.kotlin.config.ApiVersion
+import org.jetbrains.kotlin.config.JvmTarget
+import org.jetbrains.kotlin.config.LanguageVersion
+import java.net.URL
+import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
+
+<span class="fc" id="L15">class ApiVersionConverter : IStringConverter&lt;ApiVersion&gt; {</span>
+    override fun convert(value: String): ApiVersion {
+<span class="fc" id="L17">        val languageVersion = LanguageVersion.fromFullVersionString(value)</span>
+<span class="fc bfc" id="L18" title="All 2 branches covered.">        requireNotNull(languageVersion) {</span>
+<span class="fc" id="L19">            val validValues = LanguageVersion.entries.joinToString { it.toString() }</span>
+<span class="fc" id="L20">            &quot;\&quot;$value\&quot; passed to --api-version, expected one of [$validValues]&quot;</span>
+        }
+<span class="fc" id="L22">        return ApiVersion.createByLanguageVersion(languageVersion)</span>
+    }
+}
+
+<span class="fc" id="L26">class LanguageVersionConverter : IStringConverter&lt;LanguageVersion&gt; {</span>
+    override fun convert(value: String): LanguageVersion =
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        requireNotNull(LanguageVersion.fromFullVersionString(value)) {</span>
+<span class="fc" id="L29">            val validValues = LanguageVersion.entries.joinToString { it.toString() }</span>
+<span class="fc" id="L30">            &quot;\&quot;$value\&quot; passed to --language-version, expected one of [$validValues]&quot;</span>
+<span class="fc" id="L31">        }</span>
+}
+
+<span class="fc" id="L34">class JvmTargetConverter : IStringConverter&lt;JvmTarget&gt; {</span>
+    override fun convert(value: String): JvmTarget =
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        checkNotNull(JvmTarget.fromString(value)) {</span>
+<span class="fc" id="L37">            val validValues = JvmTarget.entries.joinToString { it.toString() }</span>
+<span class="fc" id="L38">            &quot;Invalid value passed to --jvm-target, expected one of [$validValues]&quot;</span>
+<span class="fc" id="L39">        }</span>
+}
+
+<span class="fc" id="L42">class ClasspathResourceConverter : IStringConverter&lt;URL&gt; {</span>
+    override fun convert(resource: String): URL {
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        val relativeResource = if (resource.startsWith(&quot;/&quot;)) resource else &quot;/$resource&quot;</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">        return javaClass.getResource(relativeResource)</span>
+<span class="nc" id="L46">            ?: throw ParameterException(&quot;Classpath resource '$resource' does not exist!&quot;)</span>
+    }
+}
+
+<span class="fc" id="L50">class FailureSeverityConverter : IStringConverter&lt;FailureSeverity&gt; {</span>
+<span class="fc" id="L51">    override fun convert(value: String): FailureSeverity = FailureSeverity.fromString(value)</span>
+}
+
+<span class="fc" id="L54">class ReportPathConverter : IStringConverter&lt;ReportPath&gt; {</span>
+<span class="fc" id="L55">    override fun convert(value: String): ReportPath = ReportPath.from(value)</span>
+}
+
+<span class="fc" id="L58">class PathSplitter : IParameterSplitter {</span>
+<span class="fc" id="L59">    override fun split(value: String): List&lt;String&gt; = value.split(',', ';')</span>
+}
+
+<span class="fc" id="L62">class PathValidator : IValueValidator&lt;List&lt;Path&gt;&gt; {</span>
+    override fun validate(name: String, value: List&lt;Path&gt;) {
+<span class="fc" id="L64">        value.forEach {</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">            if (!it.exists()) throw ParameterException(&quot;Input path does not exist: '$it'&quot;)</span>
+<span class="fc" id="L66">        }</span>
+<span class="fc" id="L67">    }</span>
+}
+
+<span class="fc" id="L70">class DirectoryValidator : IValueValidator&lt;Path&gt; {</span>
+    override fun validate(name: String, value: Path) {
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (!value.isDirectory()) throw ParameterException(&quot;Value passed to $name must be a directory.&quot;)</span>
+<span class="fc" id="L73">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>

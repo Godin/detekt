@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DestructuringDeclarationWithTooManyEntries.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">code-coverage-report</a> &gt; <a href="index.source.html" class="el_package">io.gitlab.arturbosch.detekt.rules.style</a> &gt; <span class="el_source">DestructuringDeclarationWithTooManyEntries.kt</span></div><h1>DestructuringDeclarationWithTooManyEntries.kt</h1><pre class="source lang-java linenums">package io.gitlab.arturbosch.detekt.rules.style
+
+import io.gitlab.arturbosch.detekt.api.ActiveByDefault
+import io.gitlab.arturbosch.detekt.api.CodeSmell
+import io.gitlab.arturbosch.detekt.api.Config
+import io.gitlab.arturbosch.detekt.api.Configuration
+import io.gitlab.arturbosch.detekt.api.Entity
+import io.gitlab.arturbosch.detekt.api.Rule
+import io.gitlab.arturbosch.detekt.api.config
+import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
+
+/**
+ * Destructuring declarations with too many entries are hard to read and understand.
+ * To increase readability they should be refactored to reduce the number of entries or avoid using a destructuring
+ * declaration.
+ *
+ * &lt;noncompliant&gt;
+ * data class TooManyElements(val a: Int, val b: Int, val c: Int, val d: Int)
+ * val (a, b, c, d) = TooManyElements(1, 2, 3, 4)
+ * &lt;/noncompliant&gt;
+ *
+ * &lt;compliant&gt;
+ * data class FewerElements(val a: Int, val b: Int, val c: Int)
+ * val (a, b, c) = TooManyElements(1, 2, 3)
+ * &lt;/compliant&gt;
+ */
+@ActiveByDefault(since = &quot;1.21.0&quot;)
+<span class="fc" id="L28">class DestructuringDeclarationWithTooManyEntries(config: Config) : Rule(</span>
+<span class="fc" id="L29">    config,</span>
+<span class="fc" id="L30">    &quot;Too many entries in a destructuring declaration make the code hard to understand.&quot;</span>
+) {
+
+    @Configuration(&quot;maximum allowed elements in a destructuring declaration&quot;)
+<span class="pc" id="L34">    private val maxDestructuringEntries: Int by config(3)</span>
+
+    override fun visitDestructuringDeclaration(destructuringDeclaration: KtDestructuringDeclaration) {
+<span class="nc bnc" id="L37" title="All 2 branches missed.">        if (destructuringDeclaration.entries.size &gt; maxDestructuringEntries) {</span>
+<span class="nc" id="L38">            val message = &quot;The destructuring declaration contains ${destructuringDeclaration.entries.size} but only &quot; +</span>
+<span class="nc" id="L39">                &quot;$maxDestructuringEntries are allowed.&quot;</span>
+<span class="nc" id="L40">            report(CodeSmell(Entity.from(destructuringDeclaration), message))</span>
+        }
+<span class="nc" id="L42">        super.visitDestructuringDeclaration(destructuringDeclaration)</span>
+<span class="nc" id="L43">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202409090933</span></div></body></html>
