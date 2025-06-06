@@ -3,7 +3,7 @@ name: Code Coverage
 on:
   push:
     branches:
-      - main
+      - 8009-investigation
   pull_request:
 
 env:
@@ -33,18 +33,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@06832c7b30a0129d7fb559bcc6e43d26f6374244 # v4
-        with:
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Generate Coverage Report
-        run: ./gradlew jacocoMergedReport
+        run: ./gradlew --rerun-tasks jacocoMergedReport
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
-
-      - name: Publish Coverage
-        if: success()
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
-        with:
-          files: ./code-coverage-report/build/reports/jacoco/jacocoMergedReport/jacocoMergedReport.xml
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
