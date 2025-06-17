@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - run: |
-          download_url="https://github.com/Godin/openjdk-build/releases/download/JDK-8357885-2/jdk-21.0.8-internal_linux-x64_bin-debug.tar.gz"
+          download_url="https://github.com/Godin/openjdk-build/releases/download/JDK-8357885-3/jdk-21.0.8-internal_linux-x64_bin-debug.tar.gz"
           wget -O $RUNNER_TEMP/java_package.tar.gz $download_url
 
       - name: Setup Java
